@@ -1,29 +1,26 @@
-FROM node:22-alpine AS base
+FROM node:22-alpine
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 
-# Copy workspace config
+# Copy full monorepo structure (pnpm needs all workspace packages present)
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
+COPY packages/ packages/
+COPY apps/api/ apps/api/
+# Stub web package.json so pnpm lockfile resolves
+COPY apps/web/package.json apps/web/package.json
 
-# Copy package manifests
-COPY packages/shared/package.json packages/shared/
-COPY packages/pos/package.json packages/pos/
-COPY apps/api/package.json apps/api/
-
-# Install dependencies
+# Install deps
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
-COPY packages/shared/ packages/shared/
-COPY packages/pos/ packages/pos/
-COPY apps/api/ apps/api/
-
-# Build packages in order
+# Build workspace deps
 RUN pnpm --filter @miraculturee/shared build
 RUN pnpm --filter @miraculturee/pos build
+
+# Generate Prisma client
 RUN cd apps/api && npx prisma generate
-RUN pnpm --filter @miraculturee/api build
 
 WORKDIR /app/apps/api
 EXPOSE ${PORT:-3000}
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/server.js"]
+
+# Use tsx for production — no tsc build step needed
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && npx tsx src/server.ts"]
