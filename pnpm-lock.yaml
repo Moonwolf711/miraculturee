@@ -53,9 +53,15 @@ importers:
       ioredis:
         specifier: ^5.4.0
         version: 5.9.2
+      prisma:
+        specifier: ^6.1.0
+        version: 6.19.2(typescript@5.9.3)
       socket.io:
         specifier: ^4.8.0
         version: 4.8.3
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -66,12 +72,6 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.9
-      prisma:
-        specifier: ^6.1.0
-        version: 6.19.2(typescript@5.9.3)
-      tsx:
-        specifier: ^4.19.0
-        version: 4.21.0
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
