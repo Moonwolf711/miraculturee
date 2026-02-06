@@ -2,8 +2,255 @@
 @tailwind components;
 @tailwind utilities;
 
+/* -------------------------------------------------------
+   CSS Custom Properties — Concert Poster Noir
+   ------------------------------------------------------- */
+:root {
+  --noir-base: #0a0a0a;
+  --noir-surface: #0f0f0f;
+  --noir-elevated: #1a1a1a;
+  --noir-border: #2a2a2a;
+  --amber-glow: #f59e0b;
+  --amber-deep: #d97706;
+  --amber-muted: #92400e;
+  --warm-light: #fef9f0;
+  --grain-opacity: 0.035;
+  --transition-smooth: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+/* -------------------------------------------------------
+   Base Layer
+   ------------------------------------------------------- */
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply min-h-screen;
+    @apply min-h-screen font-body bg-noir-950 text-gray-100;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-widest-plus uppercase;
+    line-height: 0.95;
+  }
+
+  h1 {
+    @apply text-5xl md:text-7xl lg:text-8xl;
+  }
+
+  h2 {
+    @apply text-3xl md:text-5xl;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl;
+  }
+
+  h4 {
+    @apply text-xl md:text-2xl;
+  }
+
+  a {
+    @apply transition-colors duration-300;
+  }
+
+  /* Selection highlight */
+  ::selection {
+    background: rgba(245, 158, 11, 0.3);
+    color: #fef9f0;
+  }
+
+  ::-moz-selection {
+    background: rgba(245, 158, 11, 0.3);
+    color: #fef9f0;
+  }
+
+  /* Focus rings */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-amber-500/60 ring-offset-2 ring-offset-noir-950;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--noir-base);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--noir-border);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a3a3a;
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--noir-border) var(--noir-base);
+  }
+}
+
+/* -------------------------------------------------------
+   Component Layer
+   ------------------------------------------------------- */
+@layer components {
+  /* Film grain overlay */
+  .grain {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+    mix-blend-mode: overlay;
+  }
+
+  /* Amber glow text effect */
+  .glow-text {
+    text-shadow:
+      0 0 10px rgba(245, 158, 11, 0.4),
+      0 0 30px rgba(245, 158, 11, 0.15),
+      0 0 60px rgba(245, 158, 11, 0.05);
+  }
+
+  /* Ticket tear / perforated edge — horizontal */
+  .ticket-tear {
+    position: relative;
+  }
+
+  .ticket-tear::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -6px;
+    height: 12px;
+    background-image: radial-gradient(
+      circle 6px at 12px 6px,
+      transparent 5px,
+      var(--noir-base) 5.5px
+    );
+    background-size: 24px 12px;
+    background-repeat: repeat-x;
+  }
+
+  .ticket-tear::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 12px;
+    background-image: radial-gradient(
+      circle 6px at 12px 6px,
+      transparent 5px,
+      var(--noir-base) 5.5px
+    );
+    background-size: 24px 12px;
+    background-repeat: repeat-x;
+  }
+
+  /* Ticket tear — vertical variant */
+  .ticket-tear-vertical::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -6px;
+    width: 12px;
+    background-image: radial-gradient(
+      circle 6px at 6px 12px,
+      transparent 5px,
+      var(--noir-base) 5.5px
+    );
+    background-size: 12px 24px;
+    background-repeat: repeat-y;
+  }
+
+  /* Nav link hover underline */
+  .nav-link {
+    @apply relative text-gray-400 transition-colors duration-300;
+  }
+
+  .nav-link::after {
+    content: '';
+    @apply absolute left-0 -bottom-1 h-px w-0 bg-amber-500 transition-all duration-300;
+  }
+
+  .nav-link:hover {
+    @apply text-amber-500;
+  }
+
+  .nav-link:hover::after {
+    @apply w-full;
+  }
+
+  /* Button variants */
+  .btn-amber {
+    @apply px-5 py-2.5 bg-amber-500 text-noir-950 font-semibold text-sm
+           tracking-wide uppercase rounded-sm
+           transition-all duration-300 ease-out-expo
+           hover:bg-amber-400 hover:shadow-lg hover:shadow-amber-500/20
+           active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply px-5 py-2.5 border border-noir-700 text-gray-300 font-medium text-sm
+           tracking-wide uppercase rounded-sm
+           transition-all duration-300 ease-out-expo
+           hover:border-amber-500/50 hover:text-amber-500
+           active:scale-[0.98];
+  }
+}
+
+/* -------------------------------------------------------
+   Utility Layer
+   ------------------------------------------------------- */
+@layer utilities {
+  /* Staggered animation delays */
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+  .delay-400 {
+    animation-delay: 400ms;
+  }
+  .delay-500 {
+    animation-delay: 500ms;
+  }
+  .delay-600 {
+    animation-delay: 600ms;
+  }
+  .delay-700 {
+    animation-delay: 700ms;
+  }
+
+  /* Gradient fade for editorial sections */
+  .fade-bottom {
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  }
+
+  /* Subtle noise background for sections */
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 128 128' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    background-size: 128px 128px;
   }
 }

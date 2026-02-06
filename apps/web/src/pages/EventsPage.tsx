@@ -58,71 +58,196 @@ export default function EventsPage() {
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
+  const getMonth = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+
+  const getDay = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { day: 'numeric' });
+
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Upcoming Events</h1>
+    <div className="bg-noir-950 min-h-screen">
+      {/* Page header area */}
+      <div className="max-w-5xl mx-auto px-6 pt-16 pb-8">
+        {/* Title */}
+        <div className="mb-10">
+          <p className="font-display text-xs tracking-[0.4em] text-amber-500/60 mb-2">
+            LIVE MUSIC
+          </p>
+          <h1 className="font-display text-4xl md:text-5xl tracking-wider text-warm-50">
+            UPCOMING SHOWS
+          </h1>
+          <div className="mt-4 h-px w-24 bg-gradient-to-r from-amber-500/50 to-transparent" />
+        </div>
+
+        {/* Search bar */}
+        <form onSubmit={handleSearch} className="flex gap-3 mb-12">
+          <div className="relative flex-1">
+            {/* Search icon */}
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <svg
+                className="w-4 h-4 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by city..."
+              className="w-full pl-11 pr-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 placeholder-gray-600 rounded-lg font-body text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-300"
+            />
+          </div>
+          <button
+            type="submit"
+            className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold font-body text-sm rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/20"
+          >
+            Search
+          </button>
+        </form>
+
+        {/* Content area */}
+        {loading ? (
+          /* Loading state - pulsing amber dots */
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="flex items-center gap-2 mb-4">
+              <div
+                className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"
+                style={{ animationDelay: '0ms' }}
+              />
+              <div
+                className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"
+                style={{ animationDelay: '200ms' }}
+              />
+              <div
+                className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"
+                style={{ animationDelay: '400ms' }}
+              />
+            </div>
+            <p className="font-body text-gray-600 text-sm tracking-wide">
+              Loading shows...
+            </p>
+          </div>
+        ) : !events?.data.length ? (
+          /* Empty state */
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="w-16 h-16 rounded-full border-2 border-noir-700 flex items-center justify-center mb-6">
+              <svg
+                className="w-7 h-7 text-gray-700"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                />
+              </svg>
+            </div>
+            <h2 className="font-display text-2xl tracking-wider text-gray-500 mb-2">
+              NO UPCOMING SHOWS
+            </h2>
+            <p className="font-body text-gray-600 text-sm">
+              Check back soon for new events.
+            </p>
+          </div>
+        ) : (
+          /* Event cards */
+          <div className="grid gap-4">
+            {events.data.map((event, index) => (
+              <Link
+                key={event.id}
+                to={`/events/${event.id}`}
+                className="group block animate-fadeInUp"
+                style={{
+                  animationDelay: `${index * 80}ms`,
+                  animationFillMode: 'both',
+                }}
+              >
+                <div className="bg-noir-800 border border-noir-700 rounded-xl overflow-hidden transition-all duration-300 group-hover:border-amber-500/30 group-hover:shadow-lg group-hover:shadow-amber-500/5">
+                  <div className="flex items-stretch">
+                    {/* Date badge - left side */}
+                    <div className="flex-shrink-0 w-20 bg-noir-900 flex flex-col items-center justify-center py-5 border-r border-noir-700 relative">
+                      {/* Torn-ticket notch top */}
+                      <div className="absolute -right-2 top-4 w-4 h-4 rounded-full bg-noir-800 border border-noir-700" />
+                      {/* Torn-ticket notch bottom */}
+                      <div className="absolute -right-2 bottom-4 w-4 h-4 rounded-full bg-noir-800 border border-noir-700" />
+                      {/* Dashed perforation line */}
+                      <div className="absolute right-0 top-8 bottom-8 border-r border-dashed border-noir-700" />
+
+                      <span className="font-display text-xs tracking-widest text-amber-400">
+                        {getMonth(event.date)}
+                      </span>
+                      <span className="font-display text-3xl text-amber-500 leading-none mt-0.5">
+                        {getDay(event.date)}
+                      </span>
+                    </div>
+
+                    {/* Center content */}
+                    <div className="flex-1 px-5 py-4 min-w-0">
+                      <h2 className="font-body font-semibold text-warm-50 text-base md:text-lg truncate group-hover:text-amber-50 transition-colors duration-300">
+                        {event.title}
+                      </h2>
+                      <p className="font-body text-gray-500 text-sm mt-1 truncate">
+                        {event.artistName} &middot; {event.venueName},{' '}
+                        {event.venueCity}
+                      </p>
+                      <p className="font-body text-gray-600 text-xs mt-1.5">
+                        {formatDate(event.date)}
+                      </p>
+                    </div>
+
+                    {/* Right side - price and progress */}
+                    <div className="flex-shrink-0 flex flex-col items-end justify-center px-5 py-4">
+                      <span className="font-display text-2xl text-amber-400 leading-none">
+                        {formatPrice(event.ticketPriceCents)}
+                      </span>
+                      <span className="font-body text-gray-600 text-xs mt-1.5">
+                        {event.supportedTickets}/{event.totalTickets} supported
+                      </span>
+                      {/* Progress bar */}
+                      <div className="mt-2.5 w-28 h-1.5 bg-noir-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              (event.supportedTickets / event.totalTickets) * 100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Pagination info */}
+        {events && events.totalPages > 1 && (
+          <div className="mt-8 text-center">
+            <p className="font-body text-gray-600 text-sm">
+              Page {events.page} of {events.totalPages} &middot;{' '}
+              {events.total} total shows
+            </p>
+          </div>
+        )}
       </div>
 
-      <form onSubmit={handleSearch} className="flex gap-2 mb-8">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by city..."
-          className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-        />
-        <button
-          type="submit"
-          className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700"
-        >
-          Search
-        </button>
-      </form>
-
-      {loading ? (
-        <div className="text-center py-12 text-gray-400">Loading events...</div>
-      ) : !events?.data.length ? (
-        <div className="text-center py-12 text-gray-400">
-          No events found. Check back soon!
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {events.data.map((event) => (
-            <Link
-              key={event.id}
-              to={`/events/${event.id}`}
-              className="block bg-white border rounded-xl p-5 hover:shadow-md transition-shadow"
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <h2 className="font-semibold text-lg">{event.title}</h2>
-                  <p className="text-gray-500 text-sm mt-1">
-                    {event.artistName} &middot; {event.venueName}, {event.venueCity}
-                  </p>
-                  <p className="text-gray-400 text-sm mt-1">{formatDate(event.date)}</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-semibold text-brand-600">
-                    {formatPrice(event.ticketPriceCents)}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {event.supportedTickets}/{event.totalTickets} supported
-                  </div>
-                  <div className="mt-2 w-24 bg-gray-100 rounded-full h-1.5">
-                    <div
-                      className="bg-brand-500 h-1.5 rounded-full"
-                      style={{
-                        width: `${Math.min(100, (event.supportedTickets / event.totalTickets) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+      {/* Bottom spacer */}
+      <div className="h-16" />
     </div>
   );
 }
