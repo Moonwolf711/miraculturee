@@ -9,47 +9,76 @@ let connection: IORedis | null = null;
 
 function getConnection() {
   if (!connection) {
-    connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
+    connection = new IORedis(REDIS_URL, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+      retryStrategy(times: number) {
+        return Math.min(times * 500, 5000);
+      },
+    });
   }
   return connection;
 }
 
-// --- Queues ---
+let raffleDrawQueue: Queue | null = null;
+let notificationQueue: Queue | null = null;
 
-export const raffleDrawQueue = new Queue('raffle-draw', {
-  connection: getConnection(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 5000 },
-    removeOnComplete: 100,
-    removeOnFail: 50,
-  },
-});
+function getRaffleDrawQueue() {
+  if (!raffleDrawQueue) {
+    raffleDrawQueue = new Queue('raffle-draw', {
+      connection: getConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    });
+  }
+  return raffleDrawQueue;
+}
 
-export const notificationQueue = new Queue('notifications', {
-  connection: getConnection(),
-});
-
-// --- Schedule a raffle draw ---
+function getNotificationQueue() {
+  if (!notificationQueue) {
+    notificationQueue = new Queue('notifications', {
+      connection: getConnection(),
+    });
+  }
+  return notificationQueue;
+}
 
 export async function scheduleRaffleDraw(poolId: string, drawTime: Date) {
   const delay = Math.max(0, drawTime.getTime() - Date.now());
-  await raffleDrawQueue.add('draw', { poolId }, { delay, jobId: `draw-${poolId}` });
+  await getRaffleDrawQueue().add('draw', { poolId }, { delay, jobId: `draw-${poolId}` });
 }
 
-// --- Workers ---
-
 export async function initWorkers() {
+  try {
+    const conn = getConnection();
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Redis connection timeout')), 10000);
+      if (conn.status === 'ready') {
+        clearTimeout(timeout);
+        resolve();
+        return;
+      }
+      conn.once('ready', () => { clearTimeout(timeout); resolve(); });
+      conn.once('error', (err) => { clearTimeout(timeout); reject(err); });
+    });
+  } catch (err) {
+    console.warn('[Workers] Redis not available, workers disabled:', (err as Error).message);
+    return;
+  }
+
   const prisma = new PrismaClient();
 
-  // Raffle Draw Worker
   new Worker(
     'raffle-draw',
     async (job) => {
       const { poolId } = job.data;
       console.log(`[RaffleDraw] Starting draw for pool ${poolId}`);
 
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         const pool = await tx.rafflePool.update({
           where: { id: poolId, status: 'OPEN' },
           data: { status: 'DRAWING' },
@@ -72,7 +101,6 @@ export async function initWorkers() {
           return;
         }
 
-        // Fisher-Yates with crypto.randomInt
         const shuffled = [...entries];
         for (let i = shuffled.length - 1; i > 0; i--) {
           const j = randomInt(0, i + 1);
@@ -95,8 +123,7 @@ export async function initWorkers() {
             data: { status: 'ASSIGNED', assignedUserId: entry.userId },
           });
 
-          // Queue notification
-          await notificationQueue.add('winner', {
+          await getNotificationQueue().add('winner', {
             userId: entry.userId,
             poolId,
             ticketId: ticket.id,
@@ -115,7 +142,6 @@ export async function initWorkers() {
     { connection: getConnection(), concurrency: 1 },
   );
 
-  // Notification Worker
   new Worker(
     'notifications',
     async (job) => {
