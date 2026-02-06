@@ -6,6 +6,7 @@ export async function supportRoutes(app: FastifyInstance) {
   const supportService = new SupportService(app.prisma, app.pos);
 
   // Authenticated: purchase support tickets
+  // Returns a clientSecret for the frontend to complete payment via Stripe Elements
   app.post('/purchase', { preHandler: [app.authenticate] }, async (req, reply) => {
     const body = SupportPurchaseSchema.parse(req.body);
     const result = await supportService.purchase(
@@ -15,26 +16,5 @@ export async function supportRoutes(app: FastifyInstance) {
       body.message,
     );
     return reply.code(201).send(result);
-  });
-
-  // Webhook: confirm payment (called by Stripe)
-  app.post('/webhook', async (req, reply) => {
-    const signature = req.headers['stripe-signature'] as string;
-    if (!signature) return reply.code(400).send({ error: 'Missing signature' });
-
-    try {
-      const event = app.pos.parseWebhook(req.body as string, signature) as any;
-
-      if (event.type === 'payment_intent.succeeded') {
-        const metadata = event.data.object.metadata;
-        if (metadata.type === 'support_purchase') {
-          await supportService.confirmPurchase(metadata.supportTicketId, event.data.object.id);
-        }
-      }
-
-      return reply.send({ received: true });
-    } catch {
-      return reply.code(400).send({ error: 'Webhook verification failed' });
-    }
   });
 }

@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { PrismaClient } from '@prisma/client';
 import { randomInt } from 'node:crypto';
+import { EmailService } from '../services/email.service.js';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
@@ -131,32 +132,123 @@ export async function initWorkers() {
           });
         }
 
+        // Queue loser notifications for non-winners
+        const losers = shuffled.slice(winnerCount);
+        for (const loser of losers) {
+          await getNotificationQueue().add('loser', {
+            userId: loser.userId,
+            poolId,
+            eventId: pool.eventId,
+          });
+        }
+
         await tx.rafflePool.update({
           where: { id: poolId },
           data: { status: 'COMPLETED', drawnAt: new Date() },
         });
 
-        console.log(`[RaffleDraw] Drew ${winnerCount} winners for pool ${poolId}`);
+        console.log(`[RaffleDraw] Drew ${winnerCount} winners, ${losers.length} non-winners for pool ${poolId}`);
       }, { isolationLevel: 'Serializable' });
     },
     { connection: getConnection(), concurrency: 1 },
   );
 
+  // Initialize email service if API key is available (graceful degradation)
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const emailService = resendApiKey ? new EmailService(resendApiKey) : null;
+
+  if (!emailService) {
+    console.warn('[Workers] RESEND_API_KEY not set — email notifications disabled in workers');
+  }
+
   new Worker(
     'notifications',
     async (job) => {
-      const { userId, poolId, ticketId, eventId } = job.data;
+      if (job.name === 'winner') {
+        const { userId, poolId, ticketId, eventId } = job.data;
 
-      await prisma.notification.create({
-        data: {
-          userId,
-          title: 'You won a ticket!',
-          body: 'Congratulations! You were selected in the raffle draw.',
-          metadata: { poolId, ticketId, eventId },
-        },
-      });
+        // Look up user and event details
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, email: true, name: true },
+        });
+        const event = await prisma.event.findUnique({
+          where: { id: eventId },
+          select: { title: true, venueName: true, date: true },
+        });
 
-      console.log(`[Notification] Created winner notification for user ${userId}`);
+        if (!user || !event) {
+          console.warn(`[Notification] User or event not found: userId=${userId}, eventId=${eventId}`);
+          return;
+        }
+
+        // Create in-app notification
+        await prisma.notification.create({
+          data: {
+            userId,
+            title: 'You won a ticket!',
+            body: `Congratulations! You won a ticket to ${event.title} at ${event.venueName}.`,
+            metadata: { poolId, ticketId, eventId },
+          },
+        });
+
+        // Send winner email
+        if (emailService) {
+          await emailService.sendRaffleWinnerNotification(user.email, {
+            userName: user.name,
+            eventTitle: event.title,
+            venueName: event.venueName,
+            eventDate: event.date.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            }),
+            ticketCount: 1,
+          });
+        }
+
+        console.log(`[Notification] Winner notification sent for user ${userId}`);
+      }
+
+      if (job.name === 'loser') {
+        const { userId, poolId, eventId } = job.data;
+
+        // Look up user and event details
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, email: true, name: true },
+        });
+        const event = await prisma.event.findUnique({
+          where: { id: eventId },
+          select: { title: true },
+        });
+
+        if (!user || !event) {
+          console.warn(`[Notification] User or event not found: userId=${userId}, eventId=${eventId}`);
+          return;
+        }
+
+        // Create in-app notification
+        await prisma.notification.create({
+          data: {
+            userId,
+            title: 'Raffle Results',
+            body: `The raffle for ${event.title} has been drawn. Unfortunately, you were not selected this time.`,
+            metadata: { poolId, eventId },
+          },
+        });
+
+        // Send loser email
+        if (emailService) {
+          await emailService.sendRaffleLoserNotification(user.email, {
+            userName: user.name,
+            eventTitle: event.title,
+          });
+        }
+
+        console.log(`[Notification] Non-winner notification sent for user ${userId}`);
+      }
     },
     { connection: getConnection(), concurrency: 5 },
   );

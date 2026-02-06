@@ -6,12 +6,14 @@ import { authPlugin } from './plugins/auth.js';
 import { posPlugin } from './plugins/pos.js';
 import { socketPlugin } from './plugins/socket.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
+import { emailPlugin } from './plugins/email.js';
 import { authRoutes } from './routes/auth.js';
 import { eventRoutes } from './routes/events.js';
 import { supportRoutes } from './routes/support.js';
 import { raffleRoutes } from './routes/raffle.js';
 import { posRoutes } from './routes/pos.js';
 import { artistRoutes } from './routes/artist.js';
+import { webhookRoutes } from './routes/webhook.js';
 import { initWorkers } from './jobs/workers.js';
 
 const app = Fastify({
@@ -29,6 +31,7 @@ async function start() {
   await app.register(posPlugin);
   await app.register(socketPlugin);
   await app.register(errorHandlerPlugin);
+  await app.register(emailPlugin);
 
   // Routes
   await app.register(authRoutes, { prefix: '/auth' });
@@ -37,6 +40,8 @@ async function start() {
   await app.register(raffleRoutes, { prefix: '/raffle' });
   await app.register(posRoutes, { prefix: '/pos' });
   await app.register(artistRoutes, { prefix: '/artist' });
+  // Webhook route — uses its own raw body parser for Stripe signature verification
+  await app.register(webhookRoutes, { prefix: '/webhook' });
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
