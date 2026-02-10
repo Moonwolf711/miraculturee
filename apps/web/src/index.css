@@ -213,6 +213,84 @@
            hover:border-amber-500/50 hover:text-amber-500
            active:scale-[0.98];
   }
+
+  /* Scrolling event ticker */
+  .ticker-strip {
+    @apply overflow-hidden whitespace-nowrap;
+  }
+
+  .ticker-strip-inner {
+    @apply inline-flex;
+    animation: scrollLeft 30s linear infinite;
+  }
+
+  .ticker-strip:hover .ticker-strip-inner {
+    animation-play-state: paused;
+  }
+
+  /* Section divider */
+  .section-divider {
+    @apply border-0 h-px w-full;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(245, 158, 11, 0.25),
+      transparent
+    );
+  }
+
+  /* Header scroll-compacted state */
+  .header-scrolled {
+    @apply py-2 !important;
+    backdrop-filter: blur(20px);
+  }
+
+  /* Mobile menu backdrop overlay */
+  .mobile-backdrop {
+    @apply fixed inset-0 z-40 bg-noir-950/60 backdrop-blur-sm;
+  }
+
+  /* Card hover lift + glow */
+  .card-hover {
+    @apply transition-all duration-300 ease-out-expo;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 8px 30px rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(245, 158, 11, 0.1);
+  }
+
+  /* Blinking terminal cursor */
+  .cursor-blink::after {
+    content: '|';
+    @apply text-amber-500 ml-0.5;
+    animation: blink 1s step-end infinite;
+  }
+
+  /* Live dot indicator */
+  .live-dot {
+    @apply inline-block w-1.5 h-1.5 rounded-full;
+    animation: pulseDot 2s ease-in-out infinite;
+  }
+
+  /* Ambient glow orb */
+  .glow-orb {
+    @apply absolute rounded-full blur-3xl pointer-events-none;
+    opacity: 0.07;
+  }
+
+  /* Sold out overlay */
+  .sold-out-overlay {
+    @apply absolute inset-0 flex items-center justify-center z-10;
+    background: rgba(10, 10, 10, 0.6);
+  }
+
+  /* Avatar circle */
+  .avatar-circle {
+    @apply w-10 h-10 rounded-full flex items-center justify-center font-display text-sm tracking-wide;
+  }
 }
 
 /* -------------------------------------------------------
@@ -246,6 +324,27 @@
   .fade-bottom {
     mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
     -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  }
+
+  /* Reduced-motion accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-strip-inner {
+      animation: none !important;
+    }
+
+    .animate-bounce-subtle,
+    .animate-scroll-left,
+    .animate-pulse-dot,
+    .animate-fade-in-up,
+    .animate-slide-in,
+    .animate-pulse-glow {
+      animation: none !important;
+    }
+
+    * {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
   }
 
   /* Subtle noise background for sections */

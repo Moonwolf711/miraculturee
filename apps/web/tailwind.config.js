@@ -31,6 +31,12 @@ export default {
         'slide-in': 'slideIn 0.4s ease-out both',
         'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
         'fade-in': 'fadeIn 0.3s ease-out both',
+        'bounce-subtle': 'bounceSubtle 2s ease-in-out infinite',
+        'scroll-left': 'scrollLeft 30s linear infinite',
+        'pulse-dot': 'pulseDot 2s ease-in-out infinite',
+        'shimmer': 'shimmer 2.5s ease-in-out infinite',
+        'blink': 'blink 1s step-end infinite',
+        'float': 'float 6s ease-in-out infinite',
       },
       keyframes: {
         fadeInUp: {
@@ -64,6 +70,30 @@ export default {
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
+        },
+        bounceSubtle: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(6px)' },
+        },
+        scrollLeft: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
+        pulseDot: {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.5', transform: 'scale(1.5)' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        blink: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0) scale(1)' },
+          '50%': { transform: 'translateY(-20px) scale(1.05)' },
         },
       },
       transitionTimingFunction: {
