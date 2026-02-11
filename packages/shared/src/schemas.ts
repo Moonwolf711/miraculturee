@@ -70,6 +70,7 @@ export const SupportPurchaseSchema = z.object({
   eventId: z.string().uuid(),
   ticketCount: z.number().int().min(1).max(100),
   message: z.string().max(500).optional(),
+  captchaToken: z.string().optional(), // Optional for backward compatibility
 });
 
 // --- Raffle ---
@@ -78,6 +79,7 @@ export const RaffleEntrySchema = z.object({
   poolId: z.string().uuid(),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
+  captchaToken: z.string().optional(), // Optional for backward compatibility
 });
 
 // --- Ticket Purchase ---
@@ -85,6 +87,7 @@ export const RaffleEntrySchema = z.object({
 export const TicketPurchaseSchema = z.object({
   eventId: z.string().uuid(),
   deviceFingerprint: z.string().optional(),
+  captchaToken: z.string().optional(), // Optional for backward compatibility
 });
 
 // --- POS ---

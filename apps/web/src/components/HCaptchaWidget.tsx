@@ -1,0 +1,37 @@
+import { useRef } from 'react';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
+
+interface HCaptchaWidgetProps {
+  onVerify: (token: string) => void;
+  onExpire?: () => void;
+  onError?: (error: string) => void;
+}
+
+export function HCaptchaWidget({ onVerify, onExpire, onError }: HCaptchaWidgetProps) {
+  const captchaRef = useRef<HCaptcha>(null);
+  const siteKey = import.meta.env.VITE_HCAPTCHA_SITE_KEY;
+
+  if (!siteKey) {
+    console.warn('[HCaptcha] Site key not configured');
+    return null;
+  }
+
+  return (
+    <div className="flex justify-center my-4">
+      <HCaptcha
+        ref={captchaRef}
+        sitekey={siteKey}
+        onVerify={onVerify}
+        onExpire={() => {
+          console.log('[HCaptcha] Token expired');
+          onExpire?.();
+        }}
+        onError={(err) => {
+          console.error('[HCaptcha] Error:', err);
+          onError?.(err);
+        }}
+        theme="dark"
+      />
+    </div>
+  );
+}
