@@ -72,6 +72,8 @@ type CheckoutState =
   | { type: 'raffle'; clientSecret: string; poolId: string; tierCents: number }
   | { type: 'ticket'; clientSecret: string; priceCents: number; feeCents: number; totalCents: number };
 
+type PaymentTab = 'ticket' | 'support' | 'raffle';
+
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -83,6 +85,7 @@ export default function EventDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [checkout, setCheckout] = useState<CheckoutState>({ type: 'none' });
+  const [activeTab, setActiveTab] = useState<PaymentTab>('ticket');
 
   const fetchEvent = useCallback(() => {
     if (!id) return;
@@ -348,6 +351,9 @@ export default function EventDetailPage() {
   const eventDescription = event.description
     || `${event.artistName} live at ${event.venueName}, ${event.venueCity}. Get face-value tickets on MiraCulture.`;
 
+  const directSalesOpen = isDirectSalesOpen(event.date);
+  const hasRafflePools = event.rafflePools.length > 0;
+
   return (
     <div className="min-h-screen bg-noir-950">
       <SEO
@@ -444,222 +450,254 @@ export default function EventDetailPage() {
           </div>
         </div>
 
-        {/* Direct Ticket Purchase Section — wrapped in error boundary */}
+        {/* Unified Payment Section with Tabs — wrapped in error boundary */}
         {user && event.status === 'PUBLISHED' && (
-          <ErrorBoundary label="Ticket Purchase">
+          <ErrorBoundary label="Payment Options">
             <div className="bg-noir-800 border border-noir-700 rounded-xl p-6 mb-8">
-              <h2 className="font-display text-lg tracking-wider text-warm-50 mb-2">
-                GET YOUR TICKET
+              <h2 className="font-display text-lg tracking-wider text-warm-50 mb-5">
+                GET YOUR TICKETS
               </h2>
 
-              {!isDirectSalesOpen(event.date) ? (
-                <p className="text-sm text-amber-400 font-body">
-                  Direct sales closed &mdash; enter the raffle for a chance to win!
-                </p>
-              ) : checkout.type === 'ticket' ? (
-                <Suspense fallback={<div className="py-6 text-center text-gray-400 text-sm" role="status">Loading payment form...</div>}>
-                  <StripeCheckout
-                    clientSecret={checkout.clientSecret}
-                    onSuccess={handlePaymentSuccess}
-                    onError={handlePaymentError}
-                    onCancel={handleCancelCheckout}
-                    submitLabel={`Pay ${formatPrice(checkout.totalCents)}`}
-                    title="Complete Ticket Purchase"
-                    description={`${formatPrice(checkout.priceCents)} + ${formatPrice(checkout.feeCents)} processing fee`}
-                  />
-                </Suspense>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-400 mb-5 font-body">
-                    Purchase your ticket directly at face price. One ticket per person.
-                  </p>
-                  <div className="space-y-2 mb-5">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Ticket (face price)</span>
-                      <span className="text-warm-50 font-medium">{formatPrice(event.ticketPriceCents)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Processing fee</span>
-                      <span className="text-warm-50 font-medium">{formatPrice(event.currentProcessingFeeCents)}</span>
-                    </div>
-                    <div className="border-t border-noir-700 pt-2 flex justify-between text-sm font-semibold">
-                      <span className="text-warm-50">Total</span>
-                      <span className="text-amber-400">{formatPrice(event.ticketPriceCents + event.currentProcessingFeeCents)}</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleTicketPurchase}
-                    disabled={actionLoading}
-                    className="w-full px-6 py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors text-sm tracking-wide uppercase"
-                  >
-                    Buy Ticket
-                  </button>
-                </>
-              )}
-            </div>
-          </ErrorBoundary>
-        )}
+              {/* Tab Navigation */}
+              <div className="flex border-b border-noir-700 mb-6">
+                <button
+                  onClick={() => setActiveTab('ticket')}
+                  className={`flex-1 py-3 text-sm font-medium tracking-wide uppercase transition-colors border-b-2 ${
+                    activeTab === 'ticket'
+                      ? 'border-amber-500 text-amber-400'
+                      : 'border-transparent text-gray-400 hover:text-gray-300'
+                  }`}
+                  disabled={!directSalesOpen}
+                >
+                  Buy Ticket
+                  {!directSalesOpen && <span className="block text-xs normal-case mt-1">(Closed)</span>}
+                </button>
+                <button
+                  onClick={() => setActiveTab('support')}
+                  className={`flex-1 py-3 text-sm font-medium tracking-wide uppercase transition-colors border-b-2 ${
+                    activeTab === 'support'
+                      ? 'border-amber-500 text-amber-400'
+                      : 'border-transparent text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  Support Artist
+                </button>
+                <button
+                  onClick={() => setActiveTab('raffle')}
+                  className={`flex-1 py-3 text-sm font-medium tracking-wide uppercase transition-colors border-b-2 ${
+                    activeTab === 'raffle'
+                      ? 'border-amber-500 text-amber-400'
+                      : 'border-transparent text-gray-400 hover:text-gray-300'
+                  }`}
+                  disabled={!hasRafflePools}
+                >
+                  Enter Raffle
+                  {!hasRafflePools && <span className="block text-xs normal-case mt-1">(Coming Soon)</span>}
+                </button>
+              </div>
 
-        {/* Support Section — wrapped in error boundary */}
-        {user && (
-          <ErrorBoundary label="Support">
-            <div className="bg-noir-800 border border-noir-700 rounded-xl p-6 mb-8">
-              <h2 className="font-display text-lg tracking-wider text-warm-50 mb-2">
-                SUPPORT THIS ARTIST
-              </h2>
-              <p className="text-sm text-gray-400 mb-5 font-body">
-                Buy tickets at face value to support {event.artistName}. These tickets will be
-                raffled to local fans. A {formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)}/ticket processing fee applies.
-              </p>
-
-              {/* Show checkout form when a support PaymentIntent is active */}
-              {checkout.type === 'support' ? (
-                <Suspense fallback={<div className="py-6 text-center text-gray-400 text-sm" role="status">Loading payment form...</div>}>
-                  <StripeCheckout
-                    clientSecret={checkout.clientSecret}
-                    onSuccess={handlePaymentSuccess}
-                    onError={handlePaymentError}
-                    onCancel={handleCancelCheckout}
-                    submitLabel={`Pay ${formatPrice(checkout.totalCents)}`}
-                    title="Complete Payment"
-                    description={`${checkout.ticketCount} support ticket(s) at ${formatPrice(event.ticketPriceCents)} + ${formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)} fee each`}
-                  />
-                </Suspense>
-              ) : (
-                <div>
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Ticket price x {supportCount}</span>
-                      <span className="text-warm-50 font-medium">{formatPrice(event.ticketPriceCents * supportCount)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Processing fee ({formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)}/ticket)</span>
-                      <span className="text-warm-50 font-medium">{formatPrice(SUPPORT_FEE_PER_TICKET_CENTS * supportCount)}</span>
-                    </div>
-                    <div className="border-t border-noir-700 pt-2 flex justify-between text-sm font-semibold">
-                      <span className="text-warm-50">Total</span>
-                      <span className="text-amber-400">{formatPrice((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) * supportCount)}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-4 items-end">
-                    <div>
-                      <label htmlFor="support-tickets" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
-                        Tickets
-                      </label>
-                      <input
-                        id="support-tickets"
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={supportCount}
-                        onChange={(e) => setSupportCount(Number(e.target.value))}
-                        className="w-20 px-3 py-2.5 bg-noir-900 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors"
-                      />
-                    </div>
-                    <div className="flex-1 w-full">
-                      <label htmlFor="support-message" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
-                        Message (optional)
-                      </label>
-                      <input
-                        id="support-message"
-                        type="text"
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        placeholder="Show some love..."
-                        className="w-full px-3 py-2.5 bg-noir-900 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
-                      />
-                    </div>
-                    <button
-                      onClick={handleSupport}
-                      disabled={actionLoading}
-                      className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap"
-                    >
-                      Support {formatPrice((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) * supportCount)}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </ErrorBoundary>
-        )}
-
-        {/* Raffle Pools — wrapped in error boundary */}
-        {event.rafflePools.length > 0 && (
-          <ErrorBoundary label="Raffle Pools">
-            <div className="bg-noir-800 border border-noir-700 rounded-xl p-6 mb-8">
-              <h2 className="font-display text-lg tracking-wider text-warm-50 mb-4">
-                RAFFLE POOLS
-              </h2>
-              <div className="space-y-3">
-                {event.rafflePools.map((pool) => (
-                  <div
-                    key={pool.id}
-                    className="bg-noir-900 rounded-lg p-4"
-                  >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div>
-                        <span className="font-display text-2xl text-amber-400">
-                          {formatPrice(pool.tierCents)}
-                        </span>
-                        <span className="text-gray-400 text-sm ml-2">Entry</span>
-                        <div className="text-sm text-gray-400 mt-1">
-                          {pool.totalEntries} entries &middot; {pool.availableTickets} tickets available
-                        </div>
-                        {pool.drawTime && (
-                          <div className="text-xs text-gray-400 mt-1">
-                            Draw: {formatDate(pool.drawTime)}
+              {/* Tab Content */}
+              <div className="min-h-[300px]">
+                {/* Buy Ticket Tab */}
+                {activeTab === 'ticket' && (
+                  <div>
+                    {!directSalesOpen ? (
+                      <p className="text-sm text-amber-400 font-body">
+                        Direct sales closed &mdash; enter the raffle for a chance to win!
+                      </p>
+                    ) : checkout.type === 'ticket' ? (
+                      <Suspense fallback={<div className="py-6 text-center text-gray-400 text-sm" role="status">Loading payment form...</div>}>
+                        <StripeCheckout
+                          clientSecret={checkout.clientSecret}
+                          onSuccess={handlePaymentSuccess}
+                          onError={handlePaymentError}
+                          onCancel={handleCancelCheckout}
+                          submitLabel={`Pay ${formatPrice(checkout.totalCents)}`}
+                          title="Complete Ticket Purchase"
+                          description={`${formatPrice(checkout.priceCents)} + ${formatPrice(checkout.feeCents)} processing fee`}
+                        />
+                      </Suspense>
+                    ) : (
+                      <>
+                        <p className="text-sm text-gray-400 mb-5 font-body">
+                          Purchase your ticket directly at face price. One ticket per person.
+                        </p>
+                        <div className="space-y-2 mb-5">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Ticket (face price)</span>
+                            <span className="text-warm-50 font-medium">{formatPrice(event.ticketPriceCents)}</span>
                           </div>
-                        )}
-                      </div>
-                      <div className="flex-shrink-0">
-                        {pool.status === 'OPEN' && user ? (
-                          checkout.type === 'raffle' && checkout.poolId === pool.id ? null : (
-                            <button
-                              onClick={() => handleRaffleEntry(pool.id, pool.tierCents)}
-                              disabled={actionLoading}
-                              className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-noir-950 text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors"
-                            >
-                              ENTER RAFFLE
-                            </button>
-                          )
-                        ) : pool.status === 'COMPLETED' ? (
-                          <span className="text-sm text-gray-400">Draw complete</span>
-                        ) : (
-                          <span className="text-sm text-gray-400">{pool.status}</span>
-                        )}
-                      </div>
-                    </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Processing fee</span>
+                            <span className="text-warm-50 font-medium">{formatPrice(event.currentProcessingFeeCents)}</span>
+                          </div>
+                          <div className="border-t border-noir-700 pt-2 flex justify-between text-sm font-semibold">
+                            <span className="text-warm-50">Total</span>
+                            <span className="text-amber-400">{formatPrice(event.ticketPriceCents + event.currentProcessingFeeCents)}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleTicketPurchase}
+                          disabled={actionLoading}
+                          className="w-full px-6 py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors text-sm tracking-wide uppercase"
+                        >
+                          Buy Ticket
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
 
-                    {/* Show checkout form inline for this pool */}
-                    {checkout.type === 'raffle' && checkout.poolId === pool.id && (
-                      <div className="mt-4">
-                        <Suspense fallback={<div className="py-6 text-center text-gray-400 text-sm" role="status">Loading payment form...</div>}>
-                          <StripeCheckout
-                            clientSecret={checkout.clientSecret}
-                            onSuccess={handlePaymentSuccess}
-                            onError={handlePaymentError}
-                            onCancel={handleCancelCheckout}
-                            submitLabel={`Pay ${formatPrice(checkout.tierCents)}`}
-                            title="Complete Raffle Entry"
-                            description={`Entry fee: ${formatPrice(pool.tierCents)}`}
-                          />
-                        </Suspense>
+                {/* Support Artist Tab */}
+                {activeTab === 'support' && (
+                  <div>
+                    <p className="text-sm text-gray-400 mb-5 font-body">
+                      Buy tickets at face value to support {event.artistName}. These tickets will be
+                      raffled to local fans. A {formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)}/ticket processing fee applies.
+                    </p>
+
+                    {checkout.type === 'support' ? (
+                      <Suspense fallback={<div className="py-6 text-center text-gray-400 text-sm" role="status">Loading payment form...</div>}>
+                        <StripeCheckout
+                          clientSecret={checkout.clientSecret}
+                          onSuccess={handlePaymentSuccess}
+                          onError={handlePaymentError}
+                          onCancel={handleCancelCheckout}
+                          submitLabel={`Pay ${formatPrice(checkout.totalCents)}`}
+                          title="Complete Payment"
+                          description={`${checkout.ticketCount} support ticket(s) at ${formatPrice(event.ticketPriceCents)} + ${formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)} fee each`}
+                        />
+                      </Suspense>
+                    ) : (
+                      <div>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Ticket price x {supportCount}</span>
+                            <span className="text-warm-50 font-medium">{formatPrice(event.ticketPriceCents * supportCount)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">Processing fee ({formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)}/ticket)</span>
+                            <span className="text-warm-50 font-medium">{formatPrice(SUPPORT_FEE_PER_TICKET_CENTS * supportCount)}</span>
+                          </div>
+                          <div className="border-t border-noir-700 pt-2 flex justify-between text-sm font-semibold">
+                            <span className="text-warm-50">Total</span>
+                            <span className="text-amber-400">{formatPrice((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) * supportCount)}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-4 items-end">
+                          <div>
+                            <label htmlFor="support-tickets" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+                              Tickets
+                            </label>
+                            <input
+                              id="support-tickets"
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={supportCount}
+                              onChange={(e) => setSupportCount(Number(e.target.value))}
+                              className="w-20 px-3 py-2.5 bg-noir-900 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors"
+                            />
+                          </div>
+                          <div className="flex-1 w-full">
+                            <label htmlFor="support-message" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+                              Message (optional)
+                            </label>
+                            <input
+                              id="support-message"
+                              type="text"
+                              value={message}
+                              onChange={(e) => setMessage(e.target.value)}
+                              placeholder="Show some love..."
+                              className="w-full px-3 py-2.5 bg-noir-900 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                            />
+                          </div>
+                          <button
+                            onClick={handleSupport}
+                            disabled={actionLoading}
+                            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap"
+                          >
+                            Support {formatPrice((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) * supportCount)}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
-                ))}
+                )}
+
+                {/* Enter Raffle Tab */}
+                {activeTab === 'raffle' && (
+                  <div>
+                    {!hasRafflePools ? (
+                      <p className="text-sm text-gray-400 font-body">
+                        Raffle pools will open once enough tickets are supported. Check back soon!
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {event.rafflePools.map((pool) => (
+                          <div
+                            key={pool.id}
+                            className="bg-noir-900 rounded-lg p-4"
+                          >
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                              <div>
+                                <span className="font-display text-2xl text-amber-400">
+                                  {formatPrice(pool.tierCents)}
+                                </span>
+                                <span className="text-gray-400 text-sm ml-2">Entry</span>
+                                <div className="text-sm text-gray-400 mt-1">
+                                  {pool.totalEntries} entries &middot; {pool.availableTickets} tickets available
+                                </div>
+                                {pool.drawTime && (
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    Draw: {formatDate(pool.drawTime)}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-shrink-0">
+                                {pool.status === 'OPEN' ? (
+                                  checkout.type === 'raffle' && checkout.poolId === pool.id ? null : (
+                                    <button
+                                      onClick={() => handleRaffleEntry(pool.id, pool.tierCents)}
+                                      disabled={actionLoading}
+                                      className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-noir-950 text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors"
+                                    >
+                                      ENTER RAFFLE
+                                    </button>
+                                  )
+                                ) : pool.status === 'COMPLETED' ? (
+                                  <span className="text-sm text-gray-400">Draw complete</span>
+                                ) : (
+                                  <span className="text-sm text-gray-400">{pool.status}</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Show checkout form inline for this pool */}
+                            {checkout.type === 'raffle' && checkout.poolId === pool.id && (
+                              <div className="mt-4">
+                                <Suspense fallback={<div className="py-6 text-center text-gray-400 text-sm" role="status">Loading payment form...</div>}>
+                                  <StripeCheckout
+                                    clientSecret={checkout.clientSecret}
+                                    onSuccess={handlePaymentSuccess}
+                                    onError={handlePaymentError}
+                                    onCancel={handleCancelCheckout}
+                                    submitLabel={`Pay ${formatPrice(checkout.tierCents)}`}
+                                    title="Complete Raffle Entry"
+                                    description={`Entry fee: ${formatPrice(pool.tierCents)}`}
+                                  />
+                                </Suspense>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </ErrorBoundary>
-        )}
-
-        {/* Empty raffle pools state */}
-        {event.rafflePools.length === 0 && event.supportedTickets > 0 && (
-          <div className="bg-noir-800 border border-noir-700 rounded-xl p-6 mb-8 text-center">
-            <p className="text-gray-400 text-sm font-body">
-              Raffle pools will open once enough tickets are supported. Check back soon!
-            </p>
-          </div>
         )}
 
         {/* Not logged in prompt */}
