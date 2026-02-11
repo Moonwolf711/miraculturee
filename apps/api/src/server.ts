@@ -21,6 +21,7 @@ const app = Fastify({
   logger: {
     level: process.env.LOG_LEVEL ?? 'info',
   },
+  trustProxy: true,
 });
 
 async function start() {
