@@ -82,3 +82,8 @@ export const JWT_ACCESS_EXPIRY = '15m';
 export const JWT_REFRESH_EXPIRY = '7d';
 export const DEFAULT_LOCAL_RADIUS_KM = 50;
 export const EARTH_RADIUS_KM = 6371;
+
+/** EDMTrain sync runs every 6 hours */
+export const EDMTRAIN_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
+/** Past-event cleanup runs every 1 hour */
+export const EVENT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;

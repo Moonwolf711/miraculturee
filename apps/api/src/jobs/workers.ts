@@ -3,6 +3,8 @@ import IORedis from 'ioredis';
 import { PrismaClient } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { EmailService } from '../services/email.service.js';
+import { EdmtrainService } from '../services/edmtrain.service.js';
+import { EDMTRAIN_SYNC_INTERVAL_MS, EVENT_CLEANUP_INTERVAL_MS } from '@miraculturee/shared';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
@@ -353,5 +355,72 @@ export async function initWorkers() {
     { connection: getConnection(), concurrency: 1 },
   );
 
-  console.log('[Workers] Raffle draw, notification, and pre-event workers initialized');
+  // ──── EDMTrain Event Sync (every 6 hours) ────
+  const syncQueue = new Queue('event-sync', {
+    connection: getConnection(),
+    defaultJobOptions: {
+      removeOnComplete: 10,
+      removeOnFail: 10,
+    },
+  });
+  await syncQueue.add(
+    'sync',
+    {},
+    { repeat: { every: EDMTRAIN_SYNC_INTERVAL_MS }, jobId: 'edmtrain-sync' },
+  );
+
+  new Worker(
+    'event-sync',
+    async () => {
+      const service = new EdmtrainService(prisma);
+      const result = await service.syncEvents();
+      console.log(
+        `[EventSync] EDMTrain sync: ${result.created} created, ${result.skipped} skipped`,
+      );
+    },
+    { connection: getConnection(), concurrency: 1 },
+  );
+
+  // ──── Past-Event Cleanup (every 1 hour) ────
+  const cleanupQueue = new Queue('event-cleanup', {
+    connection: getConnection(),
+    defaultJobOptions: {
+      removeOnComplete: 10,
+      removeOnFail: 10,
+    },
+  });
+  await cleanupQueue.add(
+    'cleanup',
+    {},
+    { repeat: { every: EVENT_CLEANUP_INTERVAL_MS }, jobId: 'event-cleanup' },
+  );
+
+  new Worker(
+    'event-cleanup',
+    async () => {
+      // Archive published events whose date has passed
+      const archived = await prisma.event.updateMany({
+        where: { date: { lt: new Date() }, status: 'PUBLISHED' },
+        data: { status: 'COMPLETED' },
+      });
+
+      // Close open raffle pools for past events
+      const closedPools = await prisma.rafflePool.updateMany({
+        where: {
+          event: { date: { lt: new Date() } },
+          status: 'OPEN',
+        },
+        data: { status: 'CANCELLED' },
+      });
+
+      if (archived.count > 0 || closedPools.count > 0) {
+        console.log(
+          `[EventCleanup] Archived ${archived.count} events, cancelled ${closedPools.count} raffle pools`,
+        );
+      }
+    },
+    { connection: getConnection(), concurrency: 1 },
+  );
+
+  console.log('[Workers] Raffle draw, notification, pre-event, event-sync, and event-cleanup workers initialized');
 }

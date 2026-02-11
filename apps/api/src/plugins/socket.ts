@@ -8,6 +8,8 @@ declare module 'fastify' {
   }
 }
 
+const HEARTBEAT_INTERVAL_MS = 30_000;
+
 export const socketPlugin = fp(async (app: FastifyInstance) => {
   const io = new Server(app.server, {
     cors: { origin: '*', methods: ['GET', 'POST'] },
@@ -23,12 +25,29 @@ export const socketPlugin = fp(async (app: FastifyInstance) => {
       socket.join(`event:${eventId}`);
     });
 
+    // Generic subscribe/unsubscribe — maps channel names to Socket.IO rooms
+    socket.on('subscribe', (channel: string) => {
+      if (typeof channel !== 'string') return;
+      socket.join(channel);
+    });
+
+    socket.on('unsubscribe', (channel: string) => {
+      if (typeof channel !== 'string') return;
+      socket.leave(channel);
+    });
+
     socket.on('disconnect', () => {
       app.log.info(`Socket disconnected: ${socket.id}`);
     });
   });
 
+  // Server-side heartbeat — keeps connections alive and lets clients detect staleness
+  const heartbeatInterval = setInterval(() => {
+    io.emit('heartbeat', { type: 'heartbeat', ts: Date.now() });
+  }, HEARTBEAT_INTERVAL_MS);
+
   app.addHook('onClose', async () => {
+    clearInterval(heartbeatInterval);
     io.close();
   });
 });

@@ -1,7 +1,9 @@
 /* ------------------------------------------------------------------
-   WebSocket client with auto-reconnect, heartbeat, and typed messages.
+   WebSocket client using Socket.IO with auto-reconnect and typed messages.
    Designed for graceful degradation — the app works without WS.
    ------------------------------------------------------------------ */
+
+import { io, type Socket } from 'socket.io-client';
 
 /* ============== Message Types (Discriminated Union) ============== */
 
@@ -44,32 +46,24 @@ export type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'dis
 type MessageListener = (message: WSMessage) => void;
 type StateListener = (state: ConnectionState) => void;
 
-/* ============== WebSocket Client ============== */
+/* ============== Socket.IO Client ============== */
 
-const WS_BASE = import.meta.env.VITE_WS_URL || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+const WS_BASE = import.meta.env.VITE_WS_URL || '';
 
-/** Backoff config — exponential: 1s, 2s, 4s, 8s, 16s, capped at 30s */
-const INITIAL_BACKOFF_MS = 1000;
-const MAX_BACKOFF_MS = 30_000;
-const BACKOFF_MULTIPLIER = 2;
-
-/** Heartbeat timeout — if no heartbeat from server in this window, reconnect */
-const HEARTBEAT_TIMEOUT_MS = 45_000;
-
-/** Client heartbeat interval — send ping to keep connection alive */
-const PING_INTERVAL_MS = 30_000;
+/** All event names the server can emit that we care about */
+const MESSAGE_EVENTS = [
+  'raffle:new_entry',
+  'ticket:supported',
+  'event:updated',
+  'heartbeat',
+] as const;
 
 class WSClient {
-  private ws: WebSocket | null = null;
+  private socket: Socket | null = null;
   private state: ConnectionState = 'disconnected';
   private messageListeners = new Set<MessageListener>();
   private stateListeners = new Set<StateListener>();
   private channels = new Set<string>();
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
-  private pingTimer: ReturnType<typeof setInterval> | null = null;
-  private backoffMs = INITIAL_BACKOFF_MS;
-  private intentionalClose = false;
   private refCount = 0;
 
   /* ---------- Public API ---------- */
@@ -78,7 +72,6 @@ class WSClient {
   connect(): void {
     this.refCount++;
     if (this.refCount === 1) {
-      this.intentionalClose = false;
       this.doConnect();
     }
   }
@@ -87,13 +80,12 @@ class WSClient {
   disconnect(): void {
     this.refCount = Math.max(0, this.refCount - 1);
     if (this.refCount === 0) {
-      this.intentionalClose = true;
       this.cleanup();
       this.setState('disconnected');
     }
   }
 
-  /** Subscribe to a channel — sends subscribe message if connected */
+  /** Subscribe to a channel — joins Socket.IO room via server */
   subscribe(channel: string): void {
     this.channels.add(channel);
     this.sendSubscribe(channel);
@@ -131,90 +123,67 @@ class WSClient {
   /* ---------- Internal ---------- */
 
   private doConnect(): void {
-    // Don't attempt connection in SSR or if already connecting/connected
     if (typeof window === 'undefined') return;
-    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
-      return;
-    }
+    if (this.socket?.connected) return;
 
-    this.setState(this.state === 'disconnected' ? 'connecting' : 'reconnecting');
+    this.setState('connecting');
 
     try {
-      this.ws = new WebSocket(WS_BASE);
+      this.socket = io(WS_BASE || undefined, {
+        path: '/ws',
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 30000,
+      });
     } catch {
-      // WebSocket constructor can throw if URL is invalid
-      this.scheduleReconnect();
+      this.setState('disconnected');
       return;
     }
 
-    this.ws.onopen = () => {
+    this.socket.on('connect', () => {
       this.setState('connected');
-      this.backoffMs = INITIAL_BACKOFF_MS;
       // Re-subscribe to all active channels
       for (const channel of this.channels) {
         this.sendSubscribe(channel);
       }
-      this.startHeartbeat();
-      this.startPing();
-    };
+    });
 
-    this.ws.onmessage = (evt: MessageEvent) => {
-      try {
-        const data: unknown = JSON.parse(String(evt.data));
-        if (isWSMessage(data)) {
-          if (data.type === 'heartbeat') {
-            this.resetHeartbeat();
-          }
-          for (const listener of this.messageListeners) {
-            listener(data);
-          }
+    // Listen for all typed message events
+    for (const eventName of MESSAGE_EVENTS) {
+      this.socket.on(eventName, (data: unknown) => {
+        const msg = typeof data === 'object' && data !== null && 'type' in data
+          ? (data as WSMessage)
+          : { type: eventName, ...(typeof data === 'object' && data !== null ? data : {}) } as WSMessage;
+        for (const listener of this.messageListeners) {
+          listener(msg);
         }
-      } catch {
-        // Ignore malformed messages
+      });
+    }
+
+    this.socket.on('disconnect', () => {
+      if (this.refCount > 0) {
+        this.setState('reconnecting');
       }
-    };
+    });
 
-    this.ws.onclose = () => {
-      this.stopHeartbeat();
-      this.stopPing();
-      if (!this.intentionalClose) {
-        this.scheduleReconnect();
+    this.socket.io.on('reconnect_attempt', () => {
+      this.setState('reconnecting');
+    });
+
+    this.socket.on('connect_error', () => {
+      if (this.state !== 'reconnecting') {
+        this.setState('reconnecting');
       }
-    };
-
-    this.ws.onerror = () => {
-      // onerror is always followed by onclose — reconnect logic lives there
-    };
-  }
-
-  private scheduleReconnect(): void {
-    if (this.intentionalClose) return;
-    this.setState('reconnecting');
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = null;
-      this.doConnect();
-    }, this.backoffMs);
-    // Exponential backoff
-    this.backoffMs = Math.min(this.backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
+    });
   }
 
   private cleanup(): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    this.stopHeartbeat();
-    this.stopPing();
-    if (this.ws) {
-      this.ws.onopen = null;
-      this.ws.onmessage = null;
-      this.ws.onclose = null;
-      this.ws.onerror = null;
-      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
-        this.ws.close();
-      }
-      this.ws = null;
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
     }
   }
 
@@ -226,73 +195,22 @@ class WSClient {
     }
   }
 
-  private send(payload: Record<string, unknown>): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(payload));
-    }
-  }
-
   private sendSubscribe(channel: string): void {
-    this.send({ action: 'subscribe', channel });
+    if (this.socket?.connected) {
+      this.socket.emit('subscribe', channel);
+      // Also emit join:event for event-specific channels (backward compat)
+      const match = channel.match(/^event:(.+)$/);
+      if (match) {
+        this.socket.emit('join:event', match[1]);
+      }
+    }
   }
 
   private sendUnsubscribe(channel: string): void {
-    this.send({ action: 'unsubscribe', channel });
-  }
-
-  /* Heartbeat — detect stale connections */
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-    this.heartbeatTimer = setTimeout(() => {
-      // No heartbeat received — force reconnect
-      this.ws?.close();
-    }, HEARTBEAT_TIMEOUT_MS);
-  }
-
-  private resetHeartbeat(): void {
-    this.startHeartbeat();
-  }
-
-  private stopHeartbeat(): void {
-    if (this.heartbeatTimer) {
-      clearTimeout(this.heartbeatTimer);
-      this.heartbeatTimer = null;
+    if (this.socket?.connected) {
+      this.socket.emit('unsubscribe', channel);
     }
   }
-
-  /* Client-side ping to keep connection alive */
-  private startPing(): void {
-    this.stopPing();
-    this.pingTimer = setInterval(() => {
-      this.send({ action: 'ping' });
-    }, PING_INTERVAL_MS);
-  }
-
-  private stopPing(): void {
-    if (this.pingTimer) {
-      clearInterval(this.pingTimer);
-      this.pingTimer = null;
-    }
-  }
-}
-
-/* ============== Type Guard ============== */
-
-const VALID_TYPES = new Set<string>([
-  'raffle:new_entry',
-  'ticket:supported',
-  'event:updated',
-  'heartbeat',
-]);
-
-function isWSMessage(data: unknown): data is WSMessage {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'type' in data &&
-    typeof (data as { type: unknown }).type === 'string' &&
-    VALID_TYPES.has((data as { type: string }).type)
-  );
 }
 
 /* ============== Singleton export ============== */

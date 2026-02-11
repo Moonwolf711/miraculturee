@@ -65,6 +65,14 @@ export async function webhookRoutes(app: FastifyInstance) {
               `Support purchase confirmed: supportTicketId=${metadata.supportTicketId}`,
             );
 
+            // Broadcast updated ticket count via Socket.IO (non-blocking)
+            broadcastSupportUpdate(app, metadata.supportTicketId).catch(
+              (err) =>
+                app.log.error(
+                  `Failed to broadcast support update: ${err.message}`,
+                ),
+            );
+
             // Send email notification and create in-app notification (non-blocking)
             sendSupportConfirmationEmail(app, metadata.supportTicketId).catch(
               (err) =>
@@ -106,6 +114,14 @@ export async function webhookRoutes(app: FastifyInstance) {
             );
             app.log.info(
               `Ticket purchase confirmed: ticketId=${metadata.ticketId}`,
+            );
+
+            // Broadcast updated ticket count via Socket.IO (non-blocking)
+            broadcastTicketUpdate(app, metadata.ticketId).catch(
+              (err) =>
+                app.log.error(
+                  `Failed to broadcast ticket update: ${err.message}`,
+                ),
             );
 
             // Send email notification (non-blocking)
@@ -281,6 +297,78 @@ async function sendRaffleEntryConfirmationEmail(
       drawDate,
     });
   }
+}
+
+/**
+ * Broadcasts updated support ticket count via Socket.IO after a support purchase.
+ */
+async function broadcastSupportUpdate(
+  app: FastifyInstance,
+  supportTicketId: string,
+): Promise<void> {
+  const supportTicket = await app.prisma.supportTicket.findUnique({
+    where: { id: supportTicketId },
+    select: { eventId: true },
+  });
+  if (!supportTicket) return;
+
+  const event = await app.prisma.event.findUnique({
+    where: { id: supportTicket.eventId },
+    include: { supportTickets: { where: { confirmed: true } } },
+  });
+  if (!event) return;
+
+  const supportedTickets = event.supportTickets.reduce(
+    (sum, t) => sum + t.ticketCount,
+    0,
+  );
+
+  const payload = {
+    type: 'ticket:supported' as const,
+    eventId: event.id,
+    supportedTickets,
+    totalTickets: event.totalTickets,
+  };
+
+  // Broadcast to clients watching this specific event
+  app.io.to(`event:${event.id}`).emit('ticket:supported', payload);
+  // Broadcast to clients watching the events list
+  app.io.to('events:list').emit('ticket:supported', payload);
+}
+
+/**
+ * Broadcasts updated ticket count via Socket.IO after a direct ticket purchase.
+ */
+async function broadcastTicketUpdate(
+  app: FastifyInstance,
+  ticketId: string,
+): Promise<void> {
+  const ticket = await app.prisma.directTicket.findUnique({
+    where: { id: ticketId },
+    select: { eventId: true },
+  });
+  if (!ticket) return;
+
+  const event = await app.prisma.event.findUnique({
+    where: { id: ticket.eventId },
+    include: { supportTickets: { where: { confirmed: true } } },
+  });
+  if (!event) return;
+
+  const supportedTickets = event.supportTickets.reduce(
+    (sum, t) => sum + t.ticketCount,
+    0,
+  );
+
+  const payload = {
+    type: 'ticket:supported' as const,
+    eventId: event.id,
+    supportedTickets,
+    totalTickets: event.totalTickets,
+  };
+
+  app.io.to(`event:${event.id}`).emit('ticket:supported', payload);
+  app.io.to('events:list').emit('ticket:supported', payload);
 }
 
 /**
