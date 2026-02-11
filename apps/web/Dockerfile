@@ -22,8 +22,8 @@ RUN pnpm --filter @miraculturee/web build
 
 # Serve with lightweight static server
 FROM node:22-alpine
-RUN npm install -g serve
 COPY --from=build /app/apps/web/dist /app
+COPY apps/web/server.cjs /app/server.cjs
 WORKDIR /app
 EXPOSE ${PORT:-80}
-CMD ["sh", "-c", "serve -s . -l ${PORT:-80}"]
+CMD ["node", "server.cjs"]
