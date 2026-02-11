@@ -8,22 +8,34 @@ import ErrorBoundary, { PageErrorFallback } from './components/ErrorBoundary.js'
    Route-based code splitting with React.lazy()
    - HomePage is eagerly loaded (LCP critical path)
    - All other pages are lazy-loaded into separate chunks
+   - lazyRetry auto-reloads on stale chunk errors after deploy
    ------------------------------------------------------- */
 import HomePage from './pages/HomePage.js';
 
-const LoginPage = lazy(() => import('./pages/LoginPage.js'));
-const RegisterPage = lazy(() => import('./pages/RegisterPage.js'));
-const EventsPage = lazy(() => import('./pages/EventsPage.js'));
-const EventDetailPage = lazy(() => import('./pages/EventDetailPage.js'));
-const ArtistDashboardPage = lazy(() => import('./pages/ArtistDashboardPage.js'));
-const CreateEventPage = lazy(() => import('./pages/CreateEventPage.js'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage.js'));
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.js'));
-const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.js'));
-const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage.js'));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage.js'));
-const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage.js'));
-const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage.js'));
+function lazyRetry<T extends React.ComponentType>(
+  loader: () => Promise<{ default: T }>,
+) {
+  return lazy(() =>
+    loader().catch(() => {
+      window.location.reload();
+      return new Promise<never>(() => {});
+    }),
+  );
+}
+
+const LoginPage = lazyRetry(() => import('./pages/LoginPage.js'));
+const RegisterPage = lazyRetry(() => import('./pages/RegisterPage.js'));
+const EventsPage = lazyRetry(() => import('./pages/EventsPage.js'));
+const EventDetailPage = lazyRetry(() => import('./pages/EventDetailPage.js'));
+const ArtistDashboardPage = lazyRetry(() => import('./pages/ArtistDashboardPage.js'));
+const CreateEventPage = lazyRetry(() => import('./pages/CreateEventPage.js'));
+const DashboardPage = lazyRetry(() => import('./pages/DashboardPage.js'));
+const ForgotPasswordPage = lazyRetry(() => import('./pages/ForgotPasswordPage.js'));
+const ResetPasswordPage = lazyRetry(() => import('./pages/ResetPasswordPage.js'));
+const VerifyEmailPage = lazyRetry(() => import('./pages/VerifyEmailPage.js'));
+const NotFoundPage = lazyRetry(() => import('./pages/NotFoundPage.js'));
+const PrivacyPolicyPage = lazyRetry(() => import('./pages/PrivacyPolicyPage.js'));
+const TermsOfServicePage = lazyRetry(() => import('./pages/TermsOfServicePage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
