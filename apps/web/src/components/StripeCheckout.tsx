@@ -6,6 +6,7 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
+import { HCaptchaWidget } from './HCaptchaWidget.js';
 
 /**
  * Stripe publishable key from environment.
@@ -21,6 +22,9 @@ interface PaymentFormProps {
   onSuccess: () => void;
   onError: (message: string) => void;
   submitLabel?: string;
+  captchaToken: string | null;
+  onCaptchaVerify: (token: string) => void;
+  onCaptchaExpire: () => void;
 }
 
 /**
@@ -31,7 +35,7 @@ interface PaymentFormProps {
  * Stripe Dashboard: card, Apple Pay, Google Pay, Venmo, PayPal, Cash App,
  * Klarna, Affirm, Afterpay, and Link.
  */
-function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentFormProps) {
+function PaymentForm({ clientSecret, onSuccess, onError, submitLabel, captchaToken, onCaptchaVerify, onCaptchaExpire }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -42,6 +46,11 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentF
       e.preventDefault();
 
       if (!stripe || !elements) {
+        return;
+      }
+
+      if (!captchaToken) {
+        onError('Please complete the CAPTCHA verification');
         return;
       }
 
@@ -67,11 +76,18 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentF
         setProcessing(false);
       }
     },
-    [stripe, elements, clientSecret, onSuccess, onError],
+    [stripe, elements, clientSecret, captchaToken, onSuccess, onError],
   );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* CAPTCHA Widget */}
+      <HCaptchaWidget
+        onVerify={onCaptchaVerify}
+        onExpire={onCaptchaExpire}
+        onError={(err) => onError(`CAPTCHA error: ${err}`)}
+      />
+
       {/* Payment input — card, Apple Pay, Google Pay, Link */}
       <PaymentElement
         options={{
@@ -89,7 +105,7 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentF
       {/* Submit button */}
       <button
         type="submit"
-        disabled={!stripe || processing || !ready}
+        disabled={!stripe || processing || !ready || !captchaToken}
         className="w-full px-6 py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm tracking-wide uppercase"
       >
         {processing ? (
@@ -121,6 +137,12 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentF
         )}
       </button>
 
+      {!captchaToken && (
+        <p className="text-center text-amber-400 text-xs">
+          Please complete the CAPTCHA to continue
+        </p>
+      )}
+
       {/* Stripe badge */}
       <p className="text-center text-gray-400 text-xs">
         Secured by Stripe. Your payment details never touch our servers.
@@ -137,6 +159,7 @@ export interface StripeCheckoutProps {
   submitLabel?: string;
   title?: string;
   description?: string;
+  onCaptchaVerify?: (token: string) => void;
 }
 
 /**
@@ -153,7 +176,19 @@ export default function StripeCheckout({
   submitLabel,
   title,
   description,
+  onCaptchaVerify: externalCaptchaVerify,
 }: StripeCheckoutProps) {
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  const handleCaptchaVerify = (token: string) => {
+    setCaptchaToken(token);
+    externalCaptchaVerify?.(token);
+  };
+
+  const handleCaptchaExpire = () => {
+    setCaptchaToken(null);
+  };
+
   return (
     <div className="bg-noir-800 border border-noir-700 rounded-xl p-6 animate-fade-in">
       {title && (
@@ -187,6 +222,9 @@ export default function StripeCheckout({
           onSuccess={onSuccess}
           onError={onError}
           submitLabel={submitLabel}
+          captchaToken={captchaToken}
+          onCaptchaVerify={handleCaptchaVerify}
+          onCaptchaExpire={handleCaptchaExpire}
         />
       </Elements>
 

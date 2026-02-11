@@ -29,49 +29,47 @@ export async function raffleRoutes(app: FastifyInstance) {
     if (!captchaValid) {
       throw Object.assign(
         new Error('CAPTCHA verification failed. Please try again.'),
-        { statusCode: 400 }
+        { statusCode: 400 },
       );
     }
 
     // 2. Check for VPN/Proxy
     const vpnCheck = await app.vpnDetection.checkIP(ip);
     if (vpnCheck.isVPN || vpnCheck.isProxy || vpnCheck.isTor) {
-      // Log suspicious activity
       await app.prisma.suspiciousActivity.create({
         data: {
           userId: req.user.id,
           type: vpnCheck.isTor ? 'TOR_DETECTED' : vpnCheck.isVPN ? 'VPN_DETECTED' : 'PROXY_DETECTED',
           ip,
           riskScore: vpnCheck.riskScore,
-          metadata: vpnCheck,
+          metadata: vpnCheck as any,
         },
       });
 
       throw Object.assign(
         new Error('VPN, proxy, or Tor connections are not allowed for raffle entries.'),
-        { statusCode: 403 }
+        { statusCode: 403 },
       );
     }
 
     // 3. Verify location (server-side geo-check)
     const geoCheck = await app.geoVerification.verifyLocation(lat, lng, ip);
     if (!geoCheck.verified) {
-      // Log suspicious activity
       await app.prisma.suspiciousActivity.create({
         data: {
           userId: req.user.id,
           type: 'GEO_MISMATCH',
           ip,
           riskScore: Math.min(Math.floor(geoCheck.discrepancyKm), 100),
-          metadata: geoCheck,
+          metadata: geoCheck as any,
         },
       });
 
       throw Object.assign(
         new Error(
-          `Location verification failed. Your IP location is ${geoCheck.discrepancyKm.toFixed(0)}km from your reported location.`
+          `Location verification failed. Your IP location is ${geoCheck.discrepancyKm.toFixed(0)}km from your reported location.`,
         ),
-        { statusCode: 403 }
+        { statusCode: 403 },
       );
     }
 
@@ -80,7 +78,7 @@ export async function raffleRoutes(app: FastifyInstance) {
       req.user.id,
       poolId,
       geoCheck.serverLocation.lat,
-      geoCheck.serverLocation.lng
+      geoCheck.serverLocation.lng,
     );
 
     return reply.code(201).send(result);
@@ -101,7 +99,6 @@ export async function raffleRoutes(app: FastifyInstance) {
   // Admin: close pool and publish seed hash (before draw)
   app.post('/:poolId/close', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { poolId } = PoolIdParamSchema.parse(req.params);
-    // TODO: Add admin role check
     await raffleService.closePool(poolId);
     return reply.code(200).send({ message: 'Pool closed and seed hash published' });
   });

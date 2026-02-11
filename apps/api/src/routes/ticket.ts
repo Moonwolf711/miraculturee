@@ -9,6 +9,16 @@ export async function ticketRoutes(app: FastifyInstance) {
   // Returns a clientSecret for the frontend to complete payment via Stripe Elements
   app.post('/purchase', { preHandler: [app.authenticate] }, async (req, reply) => {
     const body = TicketPurchaseSchema.parse(req.body);
+
+    // Verify CAPTCHA
+    const captchaValid = await app.captcha.verify(body.captchaToken, req.ip);
+    if (!captchaValid) {
+      throw Object.assign(
+        new Error('CAPTCHA verification failed. Please try again.'),
+        { statusCode: 400 },
+      );
+    }
+
     const result = await ticketService.purchase(
       req.user.id,
       body.eventId,

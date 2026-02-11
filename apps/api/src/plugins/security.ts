@@ -13,12 +13,10 @@ declare module 'fastify' {
 }
 
 async function securityPlugin(app: FastifyInstance) {
-  // Initialize security services
   const captcha = new CaptchaService();
   const vpnDetection = new VPNDetectionService();
   const geoVerification = new GeoVerificationService();
 
-  // Decorate Fastify instance
   app.decorate('captcha', captcha);
   app.decorate('vpnDetection', vpnDetection);
   app.decorate('geoVerification', geoVerification);

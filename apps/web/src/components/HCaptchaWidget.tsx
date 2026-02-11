@@ -12,7 +12,6 @@ export function HCaptchaWidget({ onVerify, onExpire, onError }: HCaptchaWidgetPr
   const siteKey = import.meta.env.VITE_HCAPTCHA_SITE_KEY;
 
   if (!siteKey) {
-    console.warn('[HCaptcha] Site key not configured');
     return null;
   }
 
@@ -23,11 +22,9 @@ export function HCaptchaWidget({ onVerify, onExpire, onError }: HCaptchaWidgetPr
         sitekey={siteKey}
         onVerify={onVerify}
         onExpire={() => {
-          console.log('[HCaptcha] Token expired');
           onExpire?.();
         }}
         onError={(err) => {
-          console.error('[HCaptcha] Error:', err);
           onError?.(err);
         }}
         theme="dark"

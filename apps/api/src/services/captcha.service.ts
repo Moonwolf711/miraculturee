@@ -1,10 +1,3 @@
-/**
- * hCaptcha Verification Service
- * 
- * Protects against bot attacks by verifying hCaptcha tokens
- * Free tier: 100,000 requests/month
- */
-
 export class CaptchaService {
   private secretKey: string;
   private enabled: boolean;
@@ -18,16 +11,8 @@ export class CaptchaService {
     }
   }
 
-  /**
-   * Verify a hCaptcha token
-   * @param token - The hCaptcha response token from the client
-   * @param ip - Optional IP address of the user (for additional verification)
-   * @returns true if verification succeeds, false otherwise
-   */
-  async verify(token: string, ip?: string): Promise<boolean> {
-    // Skip verification if CAPTCHA is disabled (for development)
+  async verify(token: string | undefined, ip?: string): Promise<boolean> {
     if (!this.enabled) {
-      console.warn('[CaptchaService] CAPTCHA verification skipped (disabled)');
       return true;
     }
 
@@ -42,38 +27,30 @@ export class CaptchaService {
         response: token,
       });
 
-      // Include IP address if provided (optional but recommended)
       if (ip) {
         params.append('remoteip', ip);
       }
 
       const response = await fetch('https://hcaptcha.com/siteverify', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString(),
       });
 
-      const data = await response.json();
+      const data = await response.json() as { success: boolean; 'error-codes'?: string[] };
 
       if (data.success) {
-        console.log('[CaptchaService] CAPTCHA verification successful');
         return true;
       } else {
-        console.error('[CaptchaService] CAPTCHA verification failed:', data['error-codes']);
+        console.error('[CaptchaService] Verification failed:', data['error-codes']);
         return false;
       }
     } catch (error) {
-      console.error('[CaptchaService] CAPTCHA verification error:', error);
-      // Fail open in case of service issues (consider failing closed in production)
+      console.error('[CaptchaService] Verification error:', error);
       return false;
     }
   }
 
-  /**
-   * Check if CAPTCHA is enabled
-   */
   isEnabled(): boolean {
     return this.enabled;
   }

@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from 'node:crypto';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, Prisma } from '@prisma/client';
 import type { POSClient } from '@miraculturee/pos';
 import type { Server } from 'socket.io';
 import { isWithinRadius } from '@miraculturee/shared';
@@ -85,102 +85,80 @@ export class RaffleService {
   }
 
   /**
-   * Close the pool and publish the seed hash (cryptographic commitment)
-   * This must be called BEFORE the draw to ensure fairness
+   * Close pool and publish seed hash (commitment phase).
+   * Must be called before draw() — the hash is published so entrants can later verify fairness.
    */
   async closePool(poolId: string): Promise<void> {
-    const pool = await this.prisma.rafflePool.findUnique({
-      where: { id: poolId },
-    });
+    const pool = await this.prisma.rafflePool.findUnique({ where: { id: poolId } });
+    if (!pool) throw Object.assign(new Error('Pool not found'), { statusCode: 404 });
+    if (pool.status !== 'OPEN') throw Object.assign(new Error('Pool is not open'), { statusCode: 400 });
 
-    if (!pool) {
-      throw Object.assign(new Error('Pool not found'), { statusCode: 404 });
-    }
-
-    if (pool.status !== 'OPEN') {
-      throw Object.assign(new Error('Pool is not open'), { statusCode: 400 });
-    }
-
-    // Generate cryptographic seed
+    // Generate random seed and compute its SHA-256 hash
     const seed = randomBytes(32).toString('hex');
     const seedHash = createHash('sha256').update(seed).digest('hex');
 
-    // Store seed securely (in production, consider encrypting this)
-    // For now, we'll store it in the database but it should remain secret until reveal
+    // Store the hash publicly; keep the seed secret until draw
     await this.prisma.rafflePool.update({
       where: { id: poolId },
-      data: {
-        seedHash, // Public commitment
-        revealedSeed: seed, // Will be revealed after draw
-        status: 'DRAWING', // Close the pool
-      },
+      data: { status: 'DRAWING', seedHash },
     });
 
-    // Emit event that seed hash is published
-    this.io.to(`event:${pool.eventId}`).emit('pool:closed', {
-      poolId,
-      seedHash,
-      message: 'Raffle entries closed. Seed hash published for verification.',
+    // Stash the seed temporarily so draw() can reveal it
+    // We store it in revealedSeed now but it only becomes meaningful after draw
+    await this.prisma.rafflePool.update({
+      where: { id: poolId },
+      data: { revealedSeed: seed },
     });
   }
 
   async draw(poolId: string): Promise<DrawResult> {
-    return this.prisma.$transaction(async (tx) => {
-      // Get the pool with seed
-      const pool = await tx.rafflePool.findUnique({
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const pool = await tx.rafflePool.findUnique({ where: { id: poolId } });
+      if (!pool) throw Object.assign(new Error('Pool not found'), { statusCode: 404 });
+
+      // If pool wasn't pre-closed, generate seed now
+      let seed = pool.revealedSeed;
+      if (!seed) {
+        seed = randomBytes(32).toString('hex');
+        const seedHash = createHash('sha256').update(seed).digest('hex');
+        await tx.rafflePool.update({
+          where: { id: poolId },
+          data: { seedHash },
+        });
+      }
+
+      await tx.rafflePool.update({
         where: { id: poolId },
-        include: { event: true },
+        data: { status: 'DRAWING' },
       });
 
-      if (!pool) {
-        throw Object.assign(new Error('Pool not found'), { statusCode: 404 });
-      }
-
-      if (pool.status !== 'DRAWING') {
-        throw Object.assign(
-          new Error('Pool must be closed before drawing'),
-          { statusCode: 400 }
-        );
-      }
-
-      if (!pool.seedHash || !pool.revealedSeed) {
-        throw Object.assign(
-          new Error('Seed not generated. Close pool first.'),
-          { statusCode: 500 }
-        );
-      }
-
-      // Get available tickets and entries
       const availableTickets = await tx.poolTicket.findMany({
         where: { eventId: pool.eventId, status: 'AVAILABLE' },
       });
 
       const entries = await tx.raffleEntry.findMany({
         where: { poolId, won: false },
-        include: { user: { select: { id: true, name: true } } },
+        orderBy: { createdAt: 'asc' },
       });
 
       if (entries.length === 0 || availableTickets.length === 0) {
         await tx.rafflePool.update({
           where: { id: poolId },
-          data: { status: 'COMPLETED', drawnAt: new Date() },
+          data: { status: 'COMPLETED', drawnAt: new Date(), revealedSeed: seed },
         });
         return { poolId, winners: [], totalDrawn: 0 };
       }
 
-      // Use deterministic RNG with the revealed seed for provably fair shuffle
-      const rng = seedrandom(pool.revealedSeed);
-
-      // Fisher-Yates shuffle with deterministic RNG
+      // Deterministic Fisher-Yates shuffle using seedrandom
+      const rng = seedrandom(seed);
       const shuffled = [...entries];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(rng() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
-      // Assign tickets to winners (min of tickets and entries)
       const winnerCount = Math.min(shuffled.length, availableTickets.length);
-      const winners: { userId: string; ticketId: string; position: number }[] = [];
+      const winners: { userId: string; ticketId: string }[] = [];
 
       for (let i = 0; i < winnerCount; i++) {
         const entry = shuffled[i];
@@ -196,13 +174,8 @@ export class RaffleService {
           data: { status: 'ASSIGNED', assignedUserId: entry.userId },
         });
 
-        winners.push({
-          userId: entry.userId,
-          ticketId: ticket.id,
-          position: i + 1,
-        });
+        winners.push({ userId: entry.userId, ticketId: ticket.id });
 
-        // Create notification
         await tx.notification.create({
           data: {
             userId: entry.userId,
@@ -213,52 +186,16 @@ export class RaffleService {
         });
       }
 
-      // Mark pool as completed and reveal seed
+      // Reveal the seed and mark as completed
       await tx.rafflePool.update({
         where: { id: poolId },
-        data: {
-          status: 'COMPLETED',
-          drawnAt: new Date(),
-          // revealedSeed is already stored, now it's public
-        },
+        data: { status: 'COMPLETED', drawnAt: new Date(), revealedSeed: seed },
       });
 
-      // Generate verification receipt
-      const receipt = {
-        draw_id: `mc-${pool.event.date.toISOString().split('T')[0]}-${pool.event.venueCity.replace(/\s+/g, '-')}`,
-        event: pool.event.title,
-        venue: pool.event.venueName,
-        city: pool.event.venueCity,
-        seed_hash: pool.seedHash,
-        algorithm: pool.algorithm,
-        entries: entries.length,
-        winners: winnerCount,
-        revealed_seed: pool.revealedSeed,
-        timestamp: new Date().toISOString(),
-        status: 'VERIFIED',
-        winner_list: winners.map((w) => ({
-          position: w.position,
-          userId: w.userId,
-          ticketId: w.ticketId,
-        })),
-      };
-
-      // Store verification URL (in production, save receipt to S3 or file storage)
-      const verificationUrl = `/api/raffle/${poolId}/verify`;
-      await tx.rafflePool.update({
-        where: { id: poolId },
-        data: { verificationUrl },
-      });
-
-      // Emit real-time draw results with verification info
       this.io.to(`event:${pool.eventId}`).emit('draw:complete', {
         poolId,
         winnerCount,
         totalEntries: entries.length,
-        seedHash: pool.seedHash,
-        revealedSeed: pool.revealedSeed,
-        verificationUrl,
-        message: 'Draw complete. Results are publicly verifiable.',
       });
 
       return { poolId, winners, totalDrawn: winnerCount };
@@ -266,112 +203,56 @@ export class RaffleService {
   }
 
   /**
-   * Verify the fairness of a completed draw
-   * Anyone can call this to independently verify the results
+   * Verify draw fairness — anyone can re-run the shuffle with the revealed seed
+   * and confirm the winners match.
    */
-  async verifyDraw(poolId: string): Promise<{
-    verified: boolean;
-    poolId: string;
-    event: string;
-    seedHash: string;
-    revealedSeed: string;
-    hashValid: boolean;
-    resultsValid: boolean;
-    algorithm: string;
-    totalEntries: number;
-    totalWinners: number;
-    drawnAt: string | null;
-    receipt: any;
-  }> {
+  async verifyDraw(poolId: string) {
     const pool = await this.prisma.rafflePool.findUnique({
       where: { id: poolId },
       include: {
-        event: { select: { title: true, venueName: true, venueCity: true, date: true } },
-        entries: {
-          include: { user: { select: { id: true, name: true } } },
-        },
+        entries: { orderBy: { createdAt: 'asc' } },
       },
     });
 
-    if (!pool) {
-      throw Object.assign(new Error('Pool not found'), { statusCode: 404 });
-    }
-
+    if (!pool) throw Object.assign(new Error('Pool not found'), { statusCode: 404 });
     if (pool.status !== 'COMPLETED') {
-      throw Object.assign(
-        new Error('Draw not yet completed'),
-        { statusCode: 400 }
-      );
+      throw Object.assign(new Error('Draw has not been completed yet'), { statusCode: 400 });
     }
-
     if (!pool.revealedSeed || !pool.seedHash) {
-      throw Object.assign(
-        new Error('Seed not revealed'),
-        { statusCode: 500 }
-      );
+      throw Object.assign(new Error('Verification data not available'), { statusCode: 400 });
     }
 
-    // Verify hash matches revealed seed
-    const computedHash = createHash('sha256')
-      .update(pool.revealedSeed)
-      .digest('hex');
+    // Verify seed matches the pre-committed hash
+    const computedHash = createHash('sha256').update(pool.revealedSeed).digest('hex');
+    const hashMatches = computedHash === pool.seedHash;
 
-    const hashValid = computedHash === pool.seedHash;
-
-    // Re-run draw algorithm to verify results
+    // Re-run the deterministic shuffle
     const rng = seedrandom(pool.revealedSeed);
-    const entries = pool.entries;
-    const shuffled = [...entries];
-
+    const shuffled = [...pool.entries];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
 
-    const actualWinners = pool.entries.filter((e) => e.won);
-    const expectedWinners = shuffled.slice(0, actualWinners.length);
+    const actualWinners = pool.entries.filter((e) => e.won).map((e) => e.id).sort();
+    const computedWinnerIds = shuffled
+      .slice(0, actualWinners.length)
+      .map((e) => e.id)
+      .sort();
 
-    // Verify winners match expected results
-    const resultsValid = expectedWinners.every(
-      (e, i) => e.id === actualWinners[i]?.id
-    );
-
-    // Generate verification receipt
-    const receipt = {
-      draw_id: `mc-${pool.event.date.toISOString().split('T')[0]}-${pool.event.venueCity.replace(/\s+/g, '-')}`,
-      event: pool.event.title,
-      venue: pool.event.venueName,
-      city: pool.event.venueCity,
-      seed_hash: pool.seedHash,
-      algorithm: pool.algorithm,
-      entries: entries.length,
-      winners: actualWinners.length,
-      revealed_seed: pool.revealedSeed,
-      timestamp: pool.drawnAt?.toISOString() || new Date().toISOString(),
-      status: hashValid && resultsValid ? 'VERIFIED' : 'FAILED',
-      hash_verification: hashValid ? 'PASSED' : 'FAILED',
-      results_verification: resultsValid ? 'PASSED' : 'FAILED',
-      winner_list: actualWinners.map((w, i) => ({
-        position: i + 1,
-        userId: w.userId,
-        userName: w.user.name,
-        ticketId: w.ticketId,
-      })),
-    };
+    const winnersMatch = JSON.stringify(actualWinners) === JSON.stringify(computedWinnerIds);
 
     return {
-      verified: hashValid && resultsValid,
-      poolId: pool.id,
-      event: pool.event.title,
+      poolId,
+      algorithm: pool.algorithm,
       seedHash: pool.seedHash,
       revealedSeed: pool.revealedSeed,
-      hashValid,
-      resultsValid,
-      algorithm: pool.algorithm,
-      totalEntries: entries.length,
+      hashMatches,
+      winnersMatch,
+      verified: hashMatches && winnersMatch,
+      totalEntries: pool.entries.length,
       totalWinners: actualWinners.length,
-      drawnAt: pool.drawnAt?.toISOString() || null,
-      receipt,
+      drawnAt: pool.drawnAt?.toISOString() ?? null,
     };
   }
 
@@ -403,9 +284,6 @@ export class RaffleService {
       poolId: pool.id,
       status: pool.status,
       drawnAt: pool.drawnAt?.toISOString() ?? null,
-      seedHash: pool.seedHash,
-      revealedSeed: pool.status === 'COMPLETED' ? pool.revealedSeed : null,
-      verificationUrl: pool.verificationUrl,
       winners: pool.entries.map((e) => ({
         userId: e.userId,
         name: e.user.name,

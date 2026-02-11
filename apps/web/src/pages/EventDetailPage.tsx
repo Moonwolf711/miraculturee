@@ -86,6 +86,7 @@ export default function EventDetailPage() {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [checkout, setCheckout] = useState<CheckoutState>({ type: 'none' });
   const [activeTab, setActiveTab] = useState<PaymentTab>('ticket');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const fetchEvent = useCallback(() => {
     if (!id) return;
@@ -184,6 +185,7 @@ export default function EventDetailPage() {
         eventId: event.id,
         ticketCount: supportCount,
         message: message || undefined,
+        captchaToken: captchaToken || undefined,
       });
       // Show the Stripe checkout form with the clientSecret
       setCheckout({
@@ -214,6 +216,7 @@ export default function EventDetailPage() {
         poolId,
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
+        captchaToken: captchaToken || undefined,
       });
       // Show the Stripe checkout form with the clientSecret
       setCheckout({
@@ -239,6 +242,7 @@ export default function EventDetailPage() {
     try {
       const result = await api.post<TicketPurchaseResponse>('/tickets/purchase', {
         eventId: event.id,
+        captchaToken: captchaToken || undefined,
       });
       setCheckout({
         type: 'ticket',
@@ -515,6 +519,7 @@ export default function EventDetailPage() {
                           submitLabel={`Pay ${formatPrice(checkout.totalCents)}`}
                           title="Complete Ticket Purchase"
                           description={`${formatPrice(checkout.priceCents)} + ${formatPrice(checkout.feeCents)} processing fee`}
+                          onCaptchaVerify={setCaptchaToken}
                         />
                       </Suspense>
                     ) : (
@@ -566,6 +571,7 @@ export default function EventDetailPage() {
                           submitLabel={`Pay ${formatPrice(checkout.totalCents)}`}
                           title="Complete Payment"
                           description={`${checkout.ticketCount} support ticket(s) at ${formatPrice(event.ticketPriceCents)} + ${formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)} fee each`}
+                          onCaptchaVerify={setCaptchaToken}
                         />
                       </Suspense>
                     ) : (
@@ -685,6 +691,7 @@ export default function EventDetailPage() {
                                     submitLabel={`Pay ${formatPrice(checkout.tierCents)}`}
                                     title="Complete Raffle Entry"
                                     description={`Entry fee: ${formatPrice(pool.tierCents)}`}
+                                    onCaptchaVerify={setCaptchaToken}
                                   />
                                 </Suspense>
                               </div>
