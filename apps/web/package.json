@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npx serve dist -s -l tcp://0.0.0.0:${PORT:-3000}",
+    "dev": "node server.cjs dist",
     "dev:local": "vite",
     "build": "cd ../.. && pnpm --filter @miraculturee/shared build && cd apps/web && tsc -b && vite build",
-    "start": "npx serve dist -s -l tcp://0.0.0.0:${PORT:-3000}",
+    "start": "node server.cjs dist",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "test": "vitest run",
