@@ -27,8 +27,9 @@ interface PaymentFormProps {
  * Inner payment form that uses the Stripe hooks.
  * Must be rendered inside an <Elements> provider.
  *
- * Uses PaymentElement which automatically supports card, Apple Pay,
- * Google Pay, and Link — with zero additional configuration.
+ * Uses PaymentElement which renders all payment methods enabled in the
+ * Stripe Dashboard: card, Apple Pay, Google Pay, Venmo, PayPal, Cash App,
+ * Klarna, Affirm, Afterpay, and Link.
  */
 function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentFormProps) {
   const stripe = useStripe();
@@ -73,7 +74,15 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentF
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Payment input — card, Apple Pay, Google Pay, Link */}
       <PaymentElement
-        options={{ layout: 'tabs' }}
+        options={{
+          layout: 'accordion',
+          paymentMethodOrder: [
+            'apple_pay', 'google_pay', 'venmo', 'paypal', 'cashapp',
+            'klarna', 'affirm', 'afterpay_clearpay',
+            'card',
+          ],
+          wallets: { applePay: 'auto', googlePay: 'auto' },
+        }}
         onReady={() => setReady(true)}
       />
 
