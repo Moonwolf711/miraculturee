@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { POSClient } from '@miraculturee/pos';
 import type { SupportPurchaseResult } from '@miraculturee/shared';
+import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
 
 export class SupportService {
   constructor(
@@ -22,7 +23,7 @@ export class SupportService {
       throw Object.assign(new Error('Event is not accepting support'), { statusCode: 400 });
     }
 
-    const totalAmountCents = event.ticketPriceCents * ticketCount;
+    const totalAmountCents = (event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) * ticketCount;
 
     // Create support ticket record
     const supportTicket = await this.prisma.supportTicket.create({

@@ -1,4 +1,4 @@
-import type { Role, EventStatus, RaffleStatus, PoolTicketStatus, TransactionType } from './constants.js';
+import type { Role, EventStatus, RaffleStatus, PoolTicketStatus, TransactionType, DirectTicketStatus } from './constants.js';
 
 export interface UserPayload {
   id: string;
@@ -38,6 +38,7 @@ export interface EventDetail extends EventSummary {
   venueLat: number;
   venueLng: number;
   localRadiusKm: number;
+  currentProcessingFeeCents: number;
   rafflePools: RafflePoolSummary[];
 }
 
@@ -85,5 +86,23 @@ export interface TransactionRecord {
   amountCents: number;
   currency: string;
   status: string;
+  createdAt: string;
+}
+
+export interface TicketPurchaseResult {
+  id: string;
+  eventId: string;
+  priceCents: number;
+  feeCents: number;
+  totalCents: number;
+  clientSecret: string;
+}
+
+export interface DirectTicketSummary {
+  id: string;
+  eventId: string;
+  status: DirectTicketStatus;
+  priceCents: number;
+  feeCents: number;
   createdAt: string;
 }

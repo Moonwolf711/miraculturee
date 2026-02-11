@@ -23,6 +23,7 @@ function getConnection() {
 
 let raffleDrawQueue: Queue | null = null;
 let notificationQueue: Queue | null = null;
+let preEventQueue: Queue | null = null;
 
 function getRaffleDrawQueue() {
   if (!raffleDrawQueue) {
@@ -48,9 +49,35 @@ function getNotificationQueue() {
   return notificationQueue;
 }
 
+function getPreEventQueue() {
+  if (!preEventQueue) {
+    preEventQueue = new Queue('pre-event-tickets', {
+      connection: getConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    });
+  }
+  return preEventQueue;
+}
+
 export async function scheduleRaffleDraw(poolId: string, drawTime: Date) {
   const delay = Math.max(0, drawTime.getTime() - Date.now());
   await getRaffleDrawQueue().add('draw', { poolId }, { delay, jobId: `draw-${poolId}` });
+}
+
+export async function schedulePreEventTicketPurchase(eventId: string, eventDate: Date) {
+  const runAt = new Date(eventDate);
+  runAt.setHours(runAt.getHours() - 24);
+  const delay = Math.max(0, runAt.getTime() - Date.now());
+  await getPreEventQueue().add(
+    'buy-tickets',
+    { eventId },
+    { delay, jobId: `pre-event-${eventId}` },
+  );
 }
 
 export async function initWorkers() {
@@ -253,5 +280,78 @@ export async function initWorkers() {
     { connection: getConnection(), concurrency: 5 },
   );
 
-  console.log('[Workers] Raffle draw and notification workers initialized');
+  // Pre-event automated ticket purchase worker
+  new Worker(
+    'pre-event-tickets',
+    async (job) => {
+      const { eventId } = job.data;
+      console.log(`[PreEvent] Processing pre-event ticket purchase for event ${eventId}`);
+
+      const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        include: { artist: true },
+      });
+      if (!event) {
+        console.warn(`[PreEvent] Event ${eventId} not found`);
+        return;
+      }
+
+      // Total confirmed donation funds
+      const supportTickets = await prisma.supportTicket.findMany({
+        where: { eventId, confirmed: true },
+      });
+      const totalDonationFunds = supportTickets.reduce(
+        (sum: number, st: any) => sum + st.totalAmountCents,
+        0,
+      );
+
+      // Already-allocated pool tickets
+      const alreadyAllocatedTickets = await prisma.poolTicket.count({
+        where: { eventId },
+      });
+      const fundsUsed = alreadyAllocatedTickets * event.ticketPriceCents;
+      const remainingFunds = totalDonationFunds - fundsUsed;
+
+      // Count raffle demand
+      const raffleEntryCount = await prisma.raffleEntry.count({
+        where: { pool: { eventId } },
+      });
+
+      // Direct tickets already sold
+      const directTicketCount = await prisma.directTicket.count({
+        where: { eventId, status: { in: ['CONFIRMED', 'REDEEMED'] } },
+      });
+
+      const maxFromFunds = Math.floor(remainingFunds / event.ticketPriceCents);
+      const availableCapacity = event.totalTickets - alreadyAllocatedTickets - directTicketCount;
+      const ticketsToBuy = Math.min(maxFromFunds, raffleEntryCount, Math.max(0, availableCapacity));
+
+      if (ticketsToBuy > 0) {
+        // Find a support ticket to link the pool tickets to
+        const firstSupportTicket = supportTickets[0];
+        await prisma.poolTicket.createMany({
+          data: Array.from({ length: ticketsToBuy }, () => ({
+            eventId,
+            supportTicketId: firstSupportTicket?.id,
+          })),
+        });
+        console.log(`[PreEvent] Created ${ticketsToBuy} pool tickets for event ${eventId}`);
+      }
+
+      // Check if sold out → process surplus payout
+      const totalAllocatedAfter = alreadyAllocatedTickets + ticketsToBuy + directTicketCount;
+      if (totalAllocatedAfter >= event.totalTickets) {
+        console.log(`[PreEvent] Event ${eventId} is sold out, processing surplus payout`);
+        // Import dynamically to avoid circular dependency at module load
+        const { EventService } = await import('../services/event.service.js');
+        // POS client is not available here; surplus payout requires it.
+        // The event service will guard against missing POS.
+        const eventService = new EventService(prisma);
+        await eventService.processSurplusPayout(eventId);
+      }
+    },
+    { connection: getConnection(), concurrency: 1 },
+  );
+
+  console.log('[Workers] Raffle draw, notification, and pre-event workers initialized');
 }

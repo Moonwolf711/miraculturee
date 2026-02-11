@@ -41,11 +41,35 @@ export type PoolTicketStatus = (typeof POOL_TICKET_STATUS)[keyof typeof POOL_TIC
 export const TRANSACTION_TYPE = {
   SUPPORT_PURCHASE: 'SUPPORT_PURCHASE',
   RAFFLE_ENTRY: 'RAFFLE_ENTRY',
+  TICKET_PURCHASE: 'TICKET_PURCHASE',
   ARTIST_PAYOUT: 'ARTIST_PAYOUT',
   REFUND: 'REFUND',
 } as const;
 
 export type TransactionType = (typeof TRANSACTION_TYPE)[keyof typeof TRANSACTION_TYPE];
+
+export const DIRECT_TICKET_STATUS = {
+  PENDING: 'PENDING',
+  CONFIRMED: 'CONFIRMED',
+  TRANSFERRED: 'TRANSFERRED',
+  REDEEMED: 'REDEEMED',
+  REFUNDED: 'REFUNDED',
+} as const;
+
+export type DirectTicketStatus = (typeof DIRECT_TICKET_STATUS)[keyof typeof DIRECT_TICKET_STATUS];
+
+export const PROCESSING_FEE_MIN_CENTS = 500;
+export const PROCESSING_FEE_MAX_CENTS = 1000;
+export const SUPPORT_FEE_PER_TICKET_CENTS = 500;
+export const PLATFORM_FEE_PERCENT = 0.025;
+
+export const DIRECT_SALES_CUTOFF_HOURS = 24;
+
+export function isDirectSalesOpen(eventDate: Date | string): boolean {
+  const cutoff = new Date(eventDate);
+  cutoff.setHours(cutoff.getHours() - DIRECT_SALES_CUTOFF_HOURS);
+  return new Date() < cutoff;
+}
 
 export const JWT_ACCESS_EXPIRY = '15m';
 export const JWT_REFRESH_EXPIRY = '7d';

@@ -1,9 +1,37 @@
 import type { PrismaClient, Prisma } from '@prisma/client';
 import type { EventSummary, EventDetail, PaginatedResponse } from '@miraculturee/shared';
-import { haversineDistanceKm } from '@miraculturee/shared';
+import type { POSClient } from '@miraculturee/pos';
+import {
+  haversineDistanceKm,
+  PROCESSING_FEE_MIN_CENTS,
+  PROCESSING_FEE_MAX_CENTS,
+  PLATFORM_FEE_PERCENT,
+} from '@miraculturee/shared';
+import { schedulePreEventTicketPurchase } from '../jobs/workers.js';
+
+/**
+ * Compute demand-based processing fee using a sigmoid curve.
+ * $5 at low demand → $10 at high demand, ramping around 60% capacity.
+ */
+export async function calculateDynamicFee(
+  prisma: PrismaClient,
+  eventId: string,
+  totalCapacity: number,
+): Promise<number> {
+  const soldCount = await prisma.directTicket.count({
+    where: { eventId, status: { in: ['CONFIRMED', 'REDEEMED'] } },
+  });
+  const demandRatio = totalCapacity > 0 ? soldCount / totalCapacity : 0;
+  const sigmoid = 1 / (1 + Math.exp(-10 * (demandRatio - 0.6)));
+  const fee = PROCESSING_FEE_MIN_CENTS + sigmoid * (PROCESSING_FEE_MAX_CENTS - PROCESSING_FEE_MIN_CENTS);
+  return Math.round(fee);
+}
 
 export class EventService {
-  constructor(private prisma: PrismaClient) {}
+  constructor(
+    private prisma: PrismaClient,
+    private pos?: POSClient,
+  ) {}
 
   async create(artistId: string, data: {
     title: string;
@@ -46,6 +74,9 @@ export class EventService {
         scheduledDrawTime: drawTime,
       },
     });
+
+    // Schedule pre-event automated ticket purchase (runs 24h before show)
+    await schedulePreEventTicketPurchase(event.id, event.date);
 
     return this.getById(event.id) as Promise<EventDetail>;
   }
@@ -135,6 +166,7 @@ export class EventService {
     const availableTickets = await this.prisma.poolTicket.count({
       where: { eventId: id, status: 'AVAILABLE' },
     });
+    const currentProcessingFeeCents = await calculateDynamicFee(this.prisma, id, event.totalTickets);
 
     return {
       id: event.id,
@@ -152,6 +184,7 @@ export class EventService {
       venueLat: event.venueLat,
       venueLng: event.venueLng,
       localRadiusKm: event.localRadiusKm,
+      currentProcessingFeeCents,
       rafflePools: event.rafflePools.map((p) => ({
         id: p.id,
         tierCents: p.tierCents,
@@ -161,6 +194,58 @@ export class EventService {
         drawTime: p.scheduledDrawTime?.toISOString() ?? null,
       })),
     };
+  }
+
+  /**
+   * When an event sells out, pay surplus donation funds to the artist
+   * minus the platform fee (2.5%).
+   */
+  async processSurplusPayout(eventId: string): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: { artist: true },
+    });
+    if (!event) return;
+
+    // Total confirmed donation funds
+    const supportTickets = await this.prisma.supportTicket.findMany({
+      where: { eventId, confirmed: true },
+    });
+    const totalDonationFunds = supportTickets.reduce((sum, st) => sum + st.totalAmountCents, 0);
+
+    // Tickets bought from the pool (each costs ticketPriceCents)
+    const poolTicketCount = await this.prisma.poolTicket.count({
+      where: { eventId },
+    });
+    const fundsUsedForTickets = poolTicketCount * event.ticketPriceCents;
+    const surplusCents = totalDonationFunds - fundsUsedForTickets;
+
+    if (surplusCents <= 0) return;
+    if (!event.artist.stripeAccountId) return;
+    if (!this.pos) return;
+
+    const artistPayoutCents = Math.floor(surplusCents * (1 - PLATFORM_FEE_PERCENT));
+
+    await this.pos.payoutToArtist(artistPayoutCents, event.artist.stripeAccountId, eventId);
+
+    await this.prisma.transaction.create({
+      data: {
+        userId: event.artist.userId,
+        type: 'ARTIST_PAYOUT',
+        amountCents: artistPayoutCents,
+        posReference: eventId,
+        status: 'completed',
+      },
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        userId: event.artist.userId,
+        title: 'Surplus Payout',
+        body: `Your event "${event.title}" sold out! You received a surplus payout of $${(artistPayoutCents / 100).toFixed(2)}.`,
+        metadata: { eventId, payoutCents: artistPayoutCents },
+      },
+    });
   }
 
   private toSummary(event: any): EventSummary {
