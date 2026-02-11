@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useInView } from '../hooks/useInView.js';
+import { useCountUp } from '../hooks/useCountUp.js';
 
 /* -------------------------------------------------------
    Mock Data (replace with API calls later)
@@ -136,6 +138,84 @@ const TESTIMONIALS = [
   },
 ];
 
+const FAQ_ITEMS = [
+  {
+    q: 'How does the $5 raffle work?',
+    a: 'Local fans enter a $5 raffle for tickets purchased by supporters worldwide. Winners are selected by a cryptographically fair algorithm that anyone can verify. If you don\'t win, your $5 is refunded — you never lose money.',
+  },
+  {
+    q: 'What happens if I buy a support ticket but can\'t attend?',
+    a: 'That\'s the whole idea! Support tickets are purchased by fans who want to back an artist financially. Your ticket enters the local raffle pool so a nearby fan can experience the show live. You get the satisfaction of supporting the music you love.',
+  },
+  {
+    q: 'How do you prevent bots and scalpers?',
+    a: 'We use geo-verification to ensure raffle entries come from real people in the event\'s area. Combined with our $5 entry fee and cryptographic draw, there\'s no economic incentive for bots or scalpers to participate.',
+  },
+  {
+    q: 'Is the draw really fair?',
+    a: 'Yes — provably so. We publish a hashed commitment before entries close, then reveal the seed afterward. Anyone can run the algorithm themselves to verify the result. It\'s the same concept used in blockchain and online gaming fairness proofs.',
+  },
+  {
+    q: 'How do artists get paid?',
+    a: '100% of support ticket revenue goes directly to the artist via Stripe. MiraCulture takes a small service fee from the $5 raffle entries only. Artists set their own face-value prices and control their event listings.',
+  },
+];
+
+/* -------------------------------------------------------
+   FAQ Accordion Item
+   ------------------------------------------------------- */
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        className="faq-trigger"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        <span>{q}</span>
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+      <div
+        className="faq-panel"
+        style={{ maxHeight: open ? '200px' : '0', opacity: open ? 1 : 0 }}
+      >
+        <p className="font-body text-gray-500 text-sm leading-relaxed py-4 pr-8">
+          {a}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------
+   Animated Stat Number
+   ------------------------------------------------------- */
+function StatValue({ raw, inView }: { raw: string; inView: boolean }) {
+  // Parse the numeric part and preserve prefix/suffix
+  const match = raw.match(/^([^0-9]*)([0-9,]+)(.*)$/);
+  if (!match) return <>{raw}</>;
+
+  const prefix = match[1];
+  const numStr = match[2].replace(/,/g, '');
+  const suffix = match[3];
+  const num = parseInt(numStr, 10);
+  const animated = useCountUp(num, inView);
+
+  // Format with commas
+  const formatted = animated.toLocaleString();
+
+  return (
+    <>
+      {prefix}
+      {formatted}
+      {suffix}
+    </>
+  );
+}
+
 /* -------------------------------------------------------
    Reusable Section Wrapper with scroll-in animation
    ------------------------------------------------------- */
@@ -173,6 +253,63 @@ function TickerItem({ text, status }: { text: string; status: keyof typeof STATU
       <span>{text}</span>
       <span className="text-gray-600 text-[10px]">{cfg.label}</span>
     </span>
+  );
+}
+
+/* -------------------------------------------------------
+   Back-to-Top Button
+   ------------------------------------------------------- */
+function BackToTop() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 600);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return (
+    <button
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      className={`back-to-top transition-opacity duration-300 ${
+        visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}
+      aria-label="Back to top"
+    >
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+      </svg>
+    </button>
+  );
+}
+
+/* -------------------------------------------------------
+   Stats Bar — animated counters triggered on scroll
+   ------------------------------------------------------- */
+function StatsBar() {
+  const { ref, inView } = useInView(0.3);
+  return (
+    <section
+      ref={ref}
+      className={`bg-noir-900 border-y border-noir-800/40 transition-all duration-700 ease-out ${
+        inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      }`}
+    >
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          {STATS.map((s) => (
+            <div key={s.label} className="group">
+              <div className="font-display text-3xl md:text-4xl text-amber-500 mb-1 glow-text transition-all duration-300 group-hover:scale-105">
+                <StatValue raw={s.value} inView={inView} />
+              </div>
+              <div className="font-body text-xs tracking-widest uppercase text-gray-500">
+                {s.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -318,22 +455,7 @@ export default function HomePage() {
       </section>
 
       {/* ===== 2. SOCIAL PROOF STATS BAR ===== */}
-      <Section className="bg-noir-900 border-y border-noir-800/40">
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {STATS.map((s) => (
-              <div key={s.label} className="group">
-                <div className="font-display text-3xl md:text-4xl text-amber-500 mb-1 glow-text transition-all duration-300 group-hover:scale-105">
-                  {s.value}
-                </div>
-                <div className="font-body text-xs tracking-widest uppercase text-gray-500">
-                  {s.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Section>
+      <StatsBar />
 
       <hr className="section-divider" />
 
@@ -376,10 +498,11 @@ export default function HomePage() {
               />
             ))}
 
-            {STEPS.map((step) => (
+            {STEPS.map((step, i) => (
               <div
                 key={step.num}
-                className="card-hover relative bg-noir-900 border border-noir-800 rounded-xl p-6 group"
+                className="card-hover relative bg-noir-900 border border-noir-800 rounded-xl p-6 group animate-fade-in-up"
+                style={{ animationDelay: `${i * 120}ms` }}
               >
                 {/* Numbered circle */}
                 <div className="w-12 h-12 rounded-full border-2 border-amber-500/40 flex items-center justify-center mb-5 mx-auto md:mx-0 relative z-10 bg-noir-900 group-hover:border-amber-500 group-hover:bg-amber-500/10 transition-all duration-300">
@@ -430,7 +553,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="flex gap-6 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:overflow-visible md:pb-0 snap-x snap-mandatory -mx-6 px-6 md:mx-0 md:px-0">
+          <div className="flex gap-6 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:overflow-visible md:pb-0 snap-x snap-mandatory -mx-6 px-6 md:mx-0 md:px-0 hide-scrollbar">
             {FEATURED_EVENTS.map((ev) => (
               <div
                 key={ev.artist}
@@ -643,10 +766,11 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t) => (
+            {TESTIMONIALS.map((t, i) => (
               <div
                 key={t.name}
-                className="card-hover bg-noir-900 border border-noir-800 rounded-lg p-6 flex flex-col"
+                className="card-hover bg-noir-900 border border-noir-800 rounded-lg p-6 flex flex-col animate-fade-in-up"
+                style={{ animationDelay: `${i * 150}ms` }}
               >
                 {/* Quote mark */}
                 <span className="font-display text-5xl text-amber-500/20 leading-none select-none">
@@ -671,6 +795,28 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      <hr className="section-divider" />
+
+      {/* ===== 6b. FAQ ===== */}
+      <Section className="py-24 px-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
+              QUESTIONS
+            </p>
+            <h2 className="font-display text-4xl md:text-5xl tracking-widest text-warm-50">
+              FAQ
+            </h2>
+          </div>
+
+          <div>
+            {FAQ_ITEMS.map((item) => (
+              <FaqItem key={item.q} q={item.q} a={item.a} />
             ))}
           </div>
         </div>
@@ -887,6 +1033,33 @@ export default function HomePage() {
             </Link>
           </p>
 
+          {/* Newsletter capture */}
+          <div className="mt-14 max-w-md mx-auto">
+            <p className="font-body text-gray-500 text-xs tracking-widest uppercase mb-3">
+              Stay in the loop
+            </p>
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="flex gap-2"
+            >
+              <input
+                type="email"
+                placeholder="your@email.com"
+                aria-label="Email address"
+                className="flex-1 px-4 py-2.5 bg-noir-900 border border-noir-700 rounded-sm text-sm font-body text-gray-200 placeholder:text-gray-600 focus:border-amber-500/50 focus:outline-none transition-colors duration-200"
+              />
+              <button
+                type="submit"
+                className="btn-amber px-5 py-2.5 text-sm whitespace-nowrap"
+              >
+                Notify Me
+              </button>
+            </form>
+            <p className="font-body text-gray-700 text-xs mt-2">
+              No spam. Unsubscribe anytime.
+            </p>
+          </div>
+
           {/* Decorative bottom element */}
           <div className="mt-16 flex items-center justify-center gap-3">
             <div className="h-px w-20 bg-gradient-to-r from-transparent to-amber-500/20" />
@@ -895,6 +1068,9 @@ export default function HomePage() {
           </div>
         </div>
       </Section>
+
+      {/* Back-to-top button */}
+      <BackToTop />
     </div>
   );
 }

@@ -46,6 +46,11 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col relative">
+      {/* Skip-to-content accessibility link */}
+      <a href="#main-content" className="skip-to-content">
+        Skip to content
+      </a>
+
       {/* Film grain overlay */}
       <div className="grain" aria-hidden="true" />
 
@@ -212,7 +217,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       )}
 
       {/* Main content */}
-      <main className="flex-1">{children}</main>
+      <main id="main-content" className="flex-1">{children}</main>
 
       {/* Footer */}
       <footer className="relative border-t border-noir-800/40">
