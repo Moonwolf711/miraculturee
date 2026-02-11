@@ -138,7 +138,10 @@ export default function Layout({ children }: { children: ReactNode }) {
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-body" aria-label="Main navigation">
             <Link to="/events" className="nav-link">
-              Events
+              Shows
+            </Link>
+            <Link to="/events?type=FESTIVAL" className="nav-link">
+              Festivals
             </Link>
             <a href="/#how-it-works" className={`nav-link ${activeSection === 'how-it-works' ? 'nav-link-active' : ''}`}>
               How It Works
@@ -211,7 +214,14 @@ export default function Layout({ children }: { children: ReactNode }) {
               onClick={closeMobile}
               className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
             >
-              Events
+              Shows
+            </Link>
+            <Link
+              to="/events?type=FESTIVAL"
+              onClick={closeMobile}
+              className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
+            >
+              Festivals
             </Link>
             <a
               href="/#how-it-works"
@@ -309,7 +319,12 @@ export default function Layout({ children }: { children: ReactNode }) {
               <ul className="space-y-2">
                 <li>
                   <Link to="/events" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
-                    Browse Events
+                    Browse Shows
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/events?type=FESTIVAL" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
+                    Festivals
                   </Link>
                 </li>
                 <li>

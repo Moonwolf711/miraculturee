@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useWebSocket, usePollingFallback } from '../hooks/useWebSocket.js';
 import type { WSMessage } from '../lib/ws.js';
 import SEO, { getBreadcrumbSchema } from '../components/SEO.js';
 import { CardSkeleton, InlineError } from '../components/LoadingStates.js';
+
+type EventTypeFilter = 'SHOW' | 'FESTIVAL';
 
 interface EventSummary {
   id: string;
@@ -16,6 +18,7 @@ interface EventSummary {
   ticketPriceCents: number;
   totalTickets: number;
   supportedTickets: number;
+  type: EventTypeFilter;
 }
 
 interface PaginatedEvents {
@@ -26,17 +29,23 @@ interface PaginatedEvents {
 }
 
 export default function EventsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('type') === 'FESTIVAL' ? 'FESTIVAL' : 'SHOW';
+  const [activeTab, setActiveTab] = useState<EventTypeFilter>(initialTab as EventTypeFilter);
   const [events, setEvents] = useState<PaginatedEvents | null>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const loadEvents = useCallback(async (city?: string) => {
+  const loadEvents = useCallback(async (city?: string, type?: EventTypeFilter) => {
     setLoading(true);
     setFetchError(null);
     try {
-      const params = city ? `?city=${encodeURIComponent(city)}` : '';
-      const data = await api.get<PaginatedEvents>(`/events${params}`);
+      const qp = new URLSearchParams();
+      if (city) qp.set('city', city);
+      if (type) qp.set('type', type);
+      const qs = qp.toString();
+      const data = await api.get<PaginatedEvents>(`/events${qs ? `?${qs}` : ''}`);
       setEvents(data);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load events.';
@@ -47,8 +56,13 @@ export default function EventsPage() {
   }, []);
 
   useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
+    loadEvents(search || undefined, activeTab);
+  }, [loadEvents, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleTabChange = (tab: EventTypeFilter) => {
+    setActiveTab(tab);
+    setSearchParams(tab === 'SHOW' ? {} : { type: tab });
+  };
 
   /* ---------- WebSocket real-time ticket count updates ---------- */
   const handleWSMessage = useCallback(
@@ -79,14 +93,14 @@ export default function EventsPage() {
   // Polling fallback — refresh events every 30s if WS is disconnected
   usePollingFallback(
     () => {
-      loadEvents(search || undefined);
+      loadEvents(search || undefined, activeTab);
     },
     30_000,
   );
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    loadEvents(search || undefined);
+    loadEvents(search || undefined, activeTab);
   };
 
   const formatDate = (iso: string) =>
@@ -108,25 +122,55 @@ export default function EventsPage() {
   return (
     <div className="bg-noir-950 min-h-screen">
       <SEO
-        title="Upcoming Shows"
-        description="Browse upcoming live music events on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan."
+        title={activeTab === 'FESTIVAL' ? 'Upcoming Festivals' : 'Upcoming Shows'}
+        description={activeTab === 'FESTIVAL'
+          ? 'Browse upcoming EDM festivals on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan.'
+          : 'Browse upcoming live music events on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan.'}
         type="website"
         jsonLd={getBreadcrumbSchema([
           { name: 'Home', url: 'https://miraculturee.com/' },
-          { name: 'Events', url: 'https://miraculturee.com/events' },
+          { name: activeTab === 'FESTIVAL' ? 'Festivals' : 'Events', url: 'https://miraculturee.com/events' },
         ])}
       />
       {/* Page header area */}
       <div className="max-w-5xl mx-auto px-6 pt-16 pb-8">
         {/* Title */}
-        <div className="mb-10">
+        <div className="mb-6">
           <p className="font-display text-xs tracking-[0.4em] text-amber-500/60 mb-2">
             LIVE MUSIC
           </p>
           <h1 className="font-display text-4xl md:text-5xl tracking-wider text-warm-50">
-            UPCOMING SHOWS
+            {activeTab === 'FESTIVAL' ? 'UPCOMING FESTIVALS' : 'UPCOMING SHOWS'}
           </h1>
           <div className="mt-4 h-px w-24 bg-gradient-to-r from-amber-500/50 to-transparent" aria-hidden="true" />
+        </div>
+
+        {/* Shows / Festivals tabs */}
+        <div className="flex gap-1 mb-8 border-b border-noir-700" role="tablist" aria-label="Event type">
+          <button
+            role="tab"
+            aria-selected={activeTab === 'SHOW'}
+            onClick={() => handleTabChange('SHOW')}
+            className={`px-5 py-3 font-body text-sm tracking-wide uppercase transition-all duration-300 border-b-2 -mb-px ${
+              activeTab === 'SHOW'
+                ? 'border-amber-500 text-amber-400'
+                : 'border-transparent text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            Shows
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'FESTIVAL'}
+            onClick={() => handleTabChange('FESTIVAL')}
+            className={`px-5 py-3 font-body text-sm tracking-wide uppercase transition-all duration-300 border-b-2 -mb-px ${
+              activeTab === 'FESTIVAL'
+                ? 'border-amber-500 text-amber-400'
+                : 'border-transparent text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            Festivals
+          </button>
         </div>
 
         {/* Search bar */}
@@ -196,18 +240,18 @@ export default function EventsPage() {
               </svg>
             </div>
             <h2 className="font-display text-2xl tracking-wider text-gray-500 mb-2">
-              NO UPCOMING SHOWS
+              {activeTab === 'FESTIVAL' ? 'NO UPCOMING FESTIVALS' : 'NO UPCOMING SHOWS'}
             </h2>
             <p className="font-body text-gray-400 text-sm mb-6">
               {search
-                ? `No events found matching "${search}". Try a different city.`
-                : 'Check back soon for new events.'}
+                ? `No ${activeTab === 'FESTIVAL' ? 'festivals' : 'shows'} found matching "${search}". Try a different city.`
+                : `Check back soon for new ${activeTab === 'FESTIVAL' ? 'festivals' : 'events'}.`}
             </p>
             {search && (
               <button
                 onClick={() => {
                   setSearch('');
-                  loadEvents();
+                  loadEvents(undefined, activeTab);
                 }}
                 className="px-5 py-2 border border-noir-700 text-gray-400 hover:text-gray-300 hover:border-noir-600 font-medium rounded-lg transition-colors text-sm"
               >
@@ -301,7 +345,7 @@ export default function EventsPage() {
           <div className="mt-8 text-center">
             <p className="font-body text-gray-400 text-sm">
               Page {events.page} of {events.totalPages} &middot;{' '}
-              {events.total} total shows
+              {events.total} total {activeTab === 'FESTIVAL' ? 'festivals' : 'shows'}
             </p>
           </div>
         )}

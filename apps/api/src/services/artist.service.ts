@@ -50,6 +50,7 @@ export class ArtistService {
         ticketPriceCents: e.ticketPriceCents,
         totalTickets: e.totalTickets,
         supportedTickets: e.supportTickets.reduce((s, t) => s + t.ticketCount, 0),
+        type: e.type,
         status: e.status,
       }));
 

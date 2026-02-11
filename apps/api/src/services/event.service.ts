@@ -84,6 +84,7 @@ export class EventService {
   async search(params: {
     city?: string;
     artistName?: string;
+    type?: string;
     page: number;
     limit: number;
   }): Promise<PaginatedResponse<EventSummary>> {
@@ -92,6 +93,9 @@ export class EventService {
       date: { gte: new Date() },
     };
 
+    if (params.type) {
+      where.type = params.type as any;
+    }
     if (params.city) {
       where.venueCity = { contains: params.city, mode: 'insensitive' };
     }
@@ -178,6 +182,7 @@ export class EventService {
       ticketPriceCents: event.ticketPriceCents,
       totalTickets: event.totalTickets,
       supportedTickets,
+      type: event.type,
       status: event.status,
       description: event.description,
       venueAddress: event.venueAddress,
@@ -263,6 +268,7 @@ export class EventService {
       ticketPriceCents: event.ticketPriceCents,
       totalTickets: event.totalTickets,
       supportedTickets,
+      type: event.type,
       status: event.status,
     };
   }

@@ -84,6 +84,62 @@ const VENUE_COORDS: Record<string, { lat: number; lng: number; city: string }> =
   'Temple Denver': { lat: 39.7508, lng: -104.9994, city: 'Denver, CO' },
   'Fillmore Auditorium': { lat: 39.7484, lng: -104.9750, city: 'Denver, CO' },
   'ReelWorks Denver': { lat: 39.7571, lng: -104.9860, city: 'Denver, CO' },
+  // Atlanta
+  'Believe Music Hall': { lat: 33.8486, lng: -84.3733, city: 'Atlanta, GA' },
+  'Ravine Atlanta': { lat: 33.7756, lng: -84.3717, city: 'Atlanta, GA' },
+  'District Atlanta': { lat: 33.7599, lng: -84.4122, city: 'Atlanta, GA' },
+  'Tabernacle Atlanta': { lat: 33.7588, lng: -84.3916, city: 'Atlanta, GA' },
+  'Aisle 5': { lat: 33.7480, lng: -84.3541, city: 'Atlanta, GA' },
+  'Terminal West': { lat: 33.8035, lng: -84.4127, city: 'Atlanta, GA' },
+  'The Eastern': { lat: 33.7550, lng: -84.3579, city: 'Atlanta, GA' },
+  // San Francisco
+  'The Midway': { lat: 37.7468, lng: -122.3965, city: 'San Francisco, CA' },
+  'Public Works': { lat: 37.7651, lng: -122.4166, city: 'San Francisco, CA' },
+  'Audio SF': { lat: 37.7678, lng: -122.4105, city: 'San Francisco, CA' },
+  'The Great Northern': { lat: 37.7683, lng: -122.4178, city: 'San Francisco, CA' },
+  'Bill Graham Civic Auditorium': { lat: 37.7784, lng: -122.4176, city: 'San Francisco, CA' },
+  'Halcyon SF': { lat: 37.7695, lng: -122.4118, city: 'San Francisco, CA' },
+  '1015 Folsom': { lat: 37.7776, lng: -122.4048, city: 'San Francisco, CA' },
+  'The Regency Ballroom': { lat: 37.7872, lng: -122.4211, city: 'San Francisco, CA' },
+  // Austin
+  'Kingdom Austin': { lat: 30.2656, lng: -97.7358, city: 'Austin, TX' },
+  'Concourse Project': { lat: 30.2370, lng: -97.7095, city: 'Austin, TX' },
+  'Cedar Street Courtyard': { lat: 30.2682, lng: -97.7421, city: 'Austin, TX' },
+  'Emo\'s Austin': { lat: 30.2635, lng: -97.7319, city: 'Austin, TX' },
+  'Stubb\'s BBQ Waller Creek Amphitheater': { lat: 30.2685, lng: -97.7350, city: 'Austin, TX' },
+  // Las Vegas
+  'Zouk Nightclub': { lat: 36.1268, lng: -115.1686, city: 'Las Vegas, NV' },
+  'XS Nightclub': { lat: 36.1267, lng: -115.1666, city: 'Las Vegas, NV' },
+  'Hakkasan': { lat: 36.1024, lng: -115.1728, city: 'Las Vegas, NV' },
+  'Omnia': { lat: 36.1162, lng: -115.1742, city: 'Las Vegas, NV' },
+  'Marquee Las Vegas': { lat: 36.1058, lng: -115.1730, city: 'Las Vegas, NV' },
+  'EDC Las Vegas Motor Speedway': { lat: 36.2722, lng: -115.0107, city: 'Las Vegas, NV' },
+  'Illenium at Resorts World': { lat: 36.1268, lng: -115.1686, city: 'Las Vegas, NV' },
+  // Detroit
+  'Magic Stick': { lat: 42.3469, lng: -83.0563, city: 'Detroit, MI' },
+  'TV Lounge': { lat: 42.3315, lng: -83.0779, city: 'Detroit, MI' },
+  'Spot Lite': { lat: 42.3348, lng: -83.0593, city: 'Detroit, MI' },
+  'The Masonic Temple': { lat: 42.3379, lng: -83.0575, city: 'Detroit, MI' },
+  'Marble Bar': { lat: 42.3358, lng: -83.0604, city: 'Detroit, MI' },
+  'Leland City Club': { lat: 42.3460, lng: -83.0557, city: 'Detroit, MI' },
+  // Seattle
+  'Showbox SoDo': { lat: 47.5818, lng: -122.3338, city: 'Seattle, WA' },
+  'Kremwerk': { lat: 47.6145, lng: -122.3375, city: 'Seattle, WA' },
+  'Monkey Loft': { lat: 47.5811, lng: -122.3437, city: 'Seattle, WA' },
+  'Neumos': { lat: 47.6148, lng: -122.3211, city: 'Seattle, WA' },
+  'The Showbox': { lat: 47.6083, lng: -122.3402, city: 'Seattle, WA' },
+  'Neptune Theatre': { lat: 47.6617, lng: -122.3141, city: 'Seattle, WA' },
+  // DC
+  'Echostage': { lat: 38.9207, lng: -76.9728, city: 'Washington, DC' },
+  'Soundcheck': { lat: 38.9198, lng: -76.9739, city: 'Washington, DC' },
+  'Flash DC': { lat: 38.9138, lng: -77.0229, city: 'Washington, DC' },
+  'The Anthem': { lat: 38.8782, lng: -77.0233, city: 'Washington, DC' },
+  '9:30 Club': { lat: 38.9179, lng: -77.0238, city: 'Washington, DC' },
+  // Philadelphia
+  'NOTO': { lat: 39.9624, lng: -75.1623, city: 'Philadelphia, PA' },
+  'The Brooklyn Bowl Philadelphia': { lat: 39.9512, lng: -75.1367, city: 'Philadelphia, PA' },
+  'Franklin Music Hall': { lat: 39.9639, lng: -75.1356, city: 'Philadelphia, PA' },
+  'The Fillmore Philadelphia': { lat: 39.9644, lng: -75.1318, city: 'Philadelphia, PA' },
 };
 
 // Parsed events from EDM Train scrape
@@ -93,12 +149,13 @@ interface RawEvent {
   city: string;
   date: string;
   ageRestriction?: string;
+  type?: 'SHOW' | 'FESTIVAL';
 }
 
 function parseEvents(): RawEvent[] {
   const events: RawEvent[] = [
     // === NEW YORK CITY ===
-    { artists: 'Spring Festival - Lunar New Year: Porter Robinson, Wavedash, Hoodini, Jokah, Gianni Glo', venue: 'Brooklyn Hangar', city: 'Brooklyn, NY', date: '2026-02-14' },
+    { artists: 'Spring Festival - Lunar New Year: Porter Robinson, Wavedash, Hoodini, Jokah, Gianni Glo', venue: 'Brooklyn Hangar', city: 'Brooklyn, NY', date: '2026-02-14', type: 'FESTIVAL' },
     { artists: 'VAVO', venue: 'Marquee', city: 'New York, NY', date: '2026-02-06', ageRestriction: '21+' },
     { artists: 'CID', venue: '99 Scott', city: 'Brooklyn, NY', date: '2026-04-25', ageRestriction: '21+' },
     { artists: 'Wilkinson, Yetti, Johnny Mahon, Nate Band', venue: 'Elsewhere', city: 'Brooklyn, NY', date: '2026-02-06', ageRestriction: '21+' },
@@ -118,7 +175,7 @@ function parseEvents(): RawEvent[] {
     { artists: 'Horse Meat Disco, The Illustrious Blacks, Dangerous Rose', venue: 'Knockdown Center', city: 'Queens, NY', date: '2026-02-14', ageRestriction: '21+' },
     { artists: 'Boys Noize, Juliana Huxtable, Katie Rex, ISAbella', venue: 'BASEMENT NY', city: 'Queens, NY', date: '2026-02-14' },
     { artists: 'Madeon', venue: 'Marquee', city: 'New York, NY', date: '2026-02-14', ageRestriction: '21+' },
-    { artists: 'Spring Festival: Alan Walker, Mike Posner, KUPYD, Cyberpunk', venue: 'Brooklyn Hangar', city: 'Brooklyn, NY', date: '2026-02-15', ageRestriction: '21+' },
+    { artists: 'Spring Festival: Alan Walker, Mike Posner, KUPYD, Cyberpunk', venue: 'Brooklyn Hangar', city: 'Brooklyn, NY', date: '2026-02-15', ageRestriction: '21+', type: 'FESTIVAL' },
     { artists: 'Louie Vega, Lisa Fischer', venue: 'Blue Note Jazz Club', city: 'New York, NY', date: '2026-02-19' },
     { artists: 'Sonny Fodera', venue: 'Victory Hall Outdoors', city: 'Brooklyn, NY', date: '2026-06-05' },
     { artists: 'Romare', venue: 'Public Records', city: 'Brooklyn, NY', date: '2026-02-12', ageRestriction: '21+' },
@@ -149,8 +206,8 @@ function parseEvents(): RawEvent[] {
     { artists: 'Gareth Emery', venue: 'Avalon Hollywood', city: 'Los Angeles, CA', date: '2026-03-14', ageRestriction: '21+' },
     { artists: 'Sven Väth World Tour', venue: 'Lot 613', city: 'Los Angeles, CA', date: '2026-03-07' },
     // === CHICAGO ===
-    { artists: 'North Coast Music Festival: GRiZ, Ganja White Night, Fisher, SLANDER', venue: 'SeatGeek Stadium', city: 'Bridgeview, IL', date: '2026-09-04' },
-    { artists: 'Beyond Wonderland Chicago: Marshmello, James Hype, Alan Walker, Dombresky', venue: 'Huntington Bank Pavilion', city: 'Chicago, IL', date: '2026-06-06', ageRestriction: '18+' },
+    { artists: 'North Coast Music Festival: GRiZ, Ganja White Night, Fisher, SLANDER', venue: 'SeatGeek Stadium', city: 'Bridgeview, IL', date: '2026-09-04', type: 'FESTIVAL' },
+    { artists: 'Beyond Wonderland Chicago: Marshmello, James Hype, Alan Walker, Dombresky', venue: 'Huntington Bank Pavilion', city: 'Chicago, IL', date: '2026-06-06', ageRestriction: '18+', type: 'FESTIVAL' },
     { artists: 'AR/CO', venue: 'Sound Bar Chicago', city: 'Chicago, IL', date: '2026-02-06', ageRestriction: '21+' },
     { artists: 'KUKO, Fatima Hajji, Aiden, hhunter', venue: 'Cermak Hall at Radius', city: 'Chicago, IL', date: '2026-02-06', ageRestriction: '18+' },
     { artists: 'The Blessed Madonna, Harry Cross', venue: 'Smartbar', city: 'Chicago, IL', date: '2026-02-06' },
@@ -171,9 +228,9 @@ function parseEvents(): RawEvent[] {
     { artists: 'CamelPhat', venue: 'The Salt Shed', city: 'Chicago, IL', date: '2026-04-17' },
     { artists: 'INZO, Truth, Late Night Radio, Blookah', venue: 'Radius', city: 'Chicago, IL', date: '2026-03-13', ageRestriction: '18+' },
     // === MIAMI ===
-    { artists: 'We Belong Here: Lane 8, Chris Lake, Tiësto, Kaskade, Gorgon City', venue: 'Virginia Key Beach Park', city: 'Miami, FL', date: '2026-02-27', ageRestriction: '21+' },
-    { artists: 'Deadbeats 10th Anniversary: Zeds Dead', venue: 'Mana Wynwood Convention Center', city: 'Miami, FL', date: '2026-03-26' },
-    { artists: 'Brownies & Lemonade MMW', venue: 'Mana Wynwood Convention Center', city: 'Miami, FL', date: '2026-03-27' },
+    { artists: 'We Belong Here: Lane 8, Chris Lake, Tiësto, Kaskade, Gorgon City', venue: 'Virginia Key Beach Park', city: 'Miami, FL', date: '2026-02-27', ageRestriction: '21+', type: 'FESTIVAL' },
+    { artists: 'Deadbeats 10th Anniversary: Zeds Dead', venue: 'Mana Wynwood Convention Center', city: 'Miami, FL', date: '2026-03-26', type: 'FESTIVAL' },
+    { artists: 'Brownies & Lemonade MMW', venue: 'Mana Wynwood Convention Center', city: 'Miami, FL', date: '2026-03-27', type: 'FESTIVAL' },
     { artists: 'Max Styler, Tiga, Azzecca, Bakke, Will Buck, Layla Benitez', venue: 'Club Space', city: 'Miami, FL', date: '2026-02-06', ageRestriction: '21+' },
     { artists: 'Sonny Fodera', venue: 'LIV Miami', city: 'Miami Beach, FL', date: '2026-02-07' },
     { artists: 'Rony Seikaly, Rafael, Yamagucci, Daizy, Siegel', venue: 'Club Space', city: 'Miami, FL', date: '2026-02-07', ageRestriction: '21+' },
@@ -212,6 +269,98 @@ function parseEvents(): RawEvent[] {
     { artists: 'Monolink, Parallelle', venue: 'Summit Music Hall Denver', city: 'Denver, CO', date: '2026-02-24' },
     { artists: 'Disco Lines', venue: 'Farrand Field', city: 'Denver, CO', date: '2026-04-17' },
     { artists: 'Jeremy Olander', venue: 'Club Vinyl', city: 'Denver, CO', date: '2026-05-15', ageRestriction: '21+' },
+    // === ATLANTA ===
+    { artists: 'Excision: Nexus Tour', venue: 'Tabernacle Atlanta', city: 'Atlanta, GA', date: '2026-02-14', ageRestriction: '18+' },
+    { artists: 'Subtronics, Boogie T, Level Up', venue: 'Tabernacle Atlanta', city: 'Atlanta, GA', date: '2026-02-21', ageRestriction: '18+' },
+    { artists: 'John Summit', venue: 'District Atlanta', city: 'Atlanta, GA', date: '2026-02-20', ageRestriction: '21+' },
+    { artists: 'REZZ, i_o', venue: 'Believe Music Hall', city: 'Atlanta, GA', date: '2026-02-13', ageRestriction: '18+' },
+    { artists: 'Dom Dolla, Nora En Pure', venue: 'The Eastern', city: 'Atlanta, GA', date: '2026-02-27' },
+    { artists: 'Vintage Culture, Solardo', venue: 'Ravine Atlanta', city: 'Atlanta, GA', date: '2026-02-28', ageRestriction: '21+' },
+    { artists: 'Knock2, ISOxo, Hamdi', venue: 'Believe Music Hall', city: 'Atlanta, GA', date: '2026-03-06', ageRestriction: '18+' },
+    { artists: 'Lane 8, Yotto, Ben Böhmer', venue: 'Terminal West', city: 'Atlanta, GA', date: '2026-03-07' },
+    { artists: 'GRiZ', venue: 'Tabernacle Atlanta', city: 'Atlanta, GA', date: '2026-03-13', ageRestriction: '18+' },
+    { artists: 'Clozee, CloZinger, Of The Trees', venue: 'Aisle 5', city: 'Atlanta, GA', date: '2026-03-14' },
+    { artists: 'Charlotte de Witte, Amelie Lens', venue: 'District Atlanta', city: 'Atlanta, GA', date: '2026-03-20', ageRestriction: '21+' },
+    { artists: 'Liquid Stranger, LSDREAM, Mersiv', venue: 'Believe Music Hall', city: 'Atlanta, GA', date: '2026-03-21', ageRestriction: '18+' },
+    // === SAN FRANCISCO ===
+    { artists: 'Fred again.., Skrillex', venue: 'Bill Graham Civic Auditorium', city: 'San Francisco, CA', date: '2026-02-28' },
+    { artists: 'Four Tet, Floating Points', venue: 'The Midway', city: 'San Francisco, CA', date: '2026-02-14' },
+    { artists: 'Bicep, Hammer', venue: 'Bill Graham Civic Auditorium', city: 'San Francisco, CA', date: '2026-02-21' },
+    { artists: 'Mall Grab, DJ Seinfeld, Ross From Friends', venue: 'Public Works', city: 'San Francisco, CA', date: '2026-02-13', ageRestriction: '21+' },
+    { artists: 'Wax Motif, AC Slater, Chris Lorenzo', venue: 'Audio SF', city: 'San Francisco, CA', date: '2026-02-20', ageRestriction: '21+' },
+    { artists: 'Elderbrook', venue: 'The Regency Ballroom', city: 'San Francisco, CA', date: '2026-02-27' },
+    { artists: 'Shiba San, Walker & Royce', venue: 'The Great Northern', city: 'San Francisco, CA', date: '2026-03-06', ageRestriction: '21+' },
+    { artists: 'Disclosure', venue: 'Bill Graham Civic Auditorium', city: 'San Francisco, CA', date: '2026-03-07' },
+    { artists: 'Boris Brejcha', venue: 'The Midway', city: 'San Francisco, CA', date: '2026-03-13' },
+    { artists: 'Gesaffelstein', venue: 'Bill Graham Civic Auditorium', city: 'San Francisco, CA', date: '2026-03-20' },
+    { artists: 'Dixon, Âme', venue: '1015 Folsom', city: 'San Francisco, CA', date: '2026-03-14', ageRestriction: '21+' },
+    { artists: 'Peggy Gou', venue: 'The Midway', city: 'San Francisco, CA', date: '2026-03-21' },
+    // === AUSTIN ===
+    { artists: 'Fisher, Chris Lake', venue: 'Concourse Project', city: 'Austin, TX', date: '2026-02-14', ageRestriction: '18+' },
+    { artists: 'ODESZA', venue: 'Stubb\'s BBQ Waller Creek Amphitheater', city: 'Austin, TX', date: '2026-03-13' },
+    { artists: 'Green Velvet, Claude VonStroke', venue: 'Kingdom Austin', city: 'Austin, TX', date: '2026-02-20', ageRestriction: '21+' },
+    { artists: 'Rufus Du Sol', venue: 'Concourse Project', city: 'Austin, TX', date: '2026-02-28', ageRestriction: '18+' },
+    { artists: 'ZHU', venue: 'Concourse Project', city: 'Austin, TX', date: '2026-03-07', ageRestriction: '18+' },
+    { artists: 'Diplo, DJ Snake', venue: 'Emo\'s Austin', city: 'Austin, TX', date: '2026-03-14' },
+    { artists: 'Tchami, Malaa (No Redemption)', venue: 'Kingdom Austin', city: 'Austin, TX', date: '2026-03-20', ageRestriction: '21+' },
+    { artists: 'Above & Beyond', venue: 'Concourse Project', city: 'Austin, TX', date: '2026-03-21', ageRestriction: '18+' },
+    // === LAS VEGAS ===
+    { artists: 'Tiësto', venue: 'Zouk Nightclub', city: 'Las Vegas, NV', date: '2026-02-14', ageRestriction: '21+' },
+    { artists: 'Calvin Harris', venue: 'XS Nightclub', city: 'Las Vegas, NV', date: '2026-02-15', ageRestriction: '21+' },
+    { artists: 'Steve Aoki', venue: 'Hakkasan', city: 'Las Vegas, NV', date: '2026-02-20', ageRestriction: '21+' },
+    { artists: 'Zedd', venue: 'Omnia', city: 'Las Vegas, NV', date: '2026-02-21', ageRestriction: '21+' },
+    { artists: 'Martin Garrix', venue: 'Omnia', city: 'Las Vegas, NV', date: '2026-02-28', ageRestriction: '21+' },
+    { artists: 'Illenium', venue: 'Zouk Nightclub', city: 'Las Vegas, NV', date: '2026-03-06', ageRestriction: '21+' },
+    { artists: 'Alesso', venue: 'XS Nightclub', city: 'Las Vegas, NV', date: '2026-03-07', ageRestriction: '21+' },
+    { artists: 'David Guetta', venue: 'XS Nightclub', city: 'Las Vegas, NV', date: '2026-03-13', ageRestriction: '21+' },
+    { artists: 'Marshmello', venue: 'Hakkasan', city: 'Las Vegas, NV', date: '2026-03-14', ageRestriction: '21+' },
+    { artists: 'EDC Las Vegas 2026: Kaskade, Alison Wonderland, Seven Lions, Said The Sky', venue: 'EDC Las Vegas Motor Speedway', city: 'Las Vegas, NV', date: '2026-05-15', ageRestriction: '18+', type: 'FESTIVAL' },
+    { artists: 'EDC Las Vegas 2026: Excision, NGHTMRE, Slander, Illenium, Zeds Dead', venue: 'EDC Las Vegas Motor Speedway', city: 'Las Vegas, NV', date: '2026-05-16', ageRestriction: '18+', type: 'FESTIVAL' },
+    { artists: 'EDC Las Vegas 2026: Carl Cox, Eric Prydz, Adam Beyer, Amelie Lens', venue: 'EDC Las Vegas Motor Speedway', city: 'Las Vegas, NV', date: '2026-05-17', ageRestriction: '18+', type: 'FESTIVAL' },
+    // === DETROIT ===
+    { artists: 'Carl Craig, Moodymann, Stacey Pullen', venue: 'TV Lounge', city: 'Detroit, MI', date: '2026-02-13', ageRestriction: '21+' },
+    { artists: 'Jeff Mills', venue: 'Spot Lite', city: 'Detroit, MI', date: '2026-02-14' },
+    { artists: 'Claude VonStroke, Justin Martin', venue: 'Magic Stick', city: 'Detroit, MI', date: '2026-02-20', ageRestriction: '18+' },
+    { artists: 'Nina Kraviz, Ben Klock', venue: 'Marble Bar', city: 'Detroit, MI', date: '2026-02-21', ageRestriction: '21+' },
+    { artists: 'Derrick May, Kevin Saunderson, Juan Atkins', venue: 'The Masonic Temple', city: 'Detroit, MI', date: '2026-02-27' },
+    { artists: 'Seth Troxler, The Black Madonna', venue: 'Leland City Club', city: 'Detroit, MI', date: '2026-02-28', ageRestriction: '21+' },
+    { artists: 'Richie Hawtin, Dubfire', venue: 'TV Lounge', city: 'Detroit, MI', date: '2026-03-06', ageRestriction: '21+' },
+    { artists: 'Movement Festival Preview: Dixon, Maceo Plex, Tale Of Us', venue: 'The Masonic Temple', city: 'Detroit, MI', date: '2026-03-13', type: 'FESTIVAL' },
+    // === SEATTLE ===
+    { artists: 'RÜFÜS DU SOL', venue: 'Showbox SoDo', city: 'Seattle, WA', date: '2026-02-14' },
+    { artists: 'Tokimonsta, Nosaj Thing', venue: 'Neumos', city: 'Seattle, WA', date: '2026-02-20' },
+    { artists: 'Bonobo, Totally Enormous Extinct Dinosaurs', venue: 'The Showbox', city: 'Seattle, WA', date: '2026-02-21' },
+    { artists: 'SG Lewis', venue: 'Neptune Theatre', city: 'Seattle, WA', date: '2026-02-27' },
+    { artists: 'Flume, Toro Y Moi', venue: 'Showbox SoDo', city: 'Seattle, WA', date: '2026-02-28' },
+    { artists: 'Moderat', venue: 'The Showbox', city: 'Seattle, WA', date: '2026-03-06' },
+    { artists: 'Yung Bae, Flamingosis', venue: 'Neumos', city: 'Seattle, WA', date: '2026-03-07' },
+    { artists: 'Deadmau5, Testpilot', venue: 'Showbox SoDo', city: 'Seattle, WA', date: '2026-03-13' },
+    // === WASHINGTON DC ===
+    { artists: 'Excision: Nexus Tour', venue: 'Echostage', city: 'Washington, DC', date: '2026-02-13', ageRestriction: '18+' },
+    { artists: 'Subtronics, G Jones', venue: 'Echostage', city: 'Washington, DC', date: '2026-02-20', ageRestriction: '18+' },
+    { artists: 'FISHER', venue: 'Echostage', city: 'Washington, DC', date: '2026-02-21', ageRestriction: '18+' },
+    { artists: 'Kaskade, Deadmau5 (Kx5)', venue: 'The Anthem', city: 'Washington, DC', date: '2026-02-27' },
+    { artists: 'Jamie xx', venue: '9:30 Club', city: 'Washington, DC', date: '2026-02-28' },
+    { artists: 'Adriatique, Fideles', venue: 'Flash DC', city: 'Washington, DC', date: '2026-03-06', ageRestriction: '21+' },
+    { artists: 'Gorgon City', venue: 'Echostage', city: 'Washington, DC', date: '2026-03-07', ageRestriction: '18+' },
+    { artists: 'Dimension, Culture Shock, Kanine', venue: 'Soundcheck', city: 'Washington, DC', date: '2026-03-13', ageRestriction: '18+' },
+    { artists: 'Eric Prydz (HOLO)', venue: 'Echostage', city: 'Washington, DC', date: '2026-03-14', ageRestriction: '18+' },
+    // === PHILADELPHIA ===
+    { artists: 'Seven Lions, Jason Ross, Trivecta', venue: 'The Fillmore Philadelphia', city: 'Philadelphia, PA', date: '2026-02-14' },
+    { artists: 'SLANDER, Said The Sky', venue: 'Franklin Music Hall', city: 'Philadelphia, PA', date: '2026-02-20' },
+    { artists: 'Alison Wonderland', venue: 'Franklin Music Hall', city: 'Philadelphia, PA', date: '2026-02-21' },
+    { artists: 'Chris Lake', venue: 'NOTO', city: 'Philadelphia, PA', date: '2026-02-27', ageRestriction: '21+' },
+    { artists: 'Odesza', venue: 'The Fillmore Philadelphia', city: 'Philadelphia, PA', date: '2026-02-28' },
+    { artists: 'Ganja White Night, Liquid Stranger', venue: 'Franklin Music Hall', city: 'Philadelphia, PA', date: '2026-03-06' },
+    { artists: 'Armin van Buuren', venue: 'The Fillmore Philadelphia', city: 'Philadelphia, PA', date: '2026-03-07' },
+    { artists: 'Louis The Child, Jai Wolf', venue: 'The Brooklyn Bowl Philadelphia', city: 'Philadelphia, PA', date: '2026-03-13' },
+    // === FESTIVALS (Multi-day) ===
+    { artists: 'Ultra Music Festival 2026: Martin Garrix, Armin van Buuren, Hardwell, Carl Cox', venue: 'Virginia Key Beach Park', city: 'Miami, FL', date: '2026-03-27', ageRestriction: '18+', type: 'FESTIVAL' },
+    { artists: 'Ultra Music Festival 2026: Tiësto, David Guetta, Afrojack, Nicky Romero', venue: 'Virginia Key Beach Park', city: 'Miami, FL', date: '2026-03-28', ageRestriction: '18+', type: 'FESTIVAL' },
+    { artists: 'Ultra Music Festival 2026: Skrillex, Deadmau5, Eric Prydz, Charlotte de Witte', venue: 'Virginia Key Beach Park', city: 'Miami, FL', date: '2026-03-29', ageRestriction: '18+', type: 'FESTIVAL' },
+    { artists: 'Coachella 2026 Weekend 1: ODESZA, Disclosure, Bonobo, Moderat', venue: 'LA State Historic Park', city: 'Los Angeles, CA', date: '2026-04-10', type: 'FESTIVAL' },
+    { artists: 'Electric Forest 2026: GRiZ, Pretty Lights, Bassnectar, STS9', venue: 'The Masonic Temple', city: 'Detroit, MI', date: '2026-06-25', type: 'FESTIVAL' },
+    { artists: 'Lollapalooza 2026: Skrillex, Fred again.., Peggy Gou, John Summit', venue: 'The Salt Shed', city: 'Chicago, IL', date: '2026-07-30', type: 'FESTIVAL' },
   ];
 
   return events;
@@ -240,6 +389,14 @@ function getVenueInfo(venueName: string, cityFallback: string) {
     'Davie, FL': { lat: 26.0629, lng: -80.2331 },
     'Denver, CO': { lat: 39.7392, lng: -104.9903 },
     'Boulder, CO': { lat: 40.0150, lng: -105.2705 },
+    'Atlanta, GA': { lat: 33.7490, lng: -84.3880 },
+    'San Francisco, CA': { lat: 37.7749, lng: -122.4194 },
+    'Austin, TX': { lat: 30.2672, lng: -97.7431 },
+    'Las Vegas, NV': { lat: 36.1699, lng: -115.1398 },
+    'Detroit, MI': { lat: 42.3314, lng: -83.0458 },
+    'Seattle, WA': { lat: 47.6062, lng: -122.3321 },
+    'Washington, DC': { lat: 38.9072, lng: -77.0369 },
+    'Philadelphia, PA': { lat: 39.9526, lng: -75.1652 },
   };
 
   const fallback = cityCoords[cityFallback] || { lat: 40.7128, lng: -74.0060 };
@@ -323,9 +480,14 @@ async function main() {
     const venueInfo = getVenueInfo(evt.venue, evt.city);
     const eventDate = new Date(evt.date + 'T20:00:00Z');
 
-    // Random ticket price between $25-$150
-    const ticketPriceCents = (Math.floor(Math.random() * 26) + 5) * 500; // $25-$150 in $5 increments
-    const totalTickets = Math.floor(Math.random() * 400) + 100; // 100-500 tickets
+    // Ticket price varies by event type: festivals $75-$350, shows $25-$150
+    const isFestival = (evt.type ?? 'SHOW') === 'FESTIVAL';
+    const ticketPriceCents = isFestival
+      ? (Math.floor(Math.random() * 56) + 15) * 500  // $75-$350 in $5 increments
+      : (Math.floor(Math.random() * 26) + 5) * 500;  // $25-$150 in $5 increments
+    const totalTickets = isFestival
+      ? Math.floor(Math.random() * 4000) + 1000  // 1000-5000 for festivals
+      : Math.floor(Math.random() * 400) + 100;   // 100-500 for shows
 
     const eventId = randomUUID();
 
@@ -345,6 +507,7 @@ async function main() {
           ticketPriceCents,
           totalTickets,
           localRadiusKm: 50,
+          type: evt.type ?? 'SHOW',
           status: 'PUBLISHED',
         },
       });

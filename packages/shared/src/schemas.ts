@@ -36,6 +36,7 @@ export const CreateEventSchema = z.object({
 export const EventSearchSchema = z.object({
   city: z.string().optional(),
   artistName: z.string().optional(),
+  type: z.enum(['SHOW', 'FESTIVAL']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });

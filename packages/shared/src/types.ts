@@ -1,4 +1,4 @@
-import type { Role, EventStatus, RaffleStatus, PoolTicketStatus, TransactionType, DirectTicketStatus } from './constants.js';
+import type { Role, EventType, EventStatus, RaffleStatus, PoolTicketStatus, TransactionType, DirectTicketStatus } from './constants.js';
 
 export interface UserPayload {
   id: string;
@@ -29,6 +29,7 @@ export interface EventSummary {
   ticketPriceCents: number;
   totalTickets: number;
   supportedTickets: number;
+  type: EventType;
   status: EventStatus;
 }
 

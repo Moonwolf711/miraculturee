@@ -51,6 +51,11 @@ enum DirectTicketStatus {
   REFUNDED
 }
 
+enum EventType {
+  SHOW
+  FESTIVAL
+}
+
 model User {
   id             String          @id @default(uuid())
   email          String          @unique
@@ -100,6 +105,7 @@ model Event {
   ticketPriceCents Int
   totalTickets     Int
   localRadiusKm    Float       @default(50)
+  type             EventType   @default(SHOW)
   status           EventStatus @default(DRAFT)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt

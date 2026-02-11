@@ -7,6 +7,13 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
+export const EVENT_TYPE = {
+  SHOW: 'SHOW',
+  FESTIVAL: 'FESTIVAL',
+} as const;
+
+export type EventType = (typeof EVENT_TYPE)[keyof typeof EVENT_TYPE];
+
 export const EVENT_STATUS = {
   DRAFT: 'DRAFT',
   PUBLISHED: 'PUBLISHED',
