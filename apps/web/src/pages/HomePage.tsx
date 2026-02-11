@@ -539,6 +539,110 @@ export default function HomePage() {
 
       <hr className="section-divider" />
 
+      {/* ===== 2b. MISSION STATEMENT ===== */}
+      <Section id="our-mission" className="py-24 px-6">
+        <div className="max-w-4xl mx-auto">
+          {/* Section header */}
+          <div className="text-center mb-14">
+            <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
+              WHY WE EXIST
+            </p>
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50">
+              OUR MISSION
+            </h2>
+            <div className="mt-6 flex items-center justify-center gap-3" aria-hidden="true">
+              <div className="h-px w-12 bg-amber-500/30" />
+              <div className="w-1 h-1 rotate-45 bg-amber-500/50" />
+              <div className="h-px w-12 bg-amber-500/30" />
+            </div>
+          </div>
+
+          {/* Mission content */}
+          <div className="space-y-10">
+            {/* Our Belief */}
+            <div>
+              <h3 className="font-display text-lg tracking-widest text-amber-500/80 mb-4">
+                OUR BELIEF
+              </h3>
+              <p className="font-body text-gray-300 text-base leading-relaxed">
+                The opportunity to experience an artist performing their creation is
+                something every person should have — regardless of their financial
+                ability. Music doesn't care about your race, sexuality, or political
+                stance. It brings all walks of life into the same room, sharing the
+                same moment.
+              </p>
+              <p className="font-body text-gray-400 text-base leading-relaxed mt-4">
+                An artist has the power to bring someone from the far right and someone
+                from the far left into the same venue — and in that space, they share
+                an experience and form bonds that can last a lifetime.
+              </p>
+            </div>
+
+            {/* The Problem */}
+            <div>
+              <h3 className="font-display text-lg tracking-widest text-amber-500/80 mb-4">
+                THE PROBLEM
+              </h3>
+              <p className="font-body text-gray-300 text-base leading-relaxed">
+                In today's economy, tickets to the shows and festivals that sell out fastest
+                get scalped — often by the very platforms selling them, operating under
+                different entities or legal structures. We've watched this happen time
+                after time. The people with money buy up access, mark it up, and lock
+                out the fans who need it most.
+              </p>
+              <p className="font-body text-gray-400 text-base leading-relaxed mt-4">
+                The climbing cost of simply <em className="text-gray-300 not-italic">experiencing</em> live
+                music — an experience that can genuinely change someone's life — has gone
+                unchecked for too long.
+              </p>
+            </div>
+
+            {/* Our Answer */}
+            <div>
+              <h3 className="font-display text-lg tracking-widest text-amber-500/80 mb-4">
+                OUR ANSWER
+              </h3>
+              <p className="font-body text-gray-300 text-base leading-relaxed">
+                That's all about to change. If you believe in an artist's vision, their
+                goals, their values, their character — and you have the financial ability
+                to support their project — then let us help you level the playing field.
+              </p>
+              <p className="font-body text-gray-400 text-base leading-relaxed mt-4">
+                MiraCulture is a real Robin Hood act: we call on every altruistically aligned
+                individual to not only stop scalping from happening, but to reverse its damage
+                entirely. Supporters fund tickets so that fans who otherwise couldn't attend
+                can get in for just $5–$10 — not face value, not marked up, just a small
+                processing fee. No bots. No scalpers. No middlemen profiting off scarcity.
+              </p>
+            </div>
+
+            {/* Our Standard */}
+            <div>
+              <h3 className="font-display text-lg tracking-widest text-amber-500/80 mb-4">
+                OUR STANDARD
+              </h3>
+              <p className="font-body text-gray-300 text-base leading-relaxed">
+                Artists carry a major responsibility to deliver these experiences with love
+                and integrity at the forefront — always. Every show and festival on our
+                platform must align with those principles. We don't just redistribute
+                tickets. We protect the culture.
+              </p>
+            </div>
+
+            {/* Pull quote */}
+            <div className="relative border-l-2 border-amber-500/40 pl-6 py-2 mt-6">
+              <p className="font-display text-xl sm:text-2xl tracking-wide text-warm-50 leading-relaxed">
+                To ensure that live music remains what it was always meant to be — a shared
+                human experience, accessible to everyone, powered by the generosity of the
+                community that believes in it.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <hr className="section-divider" />
+
       {/* ===== 3. HOW IT WORKS ===== */}
       <Section id="how-it-works" className="py-24 px-6">
         <div className="max-w-5xl mx-auto">
