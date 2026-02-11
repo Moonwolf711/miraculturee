@@ -56,6 +56,13 @@ enum EventType {
   FESTIVAL
 }
 
+enum ExternalEventStatus {
+  DISCOVERED
+  IMPORTED
+  PUBLISHED
+  ARCHIVED
+}
+
 model User {
   id             String          @id @default(uuid())
   email          String          @unique
@@ -239,4 +246,71 @@ model DirectTicket {
   @@unique([eventId, ownerId])
   @@index([eventId])
   @@index([ownerId])
+}
+
+model ExternalEvent {
+  id                String              @id @default(uuid())
+  externalId        String
+  source            String
+  sourceUrl         String
+
+  // Event details
+  title             String
+  description       String?
+  artistName        String
+  artistId          String?
+
+  // Venue details
+  venueName         String
+  venueAddress      String
+  venueCity         String
+  venueState        String?
+  venueCountry      String
+  venueLat          Float?
+  venueLng          Float?
+  venueId           String?
+
+  // Timing
+  eventDate         DateTime
+  onSaleDate        DateTime?
+  offSaleDate       DateTime?
+
+  // Pricing
+  minPriceCents     Int?
+  maxPriceCents     Int?
+  currency          String              @default("USD")
+
+  // Classification
+  genre             String?
+  category          String?
+
+  // Status
+  status            ExternalEventStatus @default(DISCOVERED)
+  importedEventId   String?
+
+  // Metadata
+  rawData           Json
+  lastSyncedAt      DateTime            @default(now())
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([externalId, source])
+  @@index([eventDate])
+  @@index([venueCity, eventDate])
+  @@index([status])
+  @@index([source])
+}
+
+model EventSyncLog {
+  id            String   @id @default(uuid())
+  source        String
+  status        String
+  eventsFound   Int
+  eventsNew     Int
+  eventsUpdated Int
+  errorMessage  String?
+  startedAt     DateTime
+  completedAt   DateTime
+
+  @@index([source, startedAt])
 }
