@@ -32,6 +32,16 @@ export interface RaffleLoserData {
   eventTitle: string;
 }
 
+export interface PasswordResetData {
+  userName: string;
+  resetLink: string;
+}
+
+export interface EmailVerificationData {
+  userName: string;
+  verifyLink: string;
+}
+
 export interface TicketConfirmationData {
   userName: string;
   eventTitle: string;
@@ -299,6 +309,62 @@ export class EmailService {
       });
     } catch (error) {
       console.error('[EmailService] Failed to send ticket confirmation:', error);
+    }
+  }
+
+  /**
+   * Sends a password reset email with a CTA link.
+   */
+  async sendPasswordReset(
+    to: string,
+    data: PasswordResetData,
+  ): Promise<void> {
+    const subject = 'Reset Your Password';
+
+    const html = layout(`
+      ${heading('Reset Your Password')}
+      ${paragraph(`Hey ${data.userName}, we received a request to reset your password. Click the button below to choose a new one.`)}
+      ${ctaButton('Reset Password', data.resetLink)}
+      ${paragraph('This link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.')}
+    `);
+
+    try {
+      await this.resend.emails.send({
+        from: FROM_ADDRESS,
+        to,
+        subject,
+        html,
+      });
+    } catch (error) {
+      console.error('[EmailService] Failed to send password reset:', error);
+    }
+  }
+
+  /**
+   * Sends an email verification link after registration.
+   */
+  async sendEmailVerification(
+    to: string,
+    data: EmailVerificationData,
+  ): Promise<void> {
+    const subject = 'Verify Your Email';
+
+    const html = layout(`
+      ${heading('Verify Your Email')}
+      ${paragraph(`Welcome to MiraCulture, ${data.userName}! Please verify your email address to get full access to your account.`)}
+      ${ctaButton('Verify Email', data.verifyLink)}
+      ${paragraph('This link will expire in 24 hours. If you did not create an account, you can safely ignore this email.')}
+    `);
+
+    try {
+      await this.resend.emails.send({
+        from: FROM_ADDRESS,
+        to,
+        subject,
+        html,
+      });
+    } catch (error) {
+      console.error('[EmailService] Failed to send email verification:', error);
     }
   }
 }

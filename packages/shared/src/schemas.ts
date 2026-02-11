@@ -18,6 +18,21 @@ export const RefreshSchema = z.object({
   refreshToken: z.string(),
 });
 
+// --- Password Reset & Email Verification ---
+
+export const ForgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+export const ResetPasswordSchema = z.object({
+  token: z.string(),
+  password: z.string().min(8).max(128),
+});
+
+export const VerifyEmailSchema = z.object({
+  token: z.string(),
+});
+
 // --- Events ---
 
 export const CreateEventSchema = z.object({

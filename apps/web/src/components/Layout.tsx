@@ -2,6 +2,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useScrollSpy } from '../hooks/useScrollSpy.js';
 import ConnectionStatus from './ConnectionStatus.js';
+import NotificationBell from './NotificationBell.js';
+import EmailVerifyBanner from './EmailVerifyBanner.js';
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 
 function HamburgerIcon({ open }: { open: boolean }) {
@@ -151,11 +153,17 @@ export default function Layout({ children }: { children: ReactNode }) {
             </a>
             {user?.role === 'ARTIST' && (
               <Link to="/artist/dashboard" className="nav-link">
-                Dashboard
+                Artist Dashboard
+              </Link>
+            )}
+            {user && (
+              <Link to="/dashboard" className="nav-link">
+                My Dashboard
               </Link>
             )}
             {user ? (
-              <div className="flex items-center gap-5">
+              <div className="flex items-center gap-3">
+                <NotificationBell />
                 <span className="text-gray-500 text-xs tracking-wide uppercase">
                   {user.name}
                 </span>
@@ -243,13 +251,23 @@ export default function Layout({ children }: { children: ReactNode }) {
                 onClick={closeMobile}
                 className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
               >
-                Dashboard
+                Artist Dashboard
+              </Link>
+            )}
+            {user && (
+              <Link
+                to="/dashboard"
+                onClick={closeMobile}
+                className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
+              >
+                My Dashboard
               </Link>
             )}
             {user ? (
               <>
-                <div className="py-3 text-gray-500 text-xs tracking-wide uppercase">
-                  {user.name}
+                <div className="py-3 flex items-center justify-between">
+                  <span className="text-gray-500 text-xs tracking-wide uppercase">{user.name}</span>
+                  <NotificationBell />
                 </div>
                 <button
                   onClick={handleLogout}
@@ -288,6 +306,9 @@ export default function Layout({ children }: { children: ReactNode }) {
           aria-hidden="true"
         />
       )}
+
+      {/* Email verification banner */}
+      <EmailVerifyBanner />
 
       {/* Main content */}
       <main id="main-content" className="flex-1">{children}</main>

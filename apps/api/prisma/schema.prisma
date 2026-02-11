@@ -65,9 +65,14 @@ model User {
   lat            Float?
   lng            Float?
   city           String?
-  refreshToken   String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  refreshToken        String?
+  emailVerified       Boolean         @default(false)
+  emailVerifyToken    String?         @unique
+  emailVerifyExpiry   DateTime?
+  passwordResetToken  String?         @unique
+  passwordResetExpiry DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   artist         Artist?
   supportTickets SupportTicket[]
