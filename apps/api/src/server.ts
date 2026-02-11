@@ -7,6 +7,7 @@ import { posPlugin } from './plugins/pos.js';
 import { socketPlugin } from './plugins/socket.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { emailPlugin } from './plugins/email.js';
+import securityPlugin from './plugins/security.js';
 import { authRoutes } from './routes/auth.js';
 import { eventRoutes } from './routes/events.js';
 import { supportRoutes } from './routes/support.js';
@@ -36,6 +37,7 @@ async function start() {
   await app.register(socketPlugin);
   await app.register(errorHandlerPlugin);
   await app.register(emailPlugin);
+  await app.register(securityPlugin);
 
   // Routes
   await app.register(authRoutes, { prefix: '/auth' });

@@ -81,12 +81,13 @@ model User {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
-  artist         Artist?
-  supportTickets SupportTicket[]
-  raffleEntries  RaffleEntry[]
-  transactions   Transaction[]
-  notifications  Notification[]
-  directTickets  DirectTicket[]
+  artist              Artist?
+  supportTickets      SupportTicket[]
+  raffleEntries       RaffleEntry[]
+  transactions        Transaction[]
+  notifications       Notification[]
+  directTickets       DirectTicket[]
+  suspiciousActivities SuspiciousActivity[]
 }
 
 model Artist {
@@ -173,6 +174,10 @@ model RafflePool {
   status           RaffleStatus @default(OPEN)
   scheduledDrawTime DateTime?
   drawnAt          DateTime?
+  seedHash         String?      // SHA-256 hash of seed (published before draw)
+  revealedSeed     String?      // Actual seed (revealed after draw)
+  algorithm        String       @default("SHA-256 + Fisher-Yates + Seedrandom")
+  verificationUrl  String?      // URL to verification receipt
   createdAt        DateTime     @default(now())
 
   event   Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -313,4 +318,21 @@ model EventSyncLog {
   completedAt   DateTime
 
   @@index([source, startedAt])
+}
+
+model SuspiciousActivity {
+  id        String   @id @default(uuid())
+  userId    String?
+  type      String   // GEO_MISMATCH, HIGH_RISK_IP, VPN_DETECTED, etc.
+  ip        String
+  riskScore Int?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([ip])
+  @@index([type])
+  @@index([createdAt])
 }
