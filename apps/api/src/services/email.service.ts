@@ -165,7 +165,7 @@ export class EmailService {
         ${detailRow('Total Paid', data.totalAmount)}
       `)}
       ${paragraph('Your contribution directly supports the artist and helps redistribute tickets to fans who truly want to be there. That is the MiraCulture way.')}
-      ${ctaButton('View Your Purchase', 'https://miraculturee.com/dashboard')}
+      ${ctaButton('View Your Purchase', 'https://miraculture.com/dashboard')}
     `);
 
     try {
@@ -198,7 +198,7 @@ export class EmailService {
         ${detailRow('Draw Date', data.drawDate)}
       `)}
       ${paragraph('When the draw happens, we will notify you immediately with the results. Good luck!')}
-      ${ctaButton('View Raffle Details', 'https://miraculturee.com/dashboard')}
+      ${ctaButton('View Raffle Details', 'https://miraculture.com/dashboard')}
     `);
 
     try {
@@ -232,7 +232,7 @@ export class EmailService {
         ${detailRow('Tickets Won', String(data.ticketCount))}
       `)}
       ${paragraph('Head to your dashboard to view your ticket details and get ready for an amazing show.')}
-      ${ctaButton('View Your Tickets', 'https://miraculturee.com/dashboard/tickets')}
+      ${ctaButton('View Your Tickets', 'https://miraculture.com/dashboard/tickets')}
       ${paragraph('See you there!')}
     `);
 
@@ -261,7 +261,7 @@ export class EmailService {
       ${heading('Raffle Results Are In')}
       ${paragraph(`Hey ${data.userName}, the raffle draw for <strong style="color:#ffffff;">${data.eventTitle}</strong> has been completed. Unfortunately, you were not selected as a winner this time.`)}
       ${paragraph('We know it is disappointing, but there are always more events and more chances to win. The MiraCulture community grows every day, and so do the opportunities.')}
-      ${ctaButton('Browse More Events', 'https://miraculturee.com/events')}
+      ${ctaButton('Browse More Events', 'https://miraculture.com/events')}
       ${paragraph('Keep entering raffles — your next win could be just around the corner.')}
     `);
 
@@ -297,7 +297,7 @@ export class EmailService {
         ${detailRow('Total Paid', data.totalAmount)}
       `)}
       ${paragraph('Head to your dashboard to view your ticket details. See you at the show!')}
-      ${ctaButton('View Your Ticket', 'https://miraculturee.com/dashboard/tickets')}
+      ${ctaButton('View Your Ticket', 'https://miraculture.com/dashboard/tickets')}
     `);
 
     try {

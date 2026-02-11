@@ -128,8 +128,8 @@ export default function EventsPage() {
           : 'Browse upcoming live music events on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan.'}
         type="website"
         jsonLd={getBreadcrumbSchema([
-          { name: 'Home', url: 'https://miraculturee.com/' },
-          { name: activeTab === 'FESTIVAL' ? 'Festivals' : 'Events', url: 'https://miraculturee.com/events' },
+          { name: 'Home', url: 'https://miraculture.com/' },
+          { name: activeTab === 'FESTIVAL' ? 'Festivals' : 'Events', url: 'https://miraculture.com/events' },
         ])}
       />
       {/* Page header area */}

@@ -4,7 +4,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import type { TokenPair, UserPayload } from '@miraculturee/shared';
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://miracultureeweb-production.up.railway.app';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://miraculture.com';
 
 const SALT_ROUNDS = 10;
 

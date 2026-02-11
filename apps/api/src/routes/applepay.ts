@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import Stripe from 'stripe';
 import { requireRole } from '../middleware/authenticate.js';
 
-const PRODUCTION_DOMAIN = 'miracultureeweb-production.up.railway.app';
+const PRODUCTION_DOMAIN = 'miraculture.com';
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder';
