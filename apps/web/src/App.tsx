@@ -20,6 +20,7 @@ const CreateEventPage = lazy(() => import('./pages/CreateEventPage.js'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage.js'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.js'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.js'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage.js'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.js'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage.js'));
 const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage.js'));
@@ -87,6 +88,7 @@ export default function App() {
             />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route
               path="/artist/dashboard"
               element={
