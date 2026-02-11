@@ -16,6 +16,7 @@ import { artistRoutes } from './routes/artist.js';
 import { ticketRoutes } from './routes/ticket.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { userRoutes } from './routes/user.js';
+import { applePayRoutes } from './routes/applepay.js';
 import { initWorkers } from './jobs/workers.js';
 
 const app = Fastify({
@@ -45,6 +46,7 @@ async function start() {
   await app.register(artistRoutes, { prefix: '/artist' });
   await app.register(ticketRoutes, { prefix: '/tickets' });
   await app.register(userRoutes, { prefix: '/user' });
+  await app.register(applePayRoutes, { prefix: '/apple-pay' });
   // Webhook route — uses its own raw body parser for Stripe signature verification
   await app.register(webhookRoutes, { prefix: '/webhook' });
 

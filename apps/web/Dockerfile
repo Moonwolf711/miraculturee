@@ -16,6 +16,8 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @miraculturee/shared build
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
+ARG VITE_STRIPE_PUBLISHABLE_KEY
+ENV VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY
 RUN pnpm --filter @miraculturee/web build
 
 # Serve with lightweight static server
