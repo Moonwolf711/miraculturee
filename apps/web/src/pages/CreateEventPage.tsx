@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import SEO from '../components/SEO.js';
 
 export default function CreateEventPage() {
   const navigate = useNavigate();
@@ -52,6 +53,11 @@ export default function CreateEventPage() {
 
   return (
     <div className="min-h-screen bg-noir-950">
+      <SEO
+        title="Create Event"
+        description="List your live event on MiraCulture. Set face-value ticket prices and let fans worldwide support your music."
+        noindex
+      />
       <div className="max-w-2xl mx-auto px-4 py-10">
         <h1 className="font-display text-3xl tracking-wider text-warm-50 mb-8">
           CREATE EVENT
@@ -59,17 +65,18 @@ export default function CreateEventPage() {
 
         <div className="bg-noir-900 border border-noir-800 rounded-2xl p-8 shadow-2xl">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
+            <div role="alert" className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+              <label htmlFor="create-title" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                 Event Title
               </label>
               <input
+                id="create-title"
                 type="text"
                 value={form.title}
                 onChange={(e) => update('title', e.target.value)}
@@ -80,10 +87,11 @@ export default function CreateEventPage() {
             </div>
 
             <div>
-              <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+              <label htmlFor="create-description" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                 Description
               </label>
               <textarea
+                id="create-description"
                 value={form.description}
                 onChange={(e) => update('description', e.target.value)}
                 rows={3}
@@ -94,10 +102,11 @@ export default function CreateEventPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+                <label htmlFor="create-venue-name" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                   Venue Name
                 </label>
                 <input
+                  id="create-venue-name"
                   type="text"
                   value={form.venueName}
                   onChange={(e) => update('venueName', e.target.value)}
@@ -107,10 +116,11 @@ export default function CreateEventPage() {
                 />
               </div>
               <div>
-                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+                <label htmlFor="create-date" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                   Event Date & Time
                 </label>
                 <input
+                  id="create-date"
                   type="datetime-local"
                   value={form.date}
                   onChange={(e) => update('date', e.target.value)}
@@ -121,10 +131,11 @@ export default function CreateEventPage() {
             </div>
 
             <div>
-              <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+              <label htmlFor="create-venue-address" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                 Venue Address
               </label>
               <input
+                id="create-venue-address"
                 type="text"
                 value={form.venueAddress}
                 onChange={(e) => update('venueAddress', e.target.value)}
@@ -136,10 +147,11 @@ export default function CreateEventPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+                <label htmlFor="create-lat" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                   Latitude
                 </label>
                 <input
+                  id="create-lat"
                   type="number"
                   step="any"
                   value={form.venueLat}
@@ -150,10 +162,11 @@ export default function CreateEventPage() {
                 />
               </div>
               <div>
-                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+                <label htmlFor="create-lng" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                   Longitude
                 </label>
                 <input
+                  id="create-lng"
                   type="number"
                   step="any"
                   value={form.venueLng}
@@ -167,10 +180,11 @@ export default function CreateEventPage() {
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+                <label htmlFor="create-price" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                   Ticket Price ($)
                 </label>
                 <input
+                  id="create-price"
                   type="number"
                   step="0.01"
                   min="1"
@@ -181,10 +195,11 @@ export default function CreateEventPage() {
                 />
               </div>
               <div>
-                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+                <label htmlFor="create-total-tickets" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                   Total Tickets
                 </label>
                 <input
+                  id="create-total-tickets"
                   type="number"
                   min="1"
                   value={form.totalTickets}
@@ -194,10 +209,11 @@ export default function CreateEventPage() {
                 />
               </div>
               <div>
-                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
+                <label htmlFor="create-radius" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                   Local Radius (km)
                 </label>
                 <input
+                  id="create-radius"
                   type="number"
                   min="1"
                   max="500"

@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
-  CardElement,
+  PaymentElement,
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
@@ -15,26 +15,6 @@ const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder',
 );
 
-/** Style overrides for the Stripe CardElement to match Concert Poster Noir theme */
-const CARD_ELEMENT_OPTIONS = {
-  style: {
-    base: {
-      color: '#e5e5e5',
-      fontFamily: '"Outfit", sans-serif',
-      fontSize: '16px',
-      fontSmoothing: 'antialiased',
-      '::placeholder': {
-        color: '#525252',
-      },
-      iconColor: '#f59e0b',
-    },
-    invalid: {
-      color: '#ef4444',
-      iconColor: '#ef4444',
-    },
-  },
-};
-
 interface PaymentFormProps {
   clientSecret: string;
   onSuccess: () => void;
@@ -45,12 +25,15 @@ interface PaymentFormProps {
 /**
  * Inner payment form that uses the Stripe hooks.
  * Must be rendered inside an <Elements> provider.
+ *
+ * Uses PaymentElement which automatically supports card, Apple Pay,
+ * Google Pay, and Link — with zero additional configuration.
  */
 function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
-  const [cardComplete, setCardComplete] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -60,26 +43,21 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentF
         return;
       }
 
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) {
-        onError('Card element not found');
-        return;
-      }
-
       setProcessing(true);
 
       try {
-        const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-          payment_method: { card: cardElement },
+        const { error } = await stripe.confirmPayment({
+          elements,
+          confirmParams: {
+            return_url: window.location.href,
+          },
+          redirect: 'if_required',
         });
 
         if (error) {
           onError(error.message ?? 'Payment failed. Please try again.');
-        } else if (paymentIntent?.status === 'succeeded') {
-          onSuccess();
         } else {
-          // Payment is still processing (e.g. 3D Secure)
-          onError('Payment is still processing. Please wait a moment.');
+          onSuccess();
         }
       } catch (err: any) {
         onError(err.message ?? 'An unexpected error occurred.');
@@ -92,24 +70,23 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentF
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Card input */}
-      <div className="bg-noir-900 border border-noir-700 rounded-lg px-4 py-3.5 transition-colors focus-within:border-amber-500/50">
-        <CardElement
-          options={CARD_ELEMENT_OPTIONS}
-          onChange={(e) => setCardComplete(e.complete)}
-        />
-      </div>
+      {/* Payment input — card, Apple Pay, Google Pay, Link */}
+      <PaymentElement
+        options={{ layout: 'tabs' }}
+        onReady={() => setReady(true)}
+      />
 
       {/* Submit button */}
       <button
         type="submit"
-        disabled={!stripe || processing || !cardComplete}
+        disabled={!stripe || processing || !ready}
         className="w-full px-6 py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm tracking-wide uppercase"
       >
         {processing ? (
           <span className="flex items-center justify-center gap-2">
             <svg
               className="animate-spin h-4 w-4"
+              aria-hidden="true"
               viewBox="0 0 24 24"
               fill="none"
             >
@@ -135,8 +112,8 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel }: PaymentF
       </button>
 
       {/* Stripe badge */}
-      <p className="text-center text-gray-600 text-xs">
-        Secured by Stripe. Your card details never touch our servers.
+      <p className="text-center text-gray-400 text-xs">
+        Secured by Stripe. Your payment details never touch our servers.
       </p>
     </form>
   );
@@ -175,7 +152,7 @@ export default function StripeCheckout({
         </h3>
       )}
       {description && (
-        <p className="text-sm text-gray-500 mb-5 font-body">{description}</p>
+        <p className="text-sm text-gray-400 mb-5 font-body">{description}</p>
       )}
 
       <Elements

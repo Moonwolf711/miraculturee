@@ -3,11 +3,55 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Theme color for browser chrome (Best Practices) -->
+    <meta name="theme-color" content="#0a0a0a" />
+
+    <!-- Primary Meta (fallbacks for crawlers that don't execute JS) -->
     <title>MiraCulture — Fan-Powered Tickets</title>
+    <meta name="description" content="Fans worldwide buy tickets at face value to support artists. Local fans win those tickets through fair, cryptographic raffles for just $5. No scalpers. No bots." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://miraculturee.com/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MiraCulture" />
+    <meta property="og:title" content="MiraCulture — Fan-Powered Tickets" />
+    <meta property="og:description" content="Fans worldwide buy tickets at face value to support artists. Local fans win those tickets through fair, cryptographic raffles for just $5. No scalpers. No bots." />
+    <meta property="og:image" content="https://miraculturee.com/og-image.png" />
+    <meta property="og:url" content="https://miraculturee.com/" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MiraCulture — Fan-Powered Tickets" />
+    <meta name="twitter:description" content="Fans worldwide buy tickets at face value to support artists. Local fans win those tickets through fair, cryptographic raffles for just $5. No scalpers. No bots." />
+    <meta name="twitter:image" content="https://miraculturee.com/og-image.png" />
+
+    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <!-- Fonts: preconnect early, then load stylesheet with preload for non-blocking -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" /></noscript>
+
+    <!-- DNS prefetch for third-party origins the app may contact -->
+    <link rel="dns-prefetch" href="https://js.stripe.com" />
+
+    <!-- JSON-LD Organization (fallback) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "MiraCulture",
+      "url": "https://miraculturee.com",
+      "logo": "https://miraculturee.com/favicon.svg",
+      "description": "Fan-powered ticket redistribution. No scalpers, no bots — just real fans supporting real music."
+    }
+    </script>
   </head>
   <body class="bg-noir-950 text-gray-100 antialiased">
     <div id="root"></div>

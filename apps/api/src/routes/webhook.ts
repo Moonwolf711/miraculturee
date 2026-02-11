@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { SupportService } from '../services/support.service.js';
 import { RaffleService } from '../services/raffle.service.js';
+import { TicketService } from '../services/ticket.service.js';
 
 /**
  * Stripe webhook route.
@@ -18,6 +19,7 @@ import { RaffleService } from '../services/raffle.service.js';
 export async function webhookRoutes(app: FastifyInstance) {
   const supportService = new SupportService(app.prisma, app.pos);
   const raffleService = new RaffleService(app.prisma, app.pos, app.io);
+  const ticketService = new TicketService(app.prisma, app.pos);
 
   // Register a raw body content-type parser for this route prefix.
   // This ensures Stripe signature verification receives the untouched payload.
@@ -93,6 +95,25 @@ export async function webhookRoutes(app: FastifyInstance) {
               app.log.error(
                 `Failed to send raffle entry confirmation email: ${err.message}`,
               ),
+            );
+          }
+
+          if (metadata.type === 'ticket_purchase' && metadata.ticketId) {
+            // Confirm the direct ticket purchase
+            await ticketService.confirmPurchase(
+              metadata.ticketId,
+              paymentIntent.id,
+            );
+            app.log.info(
+              `Ticket purchase confirmed: ticketId=${metadata.ticketId}`,
+            );
+
+            // Send email notification (non-blocking)
+            sendTicketConfirmationEmail(app, metadata.ticketId).catch(
+              (err) =>
+                app.log.error(
+                  `Failed to send ticket confirmation email: ${err.message}`,
+                ),
             );
           }
 
@@ -258,6 +279,48 @@ async function sendRaffleEntryConfirmationEmail(
       eventTitle: pool.event.title,
       tierPrice: tierFormatted,
       drawDate,
+    });
+  }
+}
+
+/**
+ * Sends a direct ticket purchase confirmation email.
+ * The in-app notification is already created by ticketService.confirmPurchase().
+ */
+async function sendTicketConfirmationEmail(
+  app: FastifyInstance,
+  ticketId: string,
+): Promise<void> {
+  const ticket = await app.prisma.directTicket.findUnique({
+    where: { id: ticketId },
+    include: {
+      owner: { select: { id: true, email: true, name: true } },
+      event: {
+        select: { id: true, title: true, date: true, venueName: true },
+        include: { artist: { select: { stageName: true } } },
+      },
+    },
+  });
+
+  if (!ticket) return;
+
+  const { owner, event } = ticket;
+  const totalFormatted = `$${((ticket.priceCents + ticket.feeCents) / 100).toFixed(2)}`;
+
+  // Send email (skip if email service is not configured)
+  if (app.emailService) {
+    await app.emailService.sendTicketConfirmation(owner.email, {
+      userName: owner.name,
+      eventTitle: event.title,
+      artistName: event.artist.stageName,
+      venueName: event.venueName,
+      eventDate: event.date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }),
+      totalAmount: totalFormatted,
     });
   }
 }

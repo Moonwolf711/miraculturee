@@ -38,8 +38,17 @@ enum PoolTicketStatus {
 enum TransactionType {
   SUPPORT_PURCHASE
   RAFFLE_ENTRY
+  TICKET_PURCHASE
   ARTIST_PAYOUT
   REFUND
+}
+
+enum DirectTicketStatus {
+  PENDING
+  CONFIRMED
+  TRANSFERRED
+  REDEEMED
+  REFUNDED
 }
 
 model User {
@@ -60,6 +69,7 @@ model User {
   raffleEntries  RaffleEntry[]
   transactions   Transaction[]
   notifications  Notification[]
+  directTickets  DirectTicket[]
 }
 
 model Artist {
@@ -98,6 +108,7 @@ model Event {
   supportTickets SupportTicket[]
   poolTickets    PoolTicket[]
   rafflePools    RafflePool[]
+  directTickets  DirectTicket[]
 
   @@index([status, date])
   @@index([venueLat, venueLng])
@@ -196,4 +207,25 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read])
+}
+
+model DirectTicket {
+  id                String             @id @default(uuid())
+  eventId           String
+  ownerId           String
+  status            DirectTicketStatus @default(PENDING)
+  priceCents        Int
+  feeCents          Int
+  stripePaymentId   String?
+  ipAddress         String?
+  deviceFingerprint String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  owner User  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, ownerId])
+  @@index([eventId])
+  @@index([ownerId])
 }

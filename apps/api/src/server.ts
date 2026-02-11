@@ -13,6 +13,7 @@ import { supportRoutes } from './routes/support.js';
 import { raffleRoutes } from './routes/raffle.js';
 import { posRoutes } from './routes/pos.js';
 import { artistRoutes } from './routes/artist.js';
+import { ticketRoutes } from './routes/ticket.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { initWorkers } from './jobs/workers.js';
 
@@ -40,6 +41,7 @@ async function start() {
   await app.register(raffleRoutes, { prefix: '/raffle' });
   await app.register(posRoutes, { prefix: '/pos' });
   await app.register(artistRoutes, { prefix: '/artist' });
+  await app.register(ticketRoutes, { prefix: '/tickets' });
   // Webhook route — uses its own raw body parser for Stripe signature verification
   await app.register(webhookRoutes, { prefix: '/webhook' });
 

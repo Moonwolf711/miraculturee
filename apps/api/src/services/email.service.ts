@@ -32,6 +32,15 @@ export interface RaffleLoserData {
   eventTitle: string;
 }
 
+export interface TicketConfirmationData {
+  userName: string;
+  eventTitle: string;
+  artistName: string;
+  venueName: string;
+  eventDate: string;
+  totalAmount: string;
+}
+
 // ---------------------------------------------------------------------------
 // Shared template helpers
 // ---------------------------------------------------------------------------
@@ -255,6 +264,41 @@ export class EmailService {
       });
     } catch (error) {
       console.error('[EmailService] Failed to send raffle loser notification:', error);
+    }
+  }
+
+  /**
+   * Confirms a direct ticket purchase to the fan.
+   */
+  async sendTicketConfirmation(
+    to: string,
+    data: TicketConfirmationData,
+  ): Promise<void> {
+    const subject = `Your ticket for ${data.eventTitle} is confirmed!`;
+
+    const html = layout(`
+      ${heading('Ticket Confirmed!')}
+      ${paragraph(`Hey ${data.userName}, your ticket purchase has been confirmed. You are going to the show!`)}
+      ${detailsTable(`
+        ${detailRow('Event', data.eventTitle)}
+        ${detailRow('Artist', data.artistName)}
+        ${detailRow('Venue', data.venueName)}
+        ${detailRow('Date', data.eventDate)}
+        ${detailRow('Total Paid', data.totalAmount)}
+      `)}
+      ${paragraph('Head to your dashboard to view your ticket details. See you at the show!')}
+      ${ctaButton('View Your Ticket', 'https://miraculturee.com/dashboard/tickets')}
+    `);
+
+    try {
+      await this.resend.emails.send({
+        from: FROM_ADDRESS,
+        to,
+        subject,
+        html,
+      });
+    } catch (error) {
+      console.error('[EmailService] Failed to send ticket confirmation:', error);
     }
   }
 }

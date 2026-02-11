@@ -26,6 +26,13 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   body {
@@ -197,6 +204,14 @@
     @apply w-full;
   }
 
+  .nav-link-active {
+    @apply text-amber-500;
+  }
+
+  .nav-link-active::after {
+    @apply w-full;
+  }
+
   /* Button variants */
   .btn-amber {
     @apply px-5 py-2.5 bg-amber-500 text-noir-950 font-semibold text-sm
@@ -292,6 +307,38 @@
     @apply w-10 h-10 rounded-full flex items-center justify-center font-display text-sm tracking-wide;
   }
 
+  /* Shimmer overlay for gradient placeholders */
+  .shimmer-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 40%,
+      rgba(255, 255, 255, 0.03) 45%,
+      rgba(255, 255, 255, 0.06) 50%,
+      rgba(255, 255, 255, 0.03) 55%,
+      transparent 60%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* Event card hover CTA overlay */
+  .event-card-cta {
+    @apply absolute inset-0 flex items-center justify-center z-30
+           opacity-0 transition-all duration-300;
+    background: rgba(10, 10, 10, 0.7);
+    backdrop-filter: blur(2px);
+  }
+
+  /* Only show hover CTA overlay on devices with hover capability */
+  @media (hover: hover) {
+    .group:hover .event-card-cta {
+      @apply opacity-100;
+    }
+  }
+
   /* Hide scrollbar on horizontal carousels */
   .hide-scrollbar {
     -ms-overflow-style: none;
@@ -380,19 +427,64 @@
       animation: none !important;
     }
 
+    .shimmer-overlay {
+      animation: none !important;
+      opacity: 0 !important;
+    }
+
     .animate-bounce-subtle,
     .animate-scroll-left,
     .animate-pulse-dot,
     .animate-fade-in-up,
     .animate-slide-in,
-    .animate-pulse-glow {
+    .animate-pulse-glow,
+    .animate-float,
+    .animate-shimmer,
+    .animate-blink {
       animation: none !important;
     }
 
-    * {
+    .glow-orb {
+      animation: none !important;
+      transition: none !important;
+    }
+
+    *,
+    *::before,
+    *::after {
       transition-duration: 0.01ms !important;
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
     }
+  }
+
+  /* Touch-friendly tap targets on small screens */
+  @media (max-width: 767px) {
+    .faq-trigger {
+      min-height: 48px;
+    }
+  }
+
+  /*
+   * Keyframes used by raw CSS classes (ticker, shimmer, blink, pulseDot).
+   * Defined here to guarantee availability regardless of Tailwind purging.
+   */
+  @keyframes scrollLeft {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.5); }
   }
 
   /* Subtle noise background for sections */

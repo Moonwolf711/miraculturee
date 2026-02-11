@@ -1,6 +1,8 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useScrollSpy } from '../hooks/useScrollSpy.js';
+import ConnectionStatus from './ConnectionStatus.js';
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 
 function HamburgerIcon({ open }: { open: boolean }) {
   return (
@@ -24,11 +26,18 @@ function HamburgerIcon({ open }: { open: boolean }) {
   );
 }
 
+const NAV_SECTIONS = ['how-it-works', 'for-artists'];
+
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  const isHome = location.pathname === '/';
+  const sectionIds = useMemo(() => (isHome ? NAV_SECTIONS : []), [isHome]);
+  const activeSection = useScrollSpy(sectionIds);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 32);
@@ -43,6 +52,50 @@ export default function Layout({ children }: { children: ReactNode }) {
   };
 
   const closeMobile = () => setMobileMenuOpen(false);
+
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+
+  // Escape key closes mobile menu
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMobileMenuOpen(false);
+        hamburgerRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [mobileMenuOpen]);
+
+  // Focus trap inside mobile menu
+  const handleMenuKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== 'Tab' || !mobileMenuRef.current) return;
+    const focusable = mobileMenuRef.current.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled])',
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }, []);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileMenuOpen]);
 
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -79,15 +132,18 @@ export default function Layout({ children }: { children: ReactNode }) {
             </span>
           </Link>
 
+          {/* Connection status indicator — subtle dot for live updates */}
+          <ConnectionStatus />
+
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-body">
+          <nav className="hidden md:flex items-center gap-8 text-sm font-body" aria-label="Main navigation">
             <Link to="/events" className="nav-link">
               Events
             </Link>
-            <a href="/#how-it-works" className="nav-link">
+            <a href="/#how-it-works" className={`nav-link ${activeSection === 'how-it-works' ? 'nav-link-active' : ''}`}>
               How It Works
             </a>
-            <a href="/#for-artists" className="nav-link">
+            <a href="/#for-artists" className={`nav-link ${activeSection === 'for-artists' ? 'nav-link-active' : ''}`}>
               For Artists
             </a>
             {user?.role === 'ARTIST' && (
@@ -127,20 +183,27 @@ export default function Layout({ children }: { children: ReactNode }) {
 
           {/* Mobile hamburger */}
           <button
+            ref={hamburgerRef}
             className="md:hidden p-2 -mr-2"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-nav-menu"
           >
             <HamburgerIcon open={mobileMenuOpen} />
           </button>
         </div>
 
         {/* Mobile menu */}
-        <div
+        <nav
+          id="mobile-nav-menu"
+          ref={mobileMenuRef}
+          role="navigation"
+          aria-label="Mobile navigation"
           className={`md:hidden overflow-hidden transition-all duration-300 ease-out-expo ${
             mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
           }`}
+          onKeyDown={handleMenuKeyDown}
         >
           <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-noir-800/40 flex flex-col gap-1">
             <Link
@@ -175,7 +238,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             )}
             {user ? (
               <>
-                <div className="py-3 text-gray-600 text-xs tracking-wide uppercase">
+                <div className="py-3 text-gray-500 text-xs tracking-wide uppercase">
                   {user.name}
                 </div>
                 <button
@@ -204,7 +267,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               </>
             )}
           </div>
-        </div>
+        </nav>
       </header>
 
       {/* Mobile backdrop overlay */}
@@ -232,7 +295,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <div className="font-display text-lg tracking-ultra-wide uppercase text-gray-400 mb-3">
                 <span className="text-amber-500/70">M</span>iraCulture
               </div>
-              <p className="text-gray-600 text-sm leading-relaxed max-w-xs">
+              <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
                 Fan-powered ticket redistribution. No scalpers, no bots — just
                 real fans supporting real music.
               </p>
@@ -274,29 +337,36 @@ export default function Layout({ children }: { children: ReactNode }) {
               </h4>
               <ul className="space-y-2 mb-6">
                 <li>
-                  <span className="text-gray-600 text-sm">Privacy Policy</span>
+                  <span className="text-gray-500 text-sm">Privacy Policy</span>
                 </li>
                 <li>
-                  <span className="text-gray-600 text-sm">Terms of Service</span>
+                  <span className="text-gray-500 text-sm">Terms of Service</span>
                 </li>
               </ul>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3" role="list" aria-label="Social media links">
                 {/* Social placeholders */}
-                {['X', 'IG', 'TT'].map((s) => (
-                  <span
-                    key={s}
-                    className="w-8 h-8 rounded-full border border-noir-700 flex items-center justify-center text-gray-600 text-xs cursor-pointer transition-all duration-300 hover:border-amber-500/50 hover:text-amber-500 hover:-translate-y-0.5"
+                {([
+                  { abbr: 'X', label: 'X (Twitter)' },
+                  { abbr: 'IG', label: 'Instagram' },
+                  { abbr: 'TT', label: 'TikTok' },
+                ] as const).map((s) => (
+                  <a
+                    key={s.abbr}
+                    href="#"
+                    role="listitem"
+                    aria-label={s.label}
+                    className="w-8 h-8 rounded-full border border-noir-700 flex items-center justify-center text-gray-400 text-xs transition-all duration-300 hover:border-amber-500/50 hover:text-amber-500 hover:-translate-y-0.5"
                   >
-                    {s}
-                  </span>
+                    {s.abbr}
+                  </a>
                 ))}
               </div>
             </div>
           </div>
 
           <div className="mt-10 pt-6 border-t border-noir-800/30 text-center">
-            <p className="text-gray-700 text-xs tracking-wide">
-              {new Date().getFullYear()} MiraCulture. All rights reserved.
+            <p className="text-gray-500 text-xs tracking-wide">
+              &copy; {new Date().getFullYear()} MiraCulture. All rights reserved.
             </p>
           </div>
         </div>

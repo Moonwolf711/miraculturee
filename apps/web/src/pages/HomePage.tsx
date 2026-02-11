@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { useInView } from '../hooks/useInView.js';
 import { useCountUp } from '../hooks/useCountUp.js';
+import SEO, { getOrganizationSchema } from '../components/SEO.js';
 
 /* -------------------------------------------------------
    Mock Data (replace with API calls later)
@@ -38,7 +39,7 @@ const STEPS = [
     title: 'DISCOVER',
     desc: 'Browse live shows near you or across the globe. Every event is artist-approved and priced at face value.',
     icon: (
-      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <svg className="w-7 h-7" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
       </svg>
     ),
@@ -48,7 +49,7 @@ const STEPS = [
     title: 'SUPPORT',
     desc: 'Buy a ticket to back your favorite artist — even if you can\'t attend. 100% of your purchase goes directly to them.',
     icon: (
-      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <svg className="w-7 h-7" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
       </svg>
     ),
@@ -58,7 +59,7 @@ const STEPS = [
     title: 'ENTER',
     desc: 'Local fans enter a $5 raffle. Geo-verification ensures only people who can actually attend are eligible.',
     icon: (
-      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <svg className="w-7 h-7" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
       </svg>
     ),
@@ -68,7 +69,7 @@ const STEPS = [
     title: 'WIN',
     desc: 'Winners are picked by a cryptographically fair algorithm — publicly verifiable, tamper-proof, zero bias.',
     icon: (
-      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <svg className="w-7 h-7" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
       </svg>
     ),
@@ -86,6 +87,7 @@ const FEATURED_EVENTS = [
     gradient: 'from-amber-900/60 to-noir-900',
     soldOut: true,
     supporters: 214,
+    daysUntil: 0,
   },
   {
     artist: 'Tame Impala',
@@ -97,6 +99,7 @@ const FEATURED_EVENTS = [
     gradient: 'from-purple-900/60 to-noir-900',
     soldOut: false,
     supporters: 89,
+    daysUntil: 53,
   },
   {
     artist: 'Billie Eilish',
@@ -108,7 +111,12 @@ const FEATURED_EVENTS = [
     gradient: 'from-emerald-900/60 to-noir-900',
     soldOut: false,
     supporters: 156,
+    daysUntil: 69,
   },
+];
+
+const PRESS_LOGOS = [
+  'Pitchfork', 'Rolling Stone', 'NME', 'Complex', 'Stereogum', 'FADER',
 ];
 
 const TESTIMONIALS = [
@@ -166,23 +174,31 @@ const FAQ_ITEMS = [
    ------------------------------------------------------- */
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
+  const panelId = useId();
   return (
     <div>
-      <button
-        className="faq-trigger"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-      >
-        <span>{q}</span>
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-        </svg>
-      </button>
+      <h3>
+        <button
+          className="faq-trigger"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-controls={panelId}
+        >
+          <span>{q}</span>
+          <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
+        </button>
+      </h3>
       <div
+        id={panelId}
+        role="region"
+        aria-labelledby={undefined}
         className="faq-panel"
-        style={{ maxHeight: open ? '200px' : '0', opacity: open ? 1 : 0 }}
+        style={{ maxHeight: open ? '500px' : '0', opacity: open ? 1 : 0 }}
+        hidden={!open}
       >
-        <p className="font-body text-gray-500 text-sm leading-relaxed py-4 pr-8">
+        <p className="font-body text-gray-400 text-sm leading-relaxed py-4 pr-8">
           {a}
         </p>
       </div>
@@ -251,9 +267,56 @@ function TickerItem({ text, status }: { text: string; status: keyof typeof STATU
     <span className="inline-flex items-center gap-2 px-5">
       <span className={`live-dot ${cfg.color}`} />
       <span>{text}</span>
-      <span className="text-gray-600 text-[10px]">{cfg.label}</span>
+      <span className="text-gray-500 text-[10px]">{cfg.label}</span>
     </span>
   );
+}
+
+/* -------------------------------------------------------
+   Animated Progress Bar — width animates on scroll
+   ------------------------------------------------------- */
+function AnimatedBar({ progress, soldOut }: { progress: number; soldOut: boolean }) {
+  const { ref, inView } = useInView(0.5);
+  return (
+    <div ref={ref} className="h-1.5 bg-noir-700 rounded-full overflow-hidden">
+      <div
+        className={`h-full rounded-full transition-all duration-1000 ease-out ${
+          soldOut ? 'bg-red-500/60' : 'bg-amber-500'
+        }`}
+        style={{ width: inView ? `${progress}%` : '0%' }}
+      />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------
+   Mouse Parallax — subtle depth on hero glow orbs
+   ------------------------------------------------------- */
+function useMouseParallax(factor = 0.02) {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const ref = useRef<HTMLElement>(null);
+
+  const onMove = useCallback(
+    (e: MouseEvent) => {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      setOffset({
+        x: (e.clientX - cx) * factor,
+        y: (e.clientY - cy) * factor,
+      });
+    },
+    [factor],
+  );
+
+  useEffect(() => {
+    // Respect reduced motion preference — disable parallax
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    window.addEventListener('mousemove', onMove, { passive: true });
+    return () => window.removeEventListener('mousemove', onMove);
+  }, [onMove]);
+
+  return { ref, offset };
 }
 
 /* -------------------------------------------------------
@@ -302,7 +365,7 @@ function StatsBar() {
               <div className="font-display text-3xl md:text-4xl text-amber-500 mb-1 glow-text transition-all duration-300 group-hover:scale-105">
                 <StatValue raw={s.value} inView={inView} />
               </div>
-              <div className="font-body text-xs tracking-widest uppercase text-gray-500">
+              <div className="font-body text-xs tracking-widest uppercase text-gray-400">
                 {s.label}
               </div>
             </div>
@@ -317,8 +380,14 @@ function StatsBar() {
    HomePage
    ------------------------------------------------------- */
 export default function HomePage() {
+  const { offset } = useMouseParallax(0.015);
+
   return (
     <div className="bg-noir-950 min-h-screen">
+      <SEO
+        description="Fans worldwide buy tickets at face value to support artists. Local fans win those tickets through fair, cryptographic raffles for just $5. No scalpers. No bots."
+        jsonLd={getOrganizationSchema()}
+      />
       {/* ===== 1. HERO SECTION ===== */}
       <section className="relative min-h-screen flex flex-col overflow-hidden">
         {/* Radial gradient background */}
@@ -330,14 +399,24 @@ export default function HomePage() {
           }}
         />
 
-        {/* Ambient glow orbs */}
+        {/* Ambient glow orbs — mouse parallax */}
         <div
-          className="glow-orb w-[500px] h-[500px] bg-amber-500 top-1/4 left-1/4 animate-float"
-          style={{ animationDelay: '0s' }}
+          className="glow-orb w-[280px] sm:w-[400px] md:w-[500px] h-[280px] sm:h-[400px] md:h-[500px] bg-amber-500 top-1/4 left-1/4 animate-float"
+          aria-hidden="true"
+          style={{
+            animationDelay: '0s',
+            transform: `translate(${offset.x * 1.5}px, ${offset.y * 1.5}px)`,
+            transition: 'transform 0.3s ease-out',
+          }}
         />
         <div
-          className="glow-orb w-[400px] h-[400px] bg-amber-600 bottom-1/3 right-1/4 animate-float"
-          style={{ animationDelay: '3s' }}
+          className="glow-orb w-[220px] sm:w-[320px] md:w-[400px] h-[220px] sm:h-[320px] md:h-[400px] bg-amber-600 bottom-1/3 right-1/4 animate-float"
+          aria-hidden="true"
+          style={{
+            animationDelay: '3s',
+            transform: `translate(${offset.x * -1}px, ${offset.y * -1}px)`,
+            transition: 'transform 0.3s ease-out',
+          }}
         />
 
         {/* Film grain */}
@@ -359,8 +438,8 @@ export default function HomePage() {
           }}
         />
 
-        {/* Event ticker */}
-        <div className="relative z-10 border-b border-noir-800/30 bg-noir-950/50 backdrop-blur-sm">
+        {/* Event ticker — decorative, hidden from screen readers */}
+        <div className="relative z-10 border-b border-noir-800/30 bg-noir-950/50 backdrop-blur-sm" aria-hidden="true">
           <div className="ticker-strip py-2.5 text-xs tracking-widest uppercase font-body text-gray-500">
             <div className="ticker-strip-inner">
               {/* First copy */}
@@ -388,7 +467,7 @@ export default function HomePage() {
 
             {/* Main tagline */}
             <h1
-              className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl tracking-[0.2em] text-warm-50 mb-6 animate-fade-in-up"
+              className="font-display text-4xl sm:text-5xl md:text-7xl lg:text-8xl tracking-[0.08em] sm:tracking-[0.12em] md:tracking-[0.2em] text-warm-50 mb-6 animate-fade-in-up"
               style={{
                 animationDelay: '150ms',
                 textShadow:
@@ -402,6 +481,7 @@ export default function HomePage() {
             <div
               className="flex items-center justify-center gap-4 mb-6 animate-fade-in-up"
               style={{ animationDelay: '300ms' }}
+              aria-hidden="true"
             >
               <div className="h-px w-16 bg-gradient-to-r from-transparent to-amber-500/40" />
               <div className="w-1.5 h-1.5 rotate-45 bg-amber-500/60 animate-pulse-dot" />
@@ -429,7 +509,7 @@ export default function HomePage() {
                 className="btn-amber inline-flex items-center justify-center px-8 py-3.5 text-base rounded-sm group"
               >
                 <span>FIND YOUR SHOW</span>
-                <svg className="w-4 h-4 ml-2 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4 ml-2 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                 </svg>
               </Link>
@@ -441,8 +521,8 @@ export default function HomePage() {
               </a>
             </div>
 
-            {/* Bouncing chevrons (double) */}
-            <div className="mt-16 flex flex-col items-center gap-0 animate-bounce-subtle">
+            {/* Bouncing chevrons (double) — decorative */}
+            <div className="mt-16 flex flex-col items-center gap-0 animate-bounce-subtle" aria-hidden="true">
               <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
               </svg>
@@ -467,10 +547,10 @@ export default function HomePage() {
             <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
               THE PROCESS
             </p>
-            <h2 className="font-display text-4xl md:text-5xl tracking-widest text-warm-50">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50">
               HOW IT WORKS
             </h2>
-            <div className="mt-6 flex items-center justify-center gap-3">
+            <div className="mt-6 flex items-center justify-center gap-3" aria-hidden="true">
               <div className="h-px w-12 bg-amber-500/30" />
               <div className="w-1 h-1 rotate-45 bg-amber-500/50" />
               <div className="h-px w-12 bg-amber-500/30" />
@@ -478,17 +558,17 @@ export default function HomePage() {
           </div>
 
           {/* Steps */}
-          <div className="grid md:grid-cols-4 gap-6 relative">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 relative">
             {/* Dotted connector with dots at junctions (desktop) */}
             <div
-              className="hidden md:block absolute top-[3.5rem] left-[12.5%] right-[12.5%] h-px border-t-2 border-dashed border-noir-700"
+              className="hidden lg:block absolute top-[3.5rem] left-[12.5%] right-[12.5%] h-px border-t-2 border-dashed border-noir-700"
               aria-hidden="true"
             />
             {/* Amber pulse dots at connector junctions */}
             {[1, 2].map((n) => (
               <div
                 key={n}
-                className="hidden md:block absolute top-[3.25rem] w-2 h-2 rounded-full bg-amber-500/40 animate-pulse-dot"
+                className="hidden lg:block absolute top-[3.25rem] w-2 h-2 rounded-full bg-amber-500/40 animate-pulse-dot"
                 style={{
                   left: `${25 * n + 12.5}%`,
                   transform: 'translateX(-50%)',
@@ -505,21 +585,21 @@ export default function HomePage() {
                 style={{ animationDelay: `${i * 120}ms` }}
               >
                 {/* Numbered circle */}
-                <div className="w-12 h-12 rounded-full border-2 border-amber-500/40 flex items-center justify-center mb-5 mx-auto md:mx-0 relative z-10 bg-noir-900 group-hover:border-amber-500 group-hover:bg-amber-500/10 transition-all duration-300">
+                <div className="w-12 h-12 rounded-full border-2 border-amber-500/40 flex items-center justify-center mb-5 mx-auto sm:mx-0 relative z-10 bg-noir-900 group-hover:border-amber-500 group-hover:bg-amber-500/10 transition-all duration-300">
                   <span className="font-display text-lg text-amber-500">
                     {step.num}
                   </span>
                 </div>
 
                 {/* Icon */}
-                <div className="text-amber-500/60 mb-3 flex justify-center md:justify-start group-hover:text-amber-500 transition-colors duration-300">
+                <div className="text-amber-500/60 mb-3 flex justify-center sm:justify-start group-hover:text-amber-500 transition-colors duration-300">
                   {step.icon}
                 </div>
 
-                <h3 className="font-body font-semibold text-warm-50 text-base mb-2 text-center md:text-left">
+                <h3 className="font-body font-semibold text-warm-50 text-base mb-2 text-center sm:text-left">
                   {step.title}
                 </h3>
-                <p className="font-body text-gray-500 text-sm leading-relaxed text-center md:text-left">
+                <p className="font-body text-gray-400 text-sm leading-relaxed text-center sm:text-left">
                   {step.desc}
                 </p>
               </div>
@@ -533,21 +613,22 @@ export default function HomePage() {
       {/* ===== 4. FEATURED EVENTS ===== */}
       <Section className="py-24 px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between mb-14">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-14 gap-4">
             <div>
               <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
                 LIVE NOW
               </p>
-              <h2 className="font-display text-4xl md:text-5xl tracking-widest text-warm-50">
+              <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50">
                 FEATURED EVENTS
               </h2>
             </div>
             <Link
               to="/events"
-              className="hidden md:inline-flex items-center gap-2 text-sm font-body text-gray-500 hover:text-amber-500 transition-colors duration-200"
+              className="hidden md:inline-flex items-center gap-2 text-sm font-body text-gray-400 hover:text-amber-500 transition-colors duration-200"
+              aria-label="View all events"
             >
               View all
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <svg className="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </Link>
@@ -563,12 +644,30 @@ export default function HomePage() {
                 <div
                   className={`relative h-44 bg-gradient-to-br ${ev.gradient} flex items-end p-4`}
                 >
+                  {/* Shimmer effect */}
+                  <div className="shimmer-overlay" aria-hidden="true" />
+
                   {/* Sold out overlay */}
                   {ev.soldOut && (
                     <div className="sold-out-overlay rounded-t-lg">
                       <span className="font-display text-2xl tracking-widest text-red-400/80 rotate-[-12deg]">
                         SOLD OUT
                       </span>
+                    </div>
+                  )}
+
+                  {/* Hover CTA */}
+                  {!ev.soldOut && (
+                    <div className="event-card-cta rounded-t-lg">
+                      <Link
+                        to="/events"
+                        className="btn-amber px-6 py-2.5 text-xs inline-flex items-center gap-2"
+                      >
+                        <span>ENTER RAFFLE</span>
+                        <svg className="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                        </svg>
+                      </Link>
                     </div>
                   )}
 
@@ -580,10 +679,10 @@ export default function HomePage() {
 
                   {/* Supporter count badge */}
                   <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 bg-noir-950/70 rounded-full px-2.5 py-1 border border-noir-800/50">
-                    <svg className="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 text-amber-500" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
-                    <span className="text-[10px] font-body text-gray-400">{ev.supporters}</span>
+                    <span className="text-[10px] font-body text-gray-400" aria-label={`${ev.supporters} supporters`}>{ev.supporters}</span>
                   </div>
                 </div>
 
@@ -591,41 +690,54 @@ export default function HomePage() {
                   <h3 className="font-body font-semibold text-warm-50 text-lg mb-1 group-hover:text-amber-400 transition-colors duration-300">
                     {ev.artist}
                   </h3>
-                  <p className="font-body text-gray-500 text-sm mb-1">
+                  <p className="font-body text-gray-400 text-sm mb-1 truncate">
                     {ev.venue}
                   </p>
-                  <p className="font-body text-gray-600 text-xs mb-4">
-                    {ev.date}
-                  </p>
+                  <div className="flex items-center gap-2 mb-4">
+                    <p className="font-body text-gray-400 text-xs">
+                      {ev.date}
+                    </p>
+                    {ev.daysUntil > 0 && (
+                      <span className="text-[10px] font-body tracking-wide text-amber-500/70 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                        in {ev.daysUntil}d
+                      </span>
+                    )}
+                  </div>
 
-                  {/* Progress bar */}
+                  {/* Animated progress bar */}
                   <div className="mb-3">
                     <div className="flex justify-between text-xs font-body mb-1.5">
-                      <span className="text-gray-500">
+                      <span className="text-gray-400">
                         {ev.soldOut ? 'Raffle closed' : 'Raffle progress'}
                       </span>
                       <span className={ev.soldOut ? 'text-red-400' : 'text-amber-500'}>
                         {ev.progress}%
                       </span>
                     </div>
-                    <div className="h-1.5 bg-noir-700 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          ev.soldOut ? 'bg-red-500/60' : 'bg-amber-500'
-                        }`}
-                        style={{ width: `${ev.progress}%` }}
-                      />
-                    </div>
+                    <AnimatedBar progress={ev.progress} soldOut={ev.soldOut} />
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
                     <span className="font-body text-warm-50 font-semibold text-lg">
                       {ev.price}
                     </span>
-                    <span className="text-xs text-gray-600 font-body tracking-wide uppercase">
+                    <span className="text-xs text-gray-400 font-body tracking-wide uppercase">
                       face value
                     </span>
                   </div>
+
+                  {/* Mobile tap-friendly CTA (touch devices) */}
+                  {!ev.soldOut && (
+                    <Link
+                      to="/events"
+                      className="mt-3 btn-amber w-full text-center py-2.5 text-xs md:hidden inline-flex items-center justify-center gap-1.5"
+                    >
+                      ENTER RAFFLE
+                      <svg className="w-3 h-3" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                      </svg>
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}
@@ -650,7 +762,7 @@ export default function HomePage() {
               <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
                 OUR PROMISE
               </p>
-              <h2 className="font-display text-4xl md:text-5xl tracking-widest text-warm-50 mb-6">
+              <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 mb-6">
                 PROVABLY FAIR
               </h2>
               <p className="font-body text-gray-400 text-base leading-relaxed mb-8">
@@ -670,6 +782,7 @@ export default function HomePage() {
                     <div className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-amber-500/20 transition-colors duration-200">
                       <svg
                         className="w-3 h-3 text-amber-500"
+                        aria-hidden="true"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -693,7 +806,7 @@ export default function HomePage() {
             {/* Verification receipt */}
             <div className="card-hover bg-noir-950 border border-noir-800 rounded-lg overflow-hidden">
               {/* Terminal header */}
-              <div className="flex items-center gap-2 px-5 py-3 border-b border-noir-800/60 bg-noir-950">
+              <div className="flex items-center gap-2 px-5 py-3 border-b border-noir-800/60 bg-noir-950" aria-hidden="true">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
                 <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
                 <span className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
@@ -702,7 +815,7 @@ export default function HomePage() {
                 </span>
               </div>
 
-              <div className="p-5 font-mono text-xs space-y-1">
+              <div className="p-5 font-mono text-xs space-y-1 overflow-x-auto">
                 <p className="text-gray-500">
                   {'{'} <span className="text-amber-500">"draw_id"</span>:{' '}
                   <span className="text-gray-300">"mc-2026-0315-LA"</span>,
@@ -760,12 +873,12 @@ export default function HomePage() {
             <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
               THE COMMUNITY
             </p>
-            <h2 className="font-display text-4xl md:text-5xl tracking-widest text-warm-50">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50">
               WHAT FANS SAY
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {TESTIMONIALS.map((t, i) => (
               <div
                 key={t.name}
@@ -773,7 +886,7 @@ export default function HomePage() {
                 style={{ animationDelay: `${i * 150}ms` }}
               >
                 {/* Quote mark */}
-                <span className="font-display text-5xl text-amber-500/20 leading-none select-none">
+                <span className="font-display text-5xl text-amber-500/20 leading-none select-none" aria-hidden="true">
                   &ldquo;
                 </span>
                 <p className="font-body text-gray-300 text-sm italic leading-relaxed mb-6 -mt-4 flex-1">
@@ -809,7 +922,7 @@ export default function HomePage() {
             <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
               QUESTIONS
             </p>
-            <h2 className="font-display text-4xl md:text-5xl tracking-widest text-warm-50">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50">
               FAQ
             </h2>
           </div>
@@ -831,7 +944,7 @@ export default function HomePage() {
             <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
               FOR ARTISTS
             </p>
-            <h2 className="font-display text-4xl md:text-5xl tracking-widest text-warm-50 mb-4">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 mb-4">
               YOUR FANS ARE EVERYWHERE
             </h2>
             <p className="font-body text-gray-400 text-base max-w-2xl mx-auto leading-relaxed">
@@ -841,7 +954,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 mb-12">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {[
               {
                 title: 'DIRECT REVENUE',
@@ -849,7 +962,7 @@ export default function HomePage() {
                 stat: '100%',
                 statLabel: 'to artist',
                 icon: (
-                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-7 h-7" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 ),
@@ -860,7 +973,7 @@ export default function HomePage() {
                 stat: '40+',
                 statLabel: 'countries',
                 icon: (
-                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-7 h-7" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
                   </svg>
                 ),
@@ -871,25 +984,26 @@ export default function HomePage() {
                 stat: '0%',
                 statLabel: 'scalper rate',
                 icon: (
-                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-7 h-7" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                   </svg>
                 ),
               },
-            ].map((card) => (
+            ].map((card, i) => (
               <div
                 key={card.title}
-                className="card-hover bg-noir-950 border border-noir-800 rounded-lg p-6 group"
+                className="card-hover bg-noir-950 border border-noir-800 rounded-lg p-6 group animate-fade-in-up"
+                style={{ animationDelay: `${i * 120}ms` }}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="text-amber-500/60 group-hover:text-amber-500 transition-colors duration-300">
                     {card.icon}
                   </div>
                   <div className="text-right">
-                    <div className="font-display text-2xl text-amber-500/30 group-hover:text-amber-500/60 transition-colors duration-300">
+                    <div className="font-display text-2xl text-amber-500/40 group-hover:text-amber-500/60 transition-colors duration-300">
                       {card.stat}
                     </div>
-                    <div className="font-body text-[10px] tracking-widest uppercase text-gray-600">
+                    <div className="font-body text-[10px] tracking-widest uppercase text-gray-400">
                       {card.statLabel}
                     </div>
                   </div>
@@ -897,7 +1011,7 @@ export default function HomePage() {
                 <h3 className="font-body font-semibold text-warm-50 text-base mb-2">
                   {card.title}
                 </h3>
-                <p className="font-body text-gray-500 text-sm leading-relaxed">
+                <p className="font-body text-gray-400 text-sm leading-relaxed">
                   {card.desc}
                 </p>
               </div>
@@ -910,7 +1024,7 @@ export default function HomePage() {
               className="btn-amber px-8 py-3.5 text-base inline-flex items-center gap-2 group"
             >
               <span>LIST YOUR EVENT</span>
-              <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
             </Link>
@@ -926,7 +1040,7 @@ export default function HomePage() {
               {
                 label: 'Stripe Secured',
                 icon: (
-                  <svg className="w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-6 h-6 mx-auto" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
                   </svg>
                 ),
@@ -934,7 +1048,7 @@ export default function HomePage() {
               {
                 label: 'End-to-End Encryption',
                 icon: (
-                  <svg className="w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-6 h-6 mx-auto" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                   </svg>
                 ),
@@ -942,7 +1056,7 @@ export default function HomePage() {
               {
                 label: 'Open-Source',
                 icon: (
-                  <svg className="w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-6 h-6 mx-auto" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
                   </svg>
                 ),
@@ -950,7 +1064,7 @@ export default function HomePage() {
               {
                 label: '40+ Countries',
                 icon: (
-                  <svg className="w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-6 h-6 mx-auto" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
                   </svg>
                 ),
@@ -968,6 +1082,27 @@ export default function HomePage() {
           </div>
         </div>
       </Section>
+
+      {/* ===== 8b. AS SEEN IN ===== */}
+      <Section className="py-10 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="font-body text-[10px] tracking-[0.3em] uppercase text-gray-400 mb-6">
+            As Featured In
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-5 sm:gap-x-8 md:gap-x-10 gap-y-3">
+            {PRESS_LOGOS.map((name) => (
+              <span
+                key={name}
+                className="font-display text-base sm:text-lg md:text-xl tracking-widest uppercase text-gray-700/50 hover:text-gray-500 transition-colors duration-300 cursor-default select-none"
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      <hr className="section-divider" />
 
       {/* ===== 9. BOTTOM CTA ===== */}
       <Section className="relative py-28 px-6 overflow-hidden">
@@ -989,7 +1124,8 @@ export default function HomePage() {
 
         {/* Ambient glow */}
         <div
-          className="glow-orb w-[600px] h-[600px] bg-amber-500 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+          className="glow-orb w-[300px] sm:w-[450px] md:w-[600px] h-[300px] sm:h-[450px] md:h-[600px] bg-amber-500 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+          aria-hidden="true"
           style={{ opacity: 0.04 }}
         />
 
@@ -998,7 +1134,7 @@ export default function HomePage() {
             JOIN THE MOVEMENT
           </p>
           <h2
-            className="font-display text-3xl sm:text-4xl md:text-5xl tracking-wider text-warm-50 mb-6 glow-text"
+            className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl tracking-wider text-warm-50 mb-6 glow-text"
           >
             THE NEXT SHOW IS WAITING
           </h2>
@@ -1026,21 +1162,21 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <p className="font-body text-gray-600 text-sm">
+          <p className="font-body text-gray-400 text-sm">
             Already have an account?{' '}
-            <Link to="/login" className="text-amber-500/70 hover:text-amber-400 transition-colors duration-200 underline underline-offset-2">
+            <Link to="/login" className="text-amber-500 hover:text-amber-400 transition-colors duration-200 underline underline-offset-2">
               Log in
             </Link>
           </p>
 
           {/* Newsletter capture */}
           <div className="mt-14 max-w-md mx-auto">
-            <p className="font-body text-gray-500 text-xs tracking-widest uppercase mb-3">
+            <p className="font-body text-gray-400 text-xs tracking-widest uppercase mb-3">
               Stay in the loop
             </p>
             <form
               onSubmit={(e) => e.preventDefault()}
-              className="flex gap-2"
+              className="flex flex-col sm:flex-row gap-2"
             >
               <input
                 type="email"
@@ -1055,13 +1191,13 @@ export default function HomePage() {
                 Notify Me
               </button>
             </form>
-            <p className="font-body text-gray-700 text-xs mt-2">
+            <p className="font-body text-gray-500 text-xs mt-2">
               No spam. Unsubscribe anytime.
             </p>
           </div>
 
           {/* Decorative bottom element */}
-          <div className="mt-16 flex items-center justify-center gap-3">
+          <div className="mt-16 flex items-center justify-center gap-3" aria-hidden="true">
             <div className="h-px w-20 bg-gradient-to-r from-transparent to-amber-500/20" />
             <div className="w-1.5 h-1.5 rotate-45 border border-amber-500/30 animate-pulse-dot" />
             <div className="h-px w-20 bg-gradient-to-l from-transparent to-amber-500/20" />

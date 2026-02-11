@@ -64,6 +64,13 @@ export const RaffleEntrySchema = z.object({
   lng: z.number().min(-180).max(180),
 });
 
+// --- Ticket Purchase ---
+
+export const TicketPurchaseSchema = z.object({
+  eventId: z.string().uuid(),
+  deviceFingerprint: z.string().optional(),
+});
+
 // --- POS ---
 
 export const CreatePaymentSchema = z.object({
