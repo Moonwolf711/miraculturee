@@ -450,7 +450,7 @@ export default function EventDetailPage() {
           </div>
         </div>
 
-        {/* Unified Payment Section with Tabs — wrapped in error boundary */}
+        {/* Unified Payment Section with Tabs */}
         {user && event.status === 'PUBLISHED' && (
           <ErrorBoundary label="Payment Options">
             <div className="bg-noir-800 border border-noir-700 rounded-xl p-6 mb-8">
