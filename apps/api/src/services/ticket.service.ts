@@ -35,13 +35,21 @@ export class TicketService {
       where: { eventId_ownerId: { eventId, ownerId: userId } },
     });
     if (existing) {
-      throw Object.assign(new Error('You already have a ticket for this event'), { statusCode: 409 });
+      if (existing.status === 'PENDING') {
+        // Previous payment attempt was abandoned — clean up stale ticket + transaction so user can retry
+        await this.prisma.transaction.deleteMany({
+          where: { posReference: existing.id, type: 'TICKET_PURCHASE', status: 'pending' },
+        });
+        await this.prisma.directTicket.delete({ where: { id: existing.id } });
+      } else {
+        throw Object.assign(new Error('You already have a ticket for this event'), { statusCode: 409 });
+      }
     }
 
-    // 1-per-user: IP address check
+    // 1-per-user: IP address check (only block on confirmed/redeemed tickets, not pending)
     if (ipAddress) {
       const ipDuplicate = await this.prisma.directTicket.findFirst({
-        where: { eventId, ipAddress, status: { not: 'REFUNDED' } },
+        where: { eventId, ipAddress, status: { in: ['CONFIRMED', 'REDEEMED', 'TRANSFERRED'] } },
       });
       if (ipDuplicate) {
         throw Object.assign(
@@ -51,10 +59,10 @@ export class TicketService {
       }
     }
 
-    // 1-per-user: device fingerprint check
+    // 1-per-user: device fingerprint check (only block on confirmed/redeemed tickets)
     if (deviceFingerprint) {
       const fpDuplicate = await this.prisma.directTicket.findFirst({
-        where: { eventId, deviceFingerprint, status: { not: 'REFUNDED' } },
+        where: { eventId, deviceFingerprint, status: { in: ['CONFIRMED', 'REDEEMED', 'TRANSFERRED'] } },
       });
       if (fpDuplicate) {
         throw Object.assign(
