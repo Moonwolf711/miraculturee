@@ -12,7 +12,8 @@ import {
  * Required env var: VITE_STRIPE_PUBLISHABLE_KEY (pk_test_... or pk_live_...)
  */
 const stripePromise = loadStripe(
-  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder',
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ||
+    'pk_live_51Ser661sf59ISJ4cbV3XzDIxnQfUBZHH5m7vKJnHKCbkBMos89eCFRBG6O7m61PC8kkNumzYwSECVtFjhx3uLUGL00Pnn1wK2u',
 );
 
 interface PaymentFormProps {
