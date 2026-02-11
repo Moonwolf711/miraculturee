@@ -34,7 +34,7 @@ describe('Layout', () => {
     // Desktop and mobile navs both render the same links.
     // Scope to desktop nav (aria-label="Main navigation").
     const desktopNav = screen.getByLabelText('Main navigation');
-    expect(within(desktopNav).getByText('Events')).toBeInTheDocument();
+    expect(within(desktopNav).getByText('Shows')).toBeInTheDocument();
     expect(within(desktopNav).getByText('How It Works')).toBeInTheDocument();
     expect(within(desktopNav).getByText('For Artists')).toBeInTheDocument();
   });
@@ -189,7 +189,7 @@ describe('Layout', () => {
       </Layout>,
     );
 
-    expect(screen.getByText('Browse Events')).toBeInTheDocument();
+    expect(screen.getByText('Browse Shows')).toBeInTheDocument();
   });
 
   it('renders social media links', () => {

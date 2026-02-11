@@ -1,24 +1,33 @@
 /* ------------------------------------------------------------------
-   Unit tests for lib/ws.ts — WSClient, type guard, backoff logic.
+   Unit tests for lib/ws.ts — WSClient (Socket.IO based).
    ------------------------------------------------------------------ */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   installMockWebSocket,
-  getLatestWSInstance,
+  getMockSocket,
   simulateWSOpen,
   simulateWSClose,
   simulateWSMessage,
   simulateWSError,
+  simulateReconnectAttempt,
 } from '../test/mocks/ws.js';
+
+/* ============== Mock socket.io-client ============== */
+
+const { mockIo } = vi.hoisted(() => ({
+  mockIo: vi.fn(),
+}));
+
+vi.mock('socket.io-client', () => ({
+  io: mockIo,
+}));
 
 /* We need a fresh wsClient for each test — re-import the module */
 let wsClient: typeof import('./ws.js')['wsClient'];
-let isWSMessageFn: undefined | ((data: unknown) => boolean);
 
 /* Helper to dynamically import fresh module */
 async function loadModule() {
-  /* vitest.resetModules forces a fresh module evaluation */
   vi.resetModules();
   const mod = await import('./ws.js');
   wsClient = mod.wsClient;
@@ -31,29 +40,31 @@ describe('WSClient', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     cleanupWS = installMockWebSocket();
+    // Wire the HOISTED mockIo (used by vi.mock) to return the same mock socket
+    mockIo.mockReturnValue(getMockSocket());
     await loadModule();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     cleanupWS();
+    mockIo.mockReset();
   });
 
   /* ---------- Connection & ref counting ---------- */
 
   describe('connect / disconnect (ref counting)', () => {
-    it('creates a WebSocket on first connect()', () => {
+    it('creates a Socket.IO connection on first connect()', () => {
       wsClient.connect();
-      expect(getLatestWSInstance()).toBeDefined();
-      expect(getLatestWSInstance()!.url).toContain('ws');
+      expect(mockIo).toHaveBeenCalled();
       wsClient.disconnect();
     });
 
-    it('does not create a second WebSocket on repeated connect() calls', () => {
+    it('does not create a second connection on repeated connect() calls', () => {
       wsClient.connect();
-      const first = getLatestWSInstance();
+      const callCount = mockIo.mock.calls.length;
       wsClient.connect();
-      expect(getLatestWSInstance()).toBe(first);
+      expect(mockIo.mock.calls.length).toBe(callCount);
       wsClient.disconnect();
       wsClient.disconnect();
     });
@@ -117,90 +128,64 @@ describe('WSClient', () => {
     });
   });
 
-  /* ---------- Auto-reconnect with backoff ---------- */
+  /* ---------- Reconnection (handled by Socket.IO internally) ---------- */
 
-  describe('auto-reconnect with exponential backoff', () => {
-    it('reconnects after initial backoff of 1s', () => {
+  describe('reconnection', () => {
+    it('enters reconnecting state on disconnect with active refs', () => {
+      wsClient.connect();
+      simulateWSOpen();
+      simulateWSClose();
+
+      expect(wsClient.getState()).toBe('reconnecting');
+      wsClient.disconnect();
+    });
+
+    it('enters reconnecting state on reconnect_attempt io event', () => {
+      wsClient.connect();
+      simulateWSOpen();
+
+      simulateReconnectAttempt();
+
+      expect(wsClient.getState()).toBe('reconnecting');
+      wsClient.disconnect();
+    });
+
+    it('returns to connected when reconnection succeeds', () => {
       wsClient.connect();
       simulateWSOpen();
       simulateWSClose();
 
       expect(wsClient.getState()).toBe('reconnecting');
 
-      // Advance 1s — should trigger reconnect
-      vi.advanceTimersByTime(1000);
-      // A new WebSocket instance should be created
-      expect(getLatestWSInstance()!.readyState).toBe(WebSocket.CONNECTING);
+      // Simulate successful reconnection
+      simulateWSOpen();
+      expect(wsClient.getState()).toBe('connected');
 
       wsClient.disconnect();
     });
 
-    it('doubles backoff on successive failures: 1s, 2s, 4s', () => {
+    it('enters reconnecting state on connect_error', () => {
       wsClient.connect();
-
-      // First close — backoff 1s
       simulateWSOpen();
-      simulateWSClose();
-      vi.advanceTimersByTime(1000);
 
-      // Second close — backoff 2s
-      simulateWSOpen();
-      simulateWSClose();
-      vi.advanceTimersByTime(1000); // too early
-      // Should still be reconnecting since we only waited 1s
+      simulateWSError();
+
       expect(wsClient.getState()).toBe('reconnecting');
-      vi.advanceTimersByTime(1000); // now 2s total
-
-      // Third close — backoff 4s
-      simulateWSOpen();
-      simulateWSClose();
-      vi.advanceTimersByTime(3000); // too early
-      expect(wsClient.getState()).toBe('reconnecting');
-      vi.advanceTimersByTime(1000); // now 4s total
-
       wsClient.disconnect();
     });
 
-    it('caps backoff at 30s', () => {
+    it('configures Socket.IO with reconnection settings', () => {
       wsClient.connect();
 
-      // Simulate many failures to ramp up backoff
-      for (let i = 0; i < 10; i++) {
-        simulateWSOpen();
-        simulateWSClose();
-        vi.advanceTimersByTime(30_000);
-      }
-
-      // After many failures, backoff should be capped at 30s
-      simulateWSOpen();
-      simulateWSClose();
-      vi.advanceTimersByTime(29_000); // just under 30s
-      expect(wsClient.getState()).toBe('reconnecting');
-      vi.advanceTimersByTime(1000); // exactly 30s — should reconnect now
-
-      wsClient.disconnect();
-    });
-
-    it('resets backoff after successful connection', () => {
-      wsClient.connect();
-
-      // Ramp up backoff
-      simulateWSOpen();
-      simulateWSClose();
-      vi.advanceTimersByTime(1000);
-
-      simulateWSOpen();
-      simulateWSClose();
-      vi.advanceTimersByTime(2000);
-
-      // Successful connection resets backoff
-      simulateWSOpen();
-      simulateWSClose();
-
-      // After reset, should reconnect after 1s
-      vi.advanceTimersByTime(1000);
-      // A fresh connection attempt has been made
-      expect(getLatestWSInstance()).toBeDefined();
+      // Verify io() was called with reconnection options
+      const options = mockIo.mock.calls[0]?.[1];
+      expect(options).toEqual(
+        expect.objectContaining({
+          reconnection: true,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 30000,
+        }),
+      );
 
       wsClient.disconnect();
     });
@@ -209,30 +194,38 @@ describe('WSClient', () => {
   /* ---------- Channel subscription ---------- */
 
   describe('channel subscription', () => {
-    it('sends subscribe message when connected', () => {
+    it('emits subscribe when connected', () => {
       wsClient.connect();
       simulateWSOpen();
       wsClient.subscribe('event:abc');
 
-      const ws = getLatestWSInstance()!;
-      expect(ws.send).toHaveBeenCalledWith(
-        JSON.stringify({ action: 'subscribe', channel: 'event:abc' }),
-      );
+      const socket = getMockSocket()!;
+      expect(socket.emit).toHaveBeenCalledWith('subscribe', 'event:abc');
 
       wsClient.unsubscribe('event:abc');
       wsClient.disconnect();
     });
 
-    it('sends unsubscribe message when connected', () => {
+    it('emits join:event for event-type channels', () => {
+      wsClient.connect();
+      simulateWSOpen();
+      wsClient.subscribe('event:abc');
+
+      const socket = getMockSocket()!;
+      expect(socket.emit).toHaveBeenCalledWith('join:event', 'abc');
+
+      wsClient.unsubscribe('event:abc');
+      wsClient.disconnect();
+    });
+
+    it('emits unsubscribe when connected', () => {
       wsClient.connect();
       simulateWSOpen();
       wsClient.subscribe('event:abc');
       wsClient.unsubscribe('event:abc');
 
-      const ws = getLatestWSInstance()!;
-      expect(ws.send).toHaveBeenCalledWith(
-        JSON.stringify({ action: 'unsubscribe', channel: 'event:abc' }),
-      );
+      const socket = getMockSocket()!;
+      expect(socket.emit).toHaveBeenCalledWith('unsubscribe', 'event:abc');
 
       wsClient.disconnect();
     });
@@ -243,20 +236,21 @@ describe('WSClient', () => {
       wsClient.subscribe('event:abc');
       wsClient.subscribe('events:list');
 
+      const socket = getMockSocket()!;
+      socket.emit.mockClear();
+
       // Force reconnect
       simulateWSClose();
-      vi.advanceTimersByTime(1000);
       simulateWSOpen();
 
-      const ws = getLatestWSInstance()!;
-      const sentMessages = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
-      const subscribes = sentMessages.filter(
-        (m: Record<string, unknown>) => m.action === 'subscribe',
+      const emitCalls = socket.emit.mock.calls;
+      const subscribes = emitCalls.filter(
+        (c: unknown[]) => c[0] === 'subscribe',
       );
       expect(subscribes).toEqual(
         expect.arrayContaining([
-          { action: 'subscribe', channel: 'event:abc' },
-          { action: 'subscribe', channel: 'events:list' },
+          ['subscribe', 'event:abc'],
+          ['subscribe', 'events:list'],
         ]),
       );
 
@@ -284,21 +278,6 @@ describe('WSClient', () => {
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'ticket:supported', eventId: 'evt-1' }),
       );
-
-      wsClient.disconnect();
-    });
-
-    it('ignores malformed (non-JSON) messages', () => {
-      const listener = vi.fn();
-      wsClient.connect();
-      simulateWSOpen();
-      wsClient.onMessage(listener);
-
-      // Send raw text that is not JSON
-      const ws = getLatestWSInstance()!;
-      ws.onmessage?.(new MessageEvent('message', { data: 'not json' }));
-
-      expect(listener).not.toHaveBeenCalled();
 
       wsClient.disconnect();
     });
@@ -361,19 +340,17 @@ describe('WSClient', () => {
   /* ---------- Heartbeat ---------- */
 
   describe('heartbeat', () => {
-    it('resets heartbeat timer on heartbeat message', () => {
+    it('forwards heartbeat messages to listeners', () => {
+      const listener = vi.fn();
       wsClient.connect();
       simulateWSOpen();
+      wsClient.onMessage(listener);
 
-      // Advance to near the heartbeat timeout (45s)
-      vi.advanceTimersByTime(40_000);
-
-      // Send heartbeat — should reset the timer
       simulateWSMessage({ type: 'heartbeat', ts: Date.now() });
 
-      // Advance another 40s — still within timeout because of reset
-      vi.advanceTimersByTime(40_000);
-
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'heartbeat' }),
+      );
       expect(wsClient.getState()).toBe('connected');
 
       wsClient.disconnect();
@@ -384,19 +361,19 @@ describe('WSClient', () => {
 /* ============== Type Guard Tests ============== */
 
 describe('isWSMessage type guard', () => {
-  /* We test indirectly via wsClient.onMessage since isWSMessage is not exported */
-
   let cleanupWS: () => void;
 
   beforeEach(async () => {
     vi.useFakeTimers();
     cleanupWS = installMockWebSocket();
+    mockIo.mockReturnValue(getMockSocket());
     await loadModule();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     cleanupWS();
+    mockIo.mockReset();
   });
 
   it('accepts valid raffle:new_entry', () => {
@@ -431,14 +408,13 @@ describe('isWSMessage type guard', () => {
     wsClient.disconnect();
   });
 
-  it('rejects null', () => {
+  it('rejects messages with unknown type', () => {
     const listener = vi.fn();
     wsClient.connect();
     simulateWSOpen();
     wsClient.onMessage(listener);
 
-    const ws = getLatestWSInstance()!;
-    ws.onmessage?.(new MessageEvent('message', { data: 'null' }));
+    simulateWSMessage({ type: 'bogus:event' });
     expect(listener).not.toHaveBeenCalled();
 
     wsClient.disconnect();
@@ -451,18 +427,6 @@ describe('isWSMessage type guard', () => {
     wsClient.onMessage(listener);
 
     simulateWSMessage({ eventId: 'evt-1' });
-    expect(listener).not.toHaveBeenCalled();
-
-    wsClient.disconnect();
-  });
-
-  it('rejects object with numeric type', () => {
-    const listener = vi.fn();
-    wsClient.connect();
-    simulateWSOpen();
-    wsClient.onMessage(listener);
-
-    simulateWSMessage({ type: 42 });
     expect(listener).not.toHaveBeenCalled();
 
     wsClient.disconnect();

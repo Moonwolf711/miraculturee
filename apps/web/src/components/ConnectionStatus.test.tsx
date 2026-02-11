@@ -8,9 +8,20 @@ import { screen, act } from '@testing-library/react';
 import { renderWithProviders } from '../test/utils.js';
 import {
   installMockWebSocket,
+  getMockSocket,
   simulateWSOpen,
   simulateWSClose,
 } from '../test/mocks/ws.js';
+
+/* ============== Mock socket.io-client ============== */
+
+const { mockIo } = vi.hoisted(() => ({
+  mockIo: vi.fn(),
+}));
+
+vi.mock('socket.io-client', () => ({
+  io: mockIo,
+}));
 
 /* We must import fresh modules per test to reset wsClient singleton */
 let ConnectionStatus: typeof import('./ConnectionStatus.js')['default'];
@@ -27,12 +38,14 @@ describe('ConnectionStatus', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     cleanupWS = installMockWebSocket();
+    mockIo.mockReturnValue(getMockSocket());
     await loadComponent();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     cleanupWS();
+    mockIo.mockReset();
   });
 
   it('is hidden during initial "connecting" state', () => {

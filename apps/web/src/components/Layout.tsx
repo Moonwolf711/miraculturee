@@ -352,10 +352,14 @@ export default function Layout({ children }: { children: ReactNode }) {
               </h4>
               <ul className="space-y-2 mb-6">
                 <li>
-                  <span className="text-gray-500 text-sm">Privacy Policy</span>
+                  <Link to="/privacy" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
+                    Privacy Policy
+                  </Link>
                 </li>
                 <li>
-                  <span className="text-gray-500 text-sm">Terms of Service</span>
+                  <Link to="/terms" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
+                    Terms of Service
+                  </Link>
                 </li>
               </ul>
               <div className="flex items-center gap-3" role="list" aria-label="Social media links">

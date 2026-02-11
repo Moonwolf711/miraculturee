@@ -18,6 +18,8 @@ const EventDetailPage = lazy(() => import('./pages/EventDetailPage.js'));
 const ArtistDashboardPage = lazy(() => import('./pages/ArtistDashboardPage.js'));
 const CreateEventPage = lazy(() => import('./pages/CreateEventPage.js'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.js'));
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage.js'));
+const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -88,6 +90,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsOfServicePage />} />
             {/* Catch-all 404 route */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

@@ -7,10 +7,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import {
   installMockWebSocket,
+  getMockSocket,
   simulateWSOpen,
   simulateWSClose,
   simulateWSMessage,
 } from '../test/mocks/ws.js';
+
+/* ============== Mock socket.io-client ============== */
+
+const { mockIo } = vi.hoisted(() => ({
+  mockIo: vi.fn(),
+}));
+
+vi.mock('socket.io-client', () => ({
+  io: mockIo,
+}));
 
 /* We need to import from a fresh wsClient each time */
 let useWebSocket: typeof import('./useWebSocket.js')['useWebSocket'];
@@ -31,12 +42,14 @@ describe('useWebSocket', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     cleanupWS = installMockWebSocket();
+    mockIo.mockReturnValue(getMockSocket());
     await loadHooks();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     cleanupWS();
+    mockIo.mockReset();
   });
 
   it('returns initial connection state', () => {
@@ -131,12 +144,14 @@ describe('useConnectionState', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     cleanupWS = installMockWebSocket();
+    mockIo.mockReturnValue(getMockSocket());
     await loadHooks();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     cleanupWS();
+    mockIo.mockReset();
   });
 
   it('returns current connection state', () => {
@@ -167,12 +182,14 @@ describe('usePollingFallback', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     cleanupWS = installMockWebSocket();
+    mockIo.mockReturnValue(getMockSocket());
     await loadHooks();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     cleanupWS();
+    mockIo.mockReset();
   });
 
   it('polls at the given interval when WS is disconnected', () => {
