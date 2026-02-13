@@ -3,7 +3,7 @@ import type Stripe from 'stripe';
 import { getStripeClient } from '../lib/stripe.js';
 import { requireRole } from '../middleware/authenticate.js';
 
-const PRODUCTION_DOMAIN = 'miraculture.com';
+const PRODUCTION_DOMAIN = 'www.mira-culture.com';
 
 async function ensureDomainRegistered(stripe: Stripe, domain: string, log?: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void }) {
   const existing = await stripe.applePayDomains.list({ limit: 100 });
