@@ -7,6 +7,7 @@ import SEO, { getBreadcrumbSchema } from '../components/SEO.js';
 import { CardSkeleton, InlineError } from '../components/LoadingStates.js';
 
 type EventTypeFilter = 'SHOW' | 'FESTIVAL';
+type SortOption = 'distance' | 'popular' | 'date';
 
 interface EventSummary {
   id: string;
@@ -34,12 +35,23 @@ interface FilterOptions {
   genres: string[];
 }
 
+interface UserLocation {
+  lat: number;
+  lng: number;
+}
+
 const DATE_RANGES = [
   { label: 'Any Date', value: '' },
   { label: 'This Week', value: 'week' },
   { label: 'This Month', value: 'month' },
   { label: 'Next 3 Months', value: '3months' },
   { label: 'Next 6 Months', value: '6months' },
+];
+
+const SORT_OPTIONS: { label: string; value: SortOption }[] = [
+  { label: 'Nearest', value: 'distance' },
+  { label: 'Most Popular', value: 'popular' },
+  { label: 'Date', value: 'date' },
 ];
 
 function getDateRange(value: string): { dateFrom?: string; dateTo?: string } {
@@ -66,10 +78,34 @@ export default function EventsPage() {
   const [genreFilter, setGenreFilter] = useState('');
   const [dateRange, setDateRange] = useState('');
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('distance');
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({ cities: [], genres: [] });
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [locationLoading, setLocationLoading] = useState(true);
+
+  // Request geolocation on mount
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationLoading(false);
+      setSortBy('popular');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocationLoading(false);
+      },
+      () => {
+        // Denied or unavailable — fall back to popular sort
+        setSortBy('popular');
+        setLocationLoading(false);
+      },
+      { timeout: 5000, maximumAge: 300000 },
+    );
+  }, []);
 
   // Load filter options once
   useEffect(() => {
@@ -79,6 +115,7 @@ export default function EventsPage() {
   const loadEvents = useCallback(async (opts: {
     city?: string; genre?: string; type?: EventTypeFilter;
     dateFrom?: string; dateTo?: string; page?: number;
+    sort?: SortOption; lat?: number; lng?: number;
   } = {}) => {
     setLoading(true);
     setFetchError(null);
@@ -89,6 +126,9 @@ export default function EventsPage() {
       if (opts.type) qp.set('type', opts.type);
       if (opts.dateFrom) qp.set('dateFrom', opts.dateFrom);
       if (opts.dateTo) qp.set('dateTo', opts.dateTo);
+      if (opts.sort) qp.set('sort', opts.sort);
+      if (opts.lat != null) qp.set('lat', String(opts.lat));
+      if (opts.lng != null) qp.set('lng', String(opts.lng));
       const page = opts.page || 1;
       if (page > 1) qp.set('page', String(page));
       const qs = qp.toString();
@@ -111,12 +151,17 @@ export default function EventsPage() {
       type: activeTab,
       dateFrom,
       dateTo,
+      sort: sortBy,
+      lat: userLocation?.lat,
+      lng: userLocation?.lng,
     };
-  }, [cityFilter, search, genreFilter, dateRange, activeTab]);
+  }, [cityFilter, search, genreFilter, dateRange, activeTab, sortBy, userLocation]);
 
+  // Load events when filters change (wait for location to resolve first)
   useEffect(() => {
+    if (locationLoading) return;
     loadEvents({ ...currentFilters(), page: 1 });
-  }, [loadEvents, activeTab, cityFilter, genreFilter, dateRange]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadEvents, activeTab, cityFilter, genreFilter, dateRange, sortBy, locationLoading, userLocation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTabChange = (tab: EventTypeFilter) => {
     setActiveTab(tab);
@@ -141,6 +186,7 @@ export default function EventsPage() {
     setGenreFilter('');
     setDateRange('');
     setSearch('');
+    setSortBy(userLocation ? 'distance' : 'popular');
     setCurrentPage(1);
   };
 
@@ -225,6 +271,36 @@ export default function EventsPage() {
 
         {/* Filter bar */}
         <div className="bg-noir-900/50 border border-noir-700 rounded-xl p-4 mb-8">
+          {/* Sort row */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className="font-body text-xs text-gray-500 uppercase tracking-wider mr-1">Sort by</span>
+            {SORT_OPTIONS.map((opt) => {
+              const disabled = opt.value === 'distance' && !userLocation;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => !disabled && setSortBy(opt.value)}
+                  disabled={disabled}
+                  className={`px-3 py-1.5 rounded-full font-body text-xs tracking-wide transition-all duration-300 ${
+                    sortBy === opt.value
+                      ? 'bg-amber-500 text-noir-950 font-semibold'
+                      : disabled
+                        ? 'text-gray-700 border border-noir-800 cursor-not-allowed'
+                        : 'text-gray-400 border border-noir-700 hover:border-amber-500/40 hover:text-amber-400'
+                  }`}
+                  title={disabled ? 'Enable location access for nearby sorting' : ''}
+                >
+                  {opt.value === 'distance' && (
+                    <span className="inline-block mr-1" aria-hidden="true">
+                      {userLocation ? '\u{1F4CD}' : '\u{1F512}'}
+                    </span>
+                  )}
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="flex flex-wrap gap-3 items-end">
             {/* Search */}
             <div className="flex-1 min-w-[200px]">

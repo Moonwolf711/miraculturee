@@ -55,6 +55,9 @@ export const EventSearchSchema = z.object({
   type: z.enum(['SHOW', 'FESTIVAL']).optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+  sort: z.enum(['date', 'distance', 'popular']).default('date'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });

@@ -88,6 +88,9 @@ export class EventService {
     type?: string;
     dateFrom?: string;
     dateTo?: string;
+    lat?: number;
+    lng?: number;
+    sort?: string;
     page: number;
     limit: number;
   }): Promise<PaginatedResponse<EventSummary>> {
@@ -113,6 +116,51 @@ export class EventService {
       where.artist = { ...where.artist as any, genre: { contains: params.genre, mode: 'insensitive' } };
     }
 
+    const needsAppSort = params.sort === 'distance' || params.sort === 'popular';
+
+    if (needsAppSort) {
+      // Fetch all matching events, sort in-app, then paginate
+      const [allEvents, total] = await Promise.all([
+        this.prisma.event.findMany({
+          where,
+          include: { artist: true, supportTickets: { where: { confirmed: true } } },
+        }),
+        this.prisma.event.count({ where }),
+      ]);
+
+      let sorted: typeof allEvents;
+
+      if (params.sort === 'distance' && params.lat != null && params.lng != null) {
+        const userLat = params.lat;
+        const userLng = params.lng;
+        sorted = allEvents.sort((a, b) => {
+          const distA = haversineDistanceKm(userLat, userLng, a.venueLat, a.venueLng);
+          const distB = haversineDistanceKm(userLat, userLng, b.venueLat, b.venueLng);
+          if (distA !== distB) return distA - distB;
+          return a.date.getTime() - b.date.getTime();
+        });
+      } else {
+        // popular: sort by supportedTickets desc, then date asc
+        sorted = allEvents.sort((a, b) => {
+          const supA = a.supportTickets.reduce((s, t) => s + t.ticketCount, 0);
+          const supB = b.supportTickets.reduce((s, t) => s + t.ticketCount, 0);
+          if (supB !== supA) return supB - supA;
+          return a.date.getTime() - b.date.getTime();
+        });
+      }
+
+      const paginated = sorted.slice((params.page - 1) * params.limit, params.page * params.limit);
+
+      return {
+        data: paginated.map((e) => this.toSummary(e)),
+        total,
+        page: params.page,
+        limit: params.limit,
+        totalPages: Math.ceil(total / params.limit),
+      };
+    }
+
+    // Default: sort by date asc with DB pagination
     const [events, total] = await Promise.all([
       this.prisma.event.findMany({
         where,
