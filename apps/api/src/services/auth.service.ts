@@ -33,7 +33,7 @@ export class AuthService {
     }
 
     // Send verification email (fire and forget)
-    this.sendVerificationEmail(user.id);
+    void this.sendVerificationEmail(user.id);
 
     return this.generateTokens(user);
   }
@@ -76,7 +76,7 @@ export class AuthService {
     });
 
     const resetLink = `${FRONTEND_URL}/reset-password?token=${token}`;
-    this.app.emailService?.sendPasswordReset(email, { userName: user.name, resetLink });
+    void this.app.emailService?.sendPasswordReset(email, { userName: user.name, resetLink });
   }
 
   async resetPassword(token: string, newPassword: string): Promise<TokenPair> {
@@ -107,7 +107,7 @@ export class AuthService {
     });
 
     const verifyLink = `${FRONTEND_URL}/verify-email?token=${token}`;
-    this.app.emailService?.sendEmailVerification(user.email, { userName: user.name, verifyLink });
+    void this.app.emailService?.sendEmailVerification(user.email, { userName: user.name, verifyLink });
   }
 
   async verifyEmail(token: string): Promise<void> {

@@ -24,9 +24,9 @@ export default function VerifyEmailPage() {
         setStatus('success');
         refreshUser?.();
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         setStatus('error');
-        setError(err.message || 'Verification failed.');
+        setError(err instanceof Error ? err.message : 'Verification failed.');
       });
   }, [token, refreshUser]);
 

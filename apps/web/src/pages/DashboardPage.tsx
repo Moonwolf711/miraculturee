@@ -174,15 +174,15 @@ export default function DashboardPage() {
   }, [activeTab, fetchTransactions]);
 
   // --- Raffles data (uses dashboard) ---
-  const [raffles, setRaffles] = useState<any[] | null>(null);
+  const [raffles, setRaffles] = useState<Transaction[] | null>(null);
   const [rafflesLoading, setRafflesLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab !== 'raffles') return;
     setRafflesLoading(true);
-    api.get<{ data: any[]; total: number }>('/user/transactions?limit=50')
+    api.get<{ data: Transaction[]; total: number }>('/user/transactions?limit=50')
       .then((res) => {
-        setRaffles(res.data.filter((t: any) => t.type === 'RAFFLE_ENTRY'));
+        setRaffles(res.data.filter((t) => t.type === 'RAFFLE_ENTRY'));
       })
       .catch(() => {})
       .finally(() => setRafflesLoading(false));
@@ -271,7 +271,7 @@ export default function DashboardPage() {
               <LoadingList />
             ) : raffles && raffles.length > 0 ? (
               <div className="space-y-3">
-                {raffles.map((entry: any) => (
+                {raffles.map((entry) => (
                   <div
                     key={entry.id}
                     className="bg-noir-900 border border-noir-800 rounded-xl p-4"

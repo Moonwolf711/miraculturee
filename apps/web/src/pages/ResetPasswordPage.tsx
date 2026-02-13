@@ -31,8 +31,8 @@ export default function ResetPasswordPage() {
       localStorage.setItem('accessToken', tokens.accessToken);
       localStorage.setItem('refreshToken', tokens.refreshToken);
       navigate('/events');
-    } catch (err: any) {
-      setError(err.message || 'Invalid or expired reset link.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Invalid or expired reset link.');
     } finally {
       setLoading(false);
     }

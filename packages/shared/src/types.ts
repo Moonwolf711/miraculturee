@@ -1,16 +1,19 @@
-import type { Role, EventType, EventStatus, RaffleStatus, PoolTicketStatus, TransactionType, DirectTicketStatus } from './constants.js';
+import type { Role, EventType, EventStatus, RaffleStatus, TransactionType, DirectTicketStatus } from './constants.js';
 
+/** Decoded JWT payload for an authenticated user. */
 export interface UserPayload {
   id: string;
   email: string;
   role: Role;
 }
 
+/** Access + refresh token pair returned on login/refresh. */
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
 }
 
+/** Generic paginated API response wrapper. */
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
@@ -19,6 +22,7 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+/** Lightweight event data for list views. */
 export interface EventSummary {
   id: string;
   title: string;
@@ -34,6 +38,7 @@ export interface EventSummary {
   genre: string | null;
 }
 
+/** Full event data including venue coordinates and raffle pools. */
 export interface EventDetail extends EventSummary {
   description: string | null;
   venueAddress: string;
@@ -45,6 +50,7 @@ export interface EventDetail extends EventSummary {
   rafflePools: RafflePoolSummary[];
 }
 
+/** Raffle pool data included in event detail responses. */
 export interface RafflePoolSummary {
   id: string;
   tierCents: number;
@@ -54,6 +60,7 @@ export interface RafflePoolSummary {
   drawTime: string | null;
 }
 
+/** Result of a support ticket purchase, including the Stripe client secret. */
 export interface SupportPurchaseResult {
   id: string;
   eventId: string;
@@ -62,6 +69,7 @@ export interface SupportPurchaseResult {
   clientSecret: string;
 }
 
+/** Result of entering a raffle pool. */
 export interface RaffleEntryResult {
   id: string;
   poolId: string;
@@ -69,12 +77,14 @@ export interface RaffleEntryResult {
   clientSecret: string;
 }
 
+/** Result of a raffle draw. */
 export interface DrawResult {
   poolId: string;
   winners: { userId: string; ticketId: string }[];
   totalDrawn: number;
 }
 
+/** Aggregate data for the artist dashboard view. */
 export interface ArtistDashboard {
   totalEvents: number;
   totalSupport: number;
@@ -83,6 +93,7 @@ export interface ArtistDashboard {
   upcomingEvents: EventSummary[];
 }
 
+/** Single financial transaction record. */
 export interface TransactionRecord {
   id: string;
   type: TransactionType;
@@ -92,6 +103,7 @@ export interface TransactionRecord {
   createdAt: string;
 }
 
+/** Result of a direct ticket purchase including fee breakdown. */
 export interface TicketPurchaseResult {
   id: string;
   eventId: string;
@@ -102,6 +114,7 @@ export interface TicketPurchaseResult {
   clientSecret: string;
 }
 
+/** Lightweight direct ticket data for list views. */
 export interface DirectTicketSummary {
   id: string;
   eventId: string;

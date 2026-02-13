@@ -56,8 +56,8 @@ export default function ConnectDashboardPage() {
       if (!selectedAccount && res.accounts.length > 0) {
         setSelectedAccount(res.accounts[0].stripeAccountId);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load accounts.');
     } finally {
       setLoading(false);
     }
@@ -107,8 +107,8 @@ export default function ConnectDashboardPage() {
       setDisplayName('');
       setContactEmail('');
       await fetchAccounts();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create account.');
     } finally {
       setActionLoading(null);
     }
@@ -122,8 +122,8 @@ export default function ConnectDashboardPage() {
         `/connect/accounts/${selectedAccount}/onboarding-link`,
       );
       window.location.href = res.url;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to start onboarding.');
       setActionLoading(null);
     }
   };
@@ -141,8 +141,8 @@ export default function ConnectDashboardPage() {
       setProductName('');
       setProductDesc('');
       setProductPrice('');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create product.');
     } finally {
       setActionLoading(null);
     }
@@ -156,8 +156,8 @@ export default function ConnectDashboardPage() {
         `/connect/accounts/${selectedAccount}/subscribe`,
       );
       window.location.href = res.url;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to subscribe.');
       setActionLoading(null);
     }
   };
@@ -170,8 +170,8 @@ export default function ConnectDashboardPage() {
         `/connect/accounts/${selectedAccount}/billing-portal`,
       );
       window.location.href = res.url;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to open billing portal.');
       setActionLoading(null);
     }
   };
@@ -227,10 +227,11 @@ export default function ConnectDashboardPage() {
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs uppercase tracking-wider text-gray-400 mb-1">
+                <label htmlFor="connect-display-name" className="block text-xs uppercase tracking-wider text-gray-400 mb-1">
                   Display Name
                 </label>
                 <input
+                  id="connect-display-name"
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
@@ -239,10 +240,11 @@ export default function ConnectDashboardPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs uppercase tracking-wider text-gray-400 mb-1">
+                <label htmlFor="connect-contact-email" className="block text-xs uppercase tracking-wider text-gray-400 mb-1">
                   Contact Email
                 </label>
                 <input
+                  id="connect-contact-email"
                   type="email"
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
@@ -265,7 +267,7 @@ export default function ConnectDashboardPage() {
         {accounts.length === 0 && !showCreateForm && (
           <div className="flex flex-col items-center justify-center py-16 bg-noir-800 border border-noir-700 rounded-xl">
             <div className="w-14 h-14 rounded-full border-2 border-noir-700 flex items-center justify-center mb-5">
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
               </svg>
             </div>
@@ -290,6 +292,7 @@ export default function ConnectDashboardPage() {
             <select
               value={selectedAccount || ''}
               onChange={(e) => setSelectedAccount(e.target.value)}
+              aria-label="Select connected account"
               className="w-full px-4 py-2.5 bg-noir-800 border border-noir-700 rounded-lg text-warm-50 focus:border-amber-500 focus:outline-none"
             >
               {accounts.map((a) => (
@@ -366,6 +369,7 @@ export default function ConnectDashboardPage() {
                       value={productName}
                       onChange={(e) => setProductName(e.target.value)}
                       placeholder="Product name"
+                      aria-label="Product name"
                       className="w-full px-3 py-2 bg-noir-800 border border-noir-600 rounded-lg text-warm-50 placeholder-gray-500 text-sm focus:border-amber-500 focus:outline-none"
                     />
                     <input
@@ -373,6 +377,7 @@ export default function ConnectDashboardPage() {
                       value={productDesc}
                       onChange={(e) => setProductDesc(e.target.value)}
                       placeholder="Description (optional)"
+                      aria-label="Product description"
                       className="w-full px-3 py-2 bg-noir-800 border border-noir-600 rounded-lg text-warm-50 placeholder-gray-500 text-sm focus:border-amber-500 focus:outline-none"
                     />
                     <input
@@ -380,6 +385,7 @@ export default function ConnectDashboardPage() {
                       value={productPrice}
                       onChange={(e) => setProductPrice(e.target.value)}
                       placeholder="Price in USD (e.g. 29.99)"
+                      aria-label="Product price in USD"
                       step="0.01"
                       min="0.50"
                       className="w-full px-3 py-2 bg-noir-800 border border-noir-600 rounded-lg text-warm-50 placeholder-gray-500 text-sm focus:border-amber-500 focus:outline-none"

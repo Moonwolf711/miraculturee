@@ -216,9 +216,9 @@ export class TicketmasterAdapter implements VendorAdapter {
     const res = await fetch(`${TM_BASE_URL}/suggest.json?${qs.toString()}`);
     if (!res.ok) return [];
 
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as TmSearchResponse;
     const events = data._embedded?.events ?? [];
-    return events.map((e: TmEvent) => this.mapEvent(e));
+    return events.map((e) => this.mapEvent(e));
   }
 
   /**
@@ -249,9 +249,9 @@ export class TicketmasterAdapter implements VendorAdapter {
     const res = await fetch(`${TM_BASE_URL}/venues.json?${qs.toString()}`);
     if (!res.ok) return [];
 
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as { _embedded?: { venues?: Array<TmVenue & { id: string }> } };
     const venues = data._embedded?.venues ?? [];
-    return venues.map((v: TmVenue & { id: string }) => ({
+    return venues.map((v) => ({
       id: v.id,
       name: v.name ?? '',
       city: v.city?.name ?? '',

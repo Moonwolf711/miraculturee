@@ -81,13 +81,14 @@ function PaymentForm({
         } else {
           onSuccess();
         }
-      } catch (err: any) {
-        onError(err.message ?? 'An unexpected error occurred.');
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
+        onError(message);
       } finally {
         setProcessing(false);
       }
     },
-    [stripe, elements, clientSecret, captchaToken, onSuccess, onError],
+    [stripe, elements, captchaToken, captchaRequired, onSuccess, onError],
   );
 
   return (

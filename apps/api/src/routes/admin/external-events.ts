@@ -12,7 +12,7 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
    */
   app.post('/sync', async (req, reply) => {
     // TODO: Add admin authentication middleware
-    
+
     const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
     const edmtrainApiKey = process.env.EDMTRAIN_API_KEY;
 

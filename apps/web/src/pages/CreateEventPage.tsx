@@ -41,8 +41,8 @@ export default function CreateEventPage() {
         localRadiusKm: parseFloat(form.localRadiusKm),
       });
       navigate(`/events/${event.id}`);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create event.');
     } finally {
       setLoading(false);
     }

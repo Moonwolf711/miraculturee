@@ -12,15 +12,17 @@ import type {
   CardDetails,
 } from './types.js';
 
+/** Stripe-backed implementation of {@link PaymentProvider}. */
 export class StripeProvider implements PaymentProvider {
-  private stripe: Stripe;
-  private webhookSecret: string;
+  private readonly stripe: Stripe;
+  private readonly webhookSecret: string;
 
   constructor(secretKey: string, webhookSecret: string) {
     this.stripe = new Stripe(secretKey, { apiVersion: '2025-02-24.acacia' });
     this.webhookSecret = webhookSecret;
   }
 
+  /** Creates a Stripe PaymentIntent with automatic payment methods enabled. */
   async createPaymentIntent(params: CreatePaymentParams): Promise<PaymentIntentResult> {
     const intent = await this.stripe.paymentIntents.create({
       amount: params.amountCents,
@@ -37,6 +39,7 @@ export class StripeProvider implements PaymentProvider {
     };
   }
 
+  /** Retrieves and normalizes the current status of a PaymentIntent. */
   async confirmPayment(paymentIntentId: string): Promise<PaymentConfirmResult> {
     const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
     const status =
@@ -53,6 +56,7 @@ export class StripeProvider implements PaymentProvider {
     };
   }
 
+  /** Issues a full or partial refund for a PaymentIntent. */
   async refundPayment(paymentIntentId: string, amountCents?: number): Promise<RefundResult> {
     const refund = await this.stripe.refunds.create({
       payment_intent: paymentIntentId,
@@ -66,6 +70,7 @@ export class StripeProvider implements PaymentProvider {
     };
   }
 
+  /** Transfers funds to a connected Stripe account. */
   async createTransfer(
     amountCents: number,
     destinationAccountId: string,
@@ -86,12 +91,14 @@ export class StripeProvider implements PaymentProvider {
     };
   }
 
+  /** Verifies and parses a Stripe webhook event from the raw payload. */
   constructWebhookEvent(payload: string | Buffer, signature: string) {
     return this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
   }
 
   /* ─── Stripe Issuing (virtual cards for ticket acquisition) ─── */
 
+  /** Creates an Issuing cardholder for virtual card provisioning. */
   async createCardholder(params: CreateCardholderParams): Promise<CardholderResult> {
     const cardholder = await this.stripe.issuing.cardholders.create({
       name: params.name,
@@ -102,6 +109,7 @@ export class StripeProvider implements PaymentProvider {
     return { id: cardholder.id, name: cardholder.name, status: cardholder.status };
   }
 
+  /** Creates a virtual Issuing card, optionally with a per-authorization spending limit. */
   async createVirtualCard(cardholderId: string, spendingLimitCents?: number): Promise<VirtualCardResult> {
     const card = await this.stripe.issuing.cards.create({
       cardholder: cardholderId,
@@ -123,20 +131,26 @@ export class StripeProvider implements PaymentProvider {
     };
   }
 
+  /** Retrieves full card details (number, CVC) via Stripe expand. */
   async getCardDetails(cardId: string): Promise<CardDetails> {
     const card = await this.stripe.issuing.cards.retrieve(cardId, {
       expand: ['number', 'cvc'],
     });
+    // Stripe's type definitions don't include `number` and `cvc` on the base
+    // Card type even when expanded. The `as unknown as` cast is required until
+    // Stripe publishes expanded-field types.
+    const expanded = card as unknown as { number: string; cvc: string };
     return {
       id: card.id,
-      number: (card as any).number,
+      number: expanded.number,
       expMonth: card.exp_month,
       expYear: card.exp_year,
-      cvc: (card as any).cvc,
+      cvc: expanded.cvc,
       last4: card.last4,
     };
   }
 
+  /** Deactivates a virtual card by setting its status to inactive. */
   async freezeCard(cardId: string): Promise<void> {
     await this.stripe.issuing.cards.update(cardId, { status: 'inactive' });
   }

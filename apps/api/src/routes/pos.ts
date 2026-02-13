@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { CreatePaymentSchema } from '@miraculturee/shared';
+import { CreatePaymentSchema, UuidParamSchema } from '@miraculturee/shared';
 
 export async function posRoutes(app: FastifyInstance) {
   // Authenticated: create payment intent
@@ -15,7 +15,7 @@ export async function posRoutes(app: FastifyInstance) {
 
   // Authenticated: confirm payment
   app.post('/payment/:id/confirm', { preHandler: [app.authenticate] }, async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const { id } = UuidParamSchema.parse(req.params);
     const result = await app.pos.confirmPayment(id);
     return reply.send(result);
   });

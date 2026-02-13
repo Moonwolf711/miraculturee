@@ -511,7 +511,7 @@ export class PurchaseAgentService {
     const ebToken = process.env.EVENTBRITE_API_TOKEN;
     if (!ebToken) {
       // No Eventbrite API token — fall back to manual
-      await this.flagForManualPurchase(acquisitionId, event as any, 'eventbrite', purchaseUrl);
+      await this.flagForManualPurchase(acquisitionId, event, 'eventbrite', purchaseUrl);
       return { success: false, requiresManual: true };
     }
 
@@ -519,7 +519,7 @@ export class PurchaseAgentService {
       // Extract Eventbrite event ID from URL
       const ebEventId = this.extractEventbriteId(purchaseUrl);
       if (!ebEventId) {
-        await this.flagForManualPurchase(acquisitionId, event as any, 'eventbrite', purchaseUrl);
+        await this.flagForManualPurchase(acquisitionId, event, 'eventbrite', purchaseUrl);
         return { success: false, requiresManual: true };
       }
 
@@ -636,7 +636,7 @@ export class PurchaseAgentService {
       console.error(`[PurchaseAgent] Eventbrite purchase failed for acquisition ${acquisitionId}:`, msg);
 
       // Fall back to manual
-      await this.flagForManualPurchase(acquisitionId, event as any, 'eventbrite', purchaseUrl);
+      await this.flagForManualPurchase(acquisitionId, event, 'eventbrite', purchaseUrl);
       return { success: false, requiresManual: true, error: msg };
     }
   }

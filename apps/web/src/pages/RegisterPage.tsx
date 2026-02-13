@@ -20,8 +20,8 @@ export default function RegisterPage() {
     try {
       await register(email, password, name, role);
       navigate(role === 'ARTIST' ? '/artist/dashboard' : '/events');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration failed.');
     } finally {
       setLoading(false);
     }

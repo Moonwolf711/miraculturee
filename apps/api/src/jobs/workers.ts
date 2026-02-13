@@ -132,7 +132,7 @@ export async function initWorkers() {
     'raffle-draw',
     async (job) => {
       const { poolId } = job.data;
-      console.log(`[RaffleDraw] Starting draw for pool ${poolId}`);
+      console.info(`[RaffleDraw] Starting draw for pool ${poolId}`);
 
       await prisma.$transaction(async (tx: any) => {
         const pool = await tx.rafflePool.update({
@@ -153,7 +153,7 @@ export async function initWorkers() {
             where: { id: poolId },
             data: { status: 'COMPLETED', drawnAt: new Date() },
           });
-          console.log(`[RaffleDraw] No entries or tickets for pool ${poolId}`);
+          console.info(`[RaffleDraw] No entries or tickets for pool ${poolId}`);
           return;
         }
 
@@ -202,7 +202,7 @@ export async function initWorkers() {
           data: { status: 'COMPLETED', drawnAt: new Date() },
         });
 
-        console.log(`[RaffleDraw] Drew ${winnerCount} winners, ${losers.length} non-winners for pool ${poolId}`);
+        console.info(`[RaffleDraw] Drew ${winnerCount} winners, ${losers.length} non-winners for pool ${poolId}`);
       }, { isolationLevel: 'Serializable' });
     },
     { connection: getConnection(), concurrency: 1 },
@@ -263,7 +263,7 @@ export async function initWorkers() {
           });
         }
 
-        console.log(`[Notification] Winner notification sent for user ${userId}`);
+        console.info(`[Notification] Winner notification sent for user ${userId}`);
       }
 
       if (job.name === 'loser') {
@@ -302,7 +302,7 @@ export async function initWorkers() {
           });
         }
 
-        console.log(`[Notification] Non-winner notification sent for user ${userId}`);
+        console.info(`[Notification] Non-winner notification sent for user ${userId}`);
       }
     },
     { connection: getConnection(), concurrency: 5 },
@@ -313,7 +313,7 @@ export async function initWorkers() {
     'pre-event-tickets',
     async (job) => {
       const { eventId } = job.data;
-      console.log(`[PreEvent] Processing pre-event ticket purchase for event ${eventId}`);
+      console.info(`[PreEvent] Processing pre-event ticket purchase for event ${eventId}`);
 
       const event = await prisma.event.findUnique({
         where: { id: eventId },
@@ -363,13 +363,13 @@ export async function initWorkers() {
             supportTicketId: firstSupportTicket?.id,
           })),
         });
-        console.log(`[PreEvent] Created ${ticketsToBuy} pool tickets for event ${eventId}`);
+        console.info(`[PreEvent] Created ${ticketsToBuy} pool tickets for event ${eventId}`);
       }
 
       // Check if sold out → process surplus payout
       const totalAllocatedAfter = alreadyAllocatedTickets + ticketsToBuy + directTicketCount;
       if (totalAllocatedAfter >= event.totalTickets) {
-        console.log(`[PreEvent] Event ${eventId} is sold out, processing surplus payout`);
+        console.info(`[PreEvent] Event ${eventId} is sold out, processing surplus payout`);
         // Import dynamically to avoid circular dependency at module load
         const { EventService } = await import('../services/event.service.js');
         // POS client is not available here; surplus payout requires it.
@@ -400,7 +400,7 @@ export async function initWorkers() {
     async () => {
       const service = new EdmtrainService(prisma);
       const result = await service.syncEvents();
-      console.log(
+      console.info(
         `[EventSync] EDMTrain sync: ${result.created} created, ${result.skipped} skipped`,
       );
     },
@@ -440,7 +440,7 @@ export async function initWorkers() {
       });
 
       if (archived.count > 0 || closedPools.count > 0) {
-        console.log(
+        console.info(
           `[EventCleanup] Archived ${archived.count} events, cancelled ${closedPools.count} raffle pools`,
         );
       }
@@ -449,16 +449,7 @@ export async function initWorkers() {
   );
 
   // ──── Purchase Agent (every 4 hours + on-demand) ────
-  const purchaseAgentQ = new Queue('purchase-agent', {
-    connection: getConnection(),
-    defaultJobOptions: {
-      attempts: 2,
-      backoff: { type: 'exponential', delay: 10000 },
-      removeOnComplete: 50,
-      removeOnFail: 50,
-    },
-  });
-  await purchaseAgentQ.add(
+  await getPurchaseAgentQueue().add(
     'acquire-cycle',
     {},
     { repeat: { every: 4 * 60 * 60 * 1000 }, jobId: 'purchase-agent-cycle' },
@@ -477,15 +468,15 @@ export async function initWorkers() {
       if (job.data.eventId) {
         // Single event trigger
         const result = await agent.acquireSingleEvent(job.data.eventId);
-        console.log(`[PurchaseAgent] Single event ${job.data.eventId}: ${JSON.stringify(result)}`);
+        console.info(`[PurchaseAgent] Single event ${job.data.eventId}: ${JSON.stringify(result)}`);
       } else {
         // Full cycle
         const result = await agent.runAcquisitionCycle();
-        console.log(`[PurchaseAgent] Cycle: ${JSON.stringify(result)}`);
+        console.info(`[PurchaseAgent] Cycle: ${JSON.stringify(result)}`);
       }
     },
     { connection: getConnection(), concurrency: 1 },
   );
 
-  console.log('[Workers] Raffle draw, notification, pre-event, purchase-agent, event-sync, and event-cleanup workers initialized');
+  console.info('[Workers] Raffle draw, notification, pre-event, purchase-agent, event-sync, and event-cleanup workers initialized');
 }

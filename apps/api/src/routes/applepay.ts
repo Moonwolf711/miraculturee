@@ -9,7 +9,7 @@ function getStripe() {
   return new Stripe(key, { apiVersion: '2025-02-24.acacia' });
 }
 
-async function ensureDomainRegistered(stripe: Stripe, domain: string, log?: { info: Function; warn: Function }) {
+async function ensureDomainRegistered(stripe: Stripe, domain: string, log?: { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void }) {
   const existing = await stripe.applePayDomains.list({ limit: 100 });
   const already = existing.data.some((d) => d.domain_name === domain);
   if (already) {

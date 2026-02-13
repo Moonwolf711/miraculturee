@@ -162,7 +162,7 @@ export class TicketmasterClient {
       throw new Error(`Ticketmaster API error (${response.status}): ${errorText}`);
     }
 
-    const data: TicketmasterResponse = await response.json();
+    const data = (await response.json()) as TicketmasterResponse;
 
     return data._embedded?.events || [];
   }

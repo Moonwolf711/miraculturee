@@ -311,16 +311,18 @@ export default async function issuingRoutes(app: FastifyInstance) {
     const service = getService();
 
     switch (action) {
-      case 'complete':
+      case 'complete': {
         if (!confirmationRef) {
           return reply.code(400).send({ error: 'confirmationRef required for complete action' });
         }
         const completed = await service.completeAcquisition(acquisitionId, confirmationRef);
         return reply.send({ success: true, acquisition: completed });
+      }
 
-      case 'fail':
+      case 'fail': {
         const failed = await service.failAcquisition(acquisitionId, errorMessage || 'n8n workflow failure');
         return reply.send({ success: true, acquisition: failed });
+      }
 
       case 'status': {
         const acquisition = await app.prisma.ticketAcquisition.findUnique({

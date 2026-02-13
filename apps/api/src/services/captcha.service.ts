@@ -41,10 +41,10 @@ export class CaptchaService {
 
       if (data.success) {
         return true;
-      } else {
-        console.error('[CaptchaService] Verification failed:', data['error-codes']);
-        return false;
       }
+
+      console.error('[CaptchaService] Verification failed:', data['error-codes']);
+      return false;
     } catch (error) {
       console.error('[CaptchaService] Verification error:', error);
       return false;

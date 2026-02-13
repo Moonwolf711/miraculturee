@@ -1,21 +1,25 @@
+/** Stripe PaymentIntent creation result. */
 export interface PaymentIntentResult {
   id: string;
   clientSecret: string;
   status: string;
 }
 
+/** Result of confirming/retrieving a PaymentIntent status. */
 export interface PaymentConfirmResult {
   id: string;
   status: 'succeeded' | 'failed' | 'processing';
   amountCents: number;
 }
 
+/** Result of a payment refund. */
 export interface RefundResult {
   id: string;
   status: string;
   amountCents: number;
 }
 
+/** Result of a Stripe Connect transfer to a destination account. */
 export interface TransferResult {
   id: string;
   status: string;
@@ -23,6 +27,7 @@ export interface TransferResult {
   destinationAccountId: string;
 }
 
+/** Parameters for creating a new PaymentIntent. */
 export interface CreatePaymentParams {
   amountCents: number;
   currency: string;
@@ -30,6 +35,7 @@ export interface CreatePaymentParams {
   customerId?: string;
 }
 
+/** Parameters for creating an Issuing cardholder. */
 export interface CreateCardholderParams {
   name: string;
   email: string;
@@ -42,12 +48,14 @@ export interface CreateCardholderParams {
   };
 }
 
+/** Result of creating an Issuing cardholder. */
 export interface CardholderResult {
   id: string;
   name: string;
   status: string;
 }
 
+/** Result of creating a virtual card. */
 export interface VirtualCardResult {
   id: string;
   last4: string;
@@ -56,6 +64,7 @@ export interface VirtualCardResult {
   expYear: number;
 }
 
+/** Full card details including sensitive data (number, CVC). */
 export interface CardDetails {
   id: string;
   number: string;
@@ -65,6 +74,7 @@ export interface CardDetails {
   last4: string;
 }
 
+/** Abstract payment provider interface. Implementations wrap a specific gateway (e.g. Stripe). */
 export interface PaymentProvider {
   createPaymentIntent(params: CreatePaymentParams): Promise<PaymentIntentResult>;
   confirmPayment(paymentIntentId: string): Promise<PaymentConfirmResult>;

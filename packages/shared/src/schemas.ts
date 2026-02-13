@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 // --- Auth ---
 
+/** Validates user registration input. */
 export const RegisterSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
@@ -9,32 +10,38 @@ export const RegisterSchema = z.object({
   role: z.enum(['FAN', 'LOCAL_FAN', 'ARTIST']).default('FAN'),
 });
 
+/** Validates user login input. */
 export const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string(),
 });
 
+/** Validates token refresh input. */
 export const RefreshSchema = z.object({
   refreshToken: z.string(),
 });
 
 // --- Password Reset & Email Verification ---
 
+/** Validates forgot-password request input. */
 export const ForgotPasswordSchema = z.object({
   email: z.string().email(),
 });
 
+/** Validates password reset input (token + new password). */
 export const ResetPasswordSchema = z.object({
   token: z.string(),
   password: z.string().min(8).max(128),
 });
 
+/** Validates email verification input. */
 export const VerifyEmailSchema = z.object({
   token: z.string(),
 });
 
 // --- Events ---
 
+/** Validates event creation input. */
 export const CreateEventSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
@@ -48,6 +55,7 @@ export const CreateEventSchema = z.object({
   localRadiusKm: z.number().min(1).max(500).default(50),
 });
 
+/** Validates event search query parameters. */
 export const EventSearchSchema = z.object({
   q: z.string().optional(),
   city: z.string().optional(),
@@ -63,6 +71,7 @@ export const EventSearchSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+/** Validates nearby-events geo query parameters. */
 export const NearbyEventsSchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
@@ -73,6 +82,7 @@ export const NearbyEventsSchema = z.object({
 
 // --- Support ---
 
+/** Validates support ticket purchase input. */
 export const SupportPurchaseSchema = z.object({
   eventId: z.string().uuid(),
   ticketCount: z.number().int().min(1).max(100),
@@ -82,6 +92,7 @@ export const SupportPurchaseSchema = z.object({
 
 // --- Raffle ---
 
+/** Validates raffle entry input. */
 export const RaffleEntrySchema = z.object({
   poolId: z.string().uuid(),
   lat: z.number().min(-90).max(90),
@@ -91,6 +102,7 @@ export const RaffleEntrySchema = z.object({
 
 // --- Ticket Purchase ---
 
+/** Validates direct ticket purchase input. */
 export const TicketPurchaseSchema = z.object({
   eventId: z.string().uuid(),
   deviceFingerprint: z.string().optional(),
@@ -99,6 +111,7 @@ export const TicketPurchaseSchema = z.object({
 
 // --- POS ---
 
+/** Validates POS payment creation input. */
 export const CreatePaymentSchema = z.object({
   amountCents: z.number().int().min(50),
   currency: z.string().length(3).default('usd'),
@@ -107,14 +120,17 @@ export const CreatePaymentSchema = z.object({
 
 // --- Shared param schemas ---
 
+/** Validates a generic UUID path parameter. */
 export const UuidParamSchema = z.object({
   id: z.string().uuid(),
 });
 
+/** Validates an event UUID path parameter. */
 export const EventIdParamSchema = z.object({
   eventId: z.string().uuid(),
 });
 
+/** Validates a raffle pool UUID path parameter. */
 export const PoolIdParamSchema = z.object({
   poolId: z.string().uuid(),
 });

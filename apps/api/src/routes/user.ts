@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { Prisma } from '@prisma/client';
 import { UuidParamSchema } from '@miraculturee/shared';
 import { z } from 'zod';
 
@@ -92,7 +93,7 @@ export async function userRoutes(app: FastifyInstance) {
     const userId = req.user.id;
     const { page, limit, read } = NotificationQuerySchema.parse(req.query);
 
-    const where: any = { userId };
+    const where: Prisma.NotificationWhereInput = { userId };
     if (read === 'true') where.read = true;
     if (read === 'false') where.read = false;
 

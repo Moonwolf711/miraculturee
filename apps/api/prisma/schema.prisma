@@ -72,29 +72,29 @@ enum AcquisitionStatus {
 }
 
 model User {
-  id             String          @id @default(uuid())
-  email          String          @unique
-  passwordHash   String
-  name           String
-  role           Role            @default(FAN)
-  lat            Float?
-  lng            Float?
-  city           String?
-  refreshToken        String?
-  emailVerified       Boolean         @default(false)
-  emailVerifyToken    String?         @unique
-  emailVerifyExpiry   DateTime?
-  passwordResetToken  String?         @unique
-  passwordResetExpiry DateTime?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  id                   String             @id @default(uuid())
+  email                String             @unique
+  passwordHash         String
+  name                 String
+  role                 Role               @default(FAN)
+  lat                  Float?
+  lng                  Float?
+  city                 String?
+  refreshToken         String?
+  emailVerified        Boolean            @default(false)
+  emailVerifyToken     String?            @unique
+  emailVerifyExpiry    DateTime?
+  passwordResetToken   String?            @unique
+  passwordResetExpiry  DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
-  artist           Artist?
-  connectedAccount ConnectedAccount?
-  supportTickets   SupportTicket[]
-  raffleEntries    RaffleEntry[]
-  transactions     Transaction[]
-  notifications    Notification[]
+  artist               Artist?
+  connectedAccount     ConnectedAccount?
+  supportTickets       SupportTicket[]
+  raffleEntries        RaffleEntry[]
+  transactions         Transaction[]
+  notifications        Notification[]
   directTickets        DirectTicket[]
   suspiciousActivities SuspiciousActivity[]
 }

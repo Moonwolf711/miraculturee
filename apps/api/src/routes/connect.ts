@@ -94,7 +94,7 @@ export async function connectRoutes(app: FastifyInstance) {
   // POST /connect/accounts
   // Body: { displayName: string, contactEmail: string }
   // ═══════════════════════════════════════════════════════════════════════════════
-  app.post('/accounts', async (req, reply) => {
+  app.post('/accounts', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { displayName, contactEmail } = req.body as {
       displayName: string;
       contactEmail: string;
@@ -106,7 +106,7 @@ export async function connectRoutes(app: FastifyInstance) {
 
     // Check if this user already has a connected account
     const existing = await app.prisma.connectedAccount.findFirst({
-      where: { userId: (req as any).user?.id },
+      where: { userId: req.user.id },
     });
     if (existing) {
       return reply.code(409).send({
@@ -162,7 +162,7 @@ export async function connectRoutes(app: FastifyInstance) {
     // This links the MiraCulture user to their Stripe Connected Account ID.
     const connectedAccount = await app.prisma.connectedAccount.create({
       data: {
-        userId: (req as any).user?.id ?? 'anonymous', // In production, require auth
+        userId: req.user.id,
         stripeAccountId: account.id,
         displayName,
       },
@@ -586,11 +586,8 @@ export async function connectRoutes(app: FastifyInstance) {
   //
   // GET /connect/my-accounts
   // ═══════════════════════════════════════════════════════════════════════════════
-  app.get('/my-accounts', async (req, reply) => {
-    const userId = (req as any).user?.id;
-    if (!userId) {
-      return reply.code(401).send({ error: 'Authentication required' });
-    }
+  app.get('/my-accounts', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const userId = req.user.id;
 
     const accounts = await app.prisma.connectedAccount.findMany({
       where: { userId },
