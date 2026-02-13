@@ -22,12 +22,12 @@
 
 import type { FastifyInstance } from 'fastify';
 import Stripe from 'stripe';
+import { getStripeClient } from '../lib/stripe.js';
 
 export async function connectWebhookRoutes(app: FastifyInstance) {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeSecretKey) return; // Skip registration if Stripe isn't configured
+  if (!process.env.STRIPE_SECRET_KEY) return; // Skip registration if Stripe isn't configured
 
-  const stripeClient = new Stripe(stripeSecretKey);
+  const stripeClient = getStripeClient();
 
   // Register raw body parser — required for Stripe signature verification.
   // Stripe computes the HMAC over the exact bytes received, so we must

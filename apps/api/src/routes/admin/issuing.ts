@@ -12,6 +12,14 @@
  */
 
 import type { FastifyInstance } from 'fastify';
+import {
+  CreateCardholderSchema,
+  AcquisitionsQuerySchema,
+  AcquireTicketsSchema,
+  CompleteAcquisitionSchema,
+  FailAcquisitionSchema,
+  WebhookAcquisitionStatusSchema,
+} from '@miraculturee/shared';
 import { TicketAcquisitionService } from '../../services/ticket-acquisition.service.js';
 import { PurchaseAgentService } from '../../services/purchase-agent.service.js';
 import { BrowserPurchaseService } from '../../services/browser-purchase.service.js';
@@ -80,11 +88,11 @@ export default async function issuingRoutes(app: FastifyInstance) {
    * Only needs to be called once — store the returned cardholder ID.
    */
   app.post('/cardholder', async (req, reply) => {
-    const { name, email, line1, city, state, postalCode } = req.body as any;
-
-    if (!name || !email || !line1 || !city || !state || !postalCode) {
-      return reply.code(400).send({ error: 'All address fields are required' });
+    const parsed = CreateCardholderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0].message });
     }
+    const { name, email, line1, city, state, postalCode } = parsed.data;
 
     const result = await app.pos.createCardholder({
       name,
@@ -120,13 +128,12 @@ export default async function issuingRoutes(app: FastifyInstance) {
    * List all ticket acquisitions.
    */
   app.get('/acquisitions', async (req, reply) => {
-    const { status, limit = '50', offset = '0' } = req.query as any;
+    const parsed = AcquisitionsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0].message });
+    }
     const service = getService();
-    const result = await service.listAcquisitions({
-      status,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
-    });
+    const result = await service.listAcquisitions(parsed.data);
     return reply.send(result);
   });
 
@@ -137,11 +144,11 @@ export default async function issuingRoutes(app: FastifyInstance) {
    * Body: { eventId, ticketCount, cardholderId?, purchaseUrl? }
    */
   app.post('/acquire', async (req, reply) => {
-    const { eventId, ticketCount, cardholderId, purchaseUrl } = req.body as any;
-
-    if (!eventId || !ticketCount) {
-      return reply.code(400).send({ error: 'eventId and ticketCount are required' });
+    const parsed = AcquireTicketsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0].message });
     }
+    const { eventId, ticketCount, cardholderId, purchaseUrl } = parsed.data;
 
     const event = await app.prisma.event.findUnique({ where: { id: eventId } });
     if (!event) return reply.code(404).send({ error: 'Event not found' });
@@ -180,11 +187,11 @@ export default async function issuingRoutes(app: FastifyInstance) {
    */
   app.post('/acquisitions/:id/complete', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { confirmationRef } = req.body as any;
-
-    if (!confirmationRef) {
-      return reply.code(400).send({ error: 'confirmationRef is required (venue order number)' });
+    const parsed = CompleteAcquisitionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0].message });
     }
+    const { confirmationRef } = parsed.data;
 
     const service = getService();
     const acquisition = await service.completeAcquisition(id, confirmationRef);
@@ -199,7 +206,8 @@ export default async function issuingRoutes(app: FastifyInstance) {
    */
   app.post('/acquisitions/:id/fail', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { errorMessage } = req.body as any;
+    const parsed = FailAcquisitionSchema.safeParse(req.body);
+    const errorMessage = parsed.success ? parsed.data.errorMessage : undefined;
 
     const service = getService();
     const acquisition = await service.failAcquisition(id, errorMessage || 'Manual failure');
@@ -302,11 +310,11 @@ export default async function issuingRoutes(app: FastifyInstance) {
    * n8n polls this or receives push notifications.
    */
   app.post('/webhook/acquisition-status', async (req, reply) => {
-    const { acquisitionId, action, confirmationRef, errorMessage } = req.body as any;
-
-    if (!acquisitionId || !action) {
-      return reply.code(400).send({ error: 'acquisitionId and action required' });
+    const parsed = WebhookAcquisitionStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0].message });
     }
+    const { acquisitionId, action, confirmationRef, errorMessage } = parsed.data;
 
     const service = getService();
 

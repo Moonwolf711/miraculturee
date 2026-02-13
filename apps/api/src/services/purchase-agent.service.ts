@@ -145,7 +145,7 @@ export class PurchaseAgentService {
       }
     }
 
-    console.log(
+    console.info(
       `[PurchaseAgent] Cycle complete: ${processed} processed, ${succeeded} succeeded, ` +
       `${flaggedForAdmin} flagged for admin, ${failed} failed`,
     );
@@ -317,7 +317,7 @@ export class PurchaseAgentService {
 
     if (platform === 'ticketmaster' && purchaseUrl) {
       // Ticketmaster has no public purchase API — go straight to browser automation
-      console.log(`[PurchaseAgent] Ticketmaster detected — using browser automation for ${event.eventId}`);
+      console.info(`[PurchaseAgent] Ticketmaster detected — using browser automation for ${event.eventId}`);
       await this.prisma.ticketAcquisition.update({
         where: { id: acquisition.id },
         data: { status: 'PURCHASING' },
@@ -333,7 +333,7 @@ export class PurchaseAgentService {
       if (result.success || !result.requiresManual) return result;
 
       // Eventbrite API failed — try browser automation
-      console.log(`[PurchaseAgent] Eventbrite API failed, trying browser automation for ${event.eventId}`);
+      console.info(`[PurchaseAgent] Eventbrite API failed, trying browser automation for ${event.eventId}`);
     }
 
     // 5. Try browser-based automation for any platform with a purchase URL
@@ -349,7 +349,7 @@ export class PurchaseAgentService {
         });
 
         if (browserResult.success) {
-          console.log(`[PurchaseAgent] Browser purchase success for ${event.eventId}: ${browserResult.confirmationRef}`);
+          console.info(`[PurchaseAgent] Browser purchase success for ${event.eventId}: ${browserResult.confirmationRef}`);
           return { success: true, confirmationRef: browserResult.confirmationRef };
         }
 
@@ -358,7 +358,7 @@ export class PurchaseAgentService {
         }
 
         // Browser automation failed too — fall through to manual
-        console.log(`[PurchaseAgent] Browser automation failed for ${event.eventId}: ${browserResult.error}`);
+        console.info(`[PurchaseAgent] Browser automation failed for ${event.eventId}: ${browserResult.error}`);
       } catch (err) {
         console.warn(`[PurchaseAgent] Browser service error: ${(err as Error).message}`);
       }
@@ -565,10 +565,10 @@ export class PurchaseAgentService {
             data: { status: 'FAILED', errorMessage: msg },
           });
           // Freeze the card since we won't use it
-          try { await this.pos.freezeCard(cardId); } catch { /* ok */ }
+          try { await this.pos.freezeCard(cardId); } catch (err) { console.warn(`[PurchaseAgent] Card freeze failed: ${(err as Error).message}`); }
           return { success: false, error: msg };
         }
-        console.log(
+        console.info(
           `[PurchaseAgent] Eventbrite price check passed: vendor $${(ebPriceCents / 100).toFixed(2)} ` +
           `vs face value $${(event.ticketPriceCents / 100).toFixed(2)}`,
         );
@@ -619,7 +619,7 @@ export class PurchaseAgentService {
 
       // Success — freeze card and mark complete
       const confirmationRef = `EB-${orderId}`;
-      try { await this.pos.freezeCard(cardId); } catch { /* ok */ }
+      try { await this.pos.freezeCard(cardId); } catch (err) { console.warn(`[PurchaseAgent] Card freeze failed: ${(err as Error).message}`); }
 
       await this.prisma.ticketAcquisition.update({
         where: { id: acquisitionId },
@@ -629,7 +629,7 @@ export class PurchaseAgentService {
       // Create pool tickets from the acquisition
       await this.createPoolTicketsFromAcquisition(event.eventId, event.ticketsNeeded);
 
-      console.log(`[PurchaseAgent] Eventbrite purchase success: ${confirmationRef} for event ${event.eventId}`);
+      console.info(`[PurchaseAgent] Eventbrite purchase success: ${confirmationRef} for event ${event.eventId}`);
       return { success: true, confirmationRef };
     } catch (err) {
       const msg = (err as Error).message;
@@ -705,7 +705,7 @@ export class PurchaseAgentService {
       });
     }
 
-    console.log(
+    console.info(
       `[PurchaseAgent] Flagged acquisition ${acquisitionId} for manual purchase ` +
       `(${platform}, event: ${event.eventId})`,
     );
@@ -731,7 +731,7 @@ export class PurchaseAgentService {
       })),
     });
 
-    console.log(`[PurchaseAgent] Created ${ticketCount} pool tickets for event ${eventId}`);
+    console.info(`[PurchaseAgent] Created ${ticketCount} pool tickets for event ${eventId}`);
   }
 
   /**

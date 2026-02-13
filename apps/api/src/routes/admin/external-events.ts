@@ -3,6 +3,7 @@
  */
 
 import type { FastifyInstance } from 'fastify';
+import { ExternalEventsQuerySchema, SyncLogsQuerySchema } from '@miraculturee/shared';
 import { EventIngestionService } from '../../services/event-ingestion/ingestion.service.js';
 
 export default async function externalEventsRoutes(app: FastifyInstance) {
@@ -68,9 +69,13 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
    * List external events with filters
    */
   app.get('/', async (req, reply) => {
-    const { source, status, city, limit = '50', offset = '0' } = req.query as any;
+    const parsed = ExternalEventsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0].message });
+    }
+    const { source, status, city, limit, offset } = parsed.data;
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (source) where.source = source;
     if (status) where.status = status;
     if (city) where.venueCity = { contains: city, mode: 'insensitive' };
@@ -78,8 +83,8 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
     const events = await app.prisma.externalEvent.findMany({
       where,
       orderBy: { eventDate: 'asc' },
-      take: parseInt(limit),
-      skip: parseInt(offset),
+      take: limit,
+      skip: offset,
       select: {
         id: true,
         externalId: true,
@@ -106,8 +111,8 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
     return reply.send({
       events,
       total,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit,
+      offset,
     });
   });
 
@@ -134,15 +139,19 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
    * Get recent sync logs
    */
   app.get('/sync-logs', async (req, reply) => {
-    const { source, limit = '20' } = req.query as any;
+    const parsed = SyncLogsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.issues[0].message });
+    }
+    const { source, limit } = parsed.data;
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (source) where.source = source;
 
     const logs = await app.prisma.eventSyncLog.findMany({
       where,
       orderBy: { startedAt: 'desc' },
-      take: parseInt(limit),
+      take: limit,
     });
 
     return reply.send({ logs });

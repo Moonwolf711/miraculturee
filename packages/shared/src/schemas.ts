@@ -118,6 +118,68 @@ export const CreatePaymentSchema = z.object({
   metadata: z.record(z.string()).optional(),
 });
 
+// --- Admin: Issuing ---
+
+/** Validates cardholder creation input. */
+export const CreateCardholderSchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().email(),
+  line1: z.string().min(1).max(500),
+  city: z.string().min(1).max(100),
+  state: z.string().min(2).max(2),
+  postalCode: z.string().min(5).max(10),
+});
+
+/** Validates acquisitions list query. */
+export const AcquisitionsQuerySchema = z.object({
+  status: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+/** Validates ticket acquire input. */
+export const AcquireTicketsSchema = z.object({
+  eventId: z.string().uuid(),
+  ticketCount: z.number().int().min(1).max(1000),
+  cardholderId: z.string().optional(),
+  purchaseUrl: z.string().url().optional(),
+});
+
+/** Validates acquisition completion input. */
+export const CompleteAcquisitionSchema = z.object({
+  confirmationRef: z.string().min(1).max(500),
+});
+
+/** Validates acquisition failure input. */
+export const FailAcquisitionSchema = z.object({
+  errorMessage: z.string().max(2000).optional(),
+});
+
+/** Validates n8n webhook acquisition status input. */
+export const WebhookAcquisitionStatusSchema = z.object({
+  acquisitionId: z.string().uuid(),
+  action: z.enum(['complete', 'fail', 'status']),
+  confirmationRef: z.string().optional(),
+  errorMessage: z.string().optional(),
+});
+
+// --- Admin: External Events ---
+
+/** Validates external events list query. */
+export const ExternalEventsQuerySchema = z.object({
+  source: z.string().optional(),
+  status: z.string().optional(),
+  city: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+/** Validates sync logs query. */
+export const SyncLogsQuerySchema = z.object({
+  source: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(20),
+});
+
 // --- Shared param schemas ---
 
 /** Validates a generic UUID path parameter. */

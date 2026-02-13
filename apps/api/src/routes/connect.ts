@@ -18,30 +18,10 @@
  */
 
 import type { FastifyInstance } from 'fastify';
-import Stripe from 'stripe';
+import { getStripeClient } from '../lib/stripe.js';
 
 export async function connectRoutes(app: FastifyInstance) {
-  // ─────────────────────────────────────────────────────────────────────────────
-  // STRIPE CLIENT SETUP
-  //
-  // Create a single Stripe client instance for all requests in this module.
-  // The secret key is read from the STRIPE_SECRET_KEY environment variable.
-  //
-  // PLACEHOLDER: Set STRIPE_SECRET_KEY in your environment variables.
-  //   - Test mode: sk_test_...
-  //   - Live mode: sk_live_...
-  //
-  // The SDK automatically uses the latest API version (2026-01-28.clover),
-  // so we do NOT pass an apiVersion parameter.
-  // ─────────────────────────────────────────────────────────────────────────────
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeSecretKey) {
-    throw new Error(
-      'STRIPE_SECRET_KEY is not set. Please add it to your environment variables. ' +
-      'You can find your secret key at https://dashboard.stripe.com/apikeys'
-    );
-  }
-  const stripeClient = new Stripe(stripeSecretKey);
+  const stripeClient = getStripeClient();
 
   // ─────────────────────────────────────────────────────────────────────────────
   // HELPER: Get the base URL for redirects (account links, checkout, etc.)
