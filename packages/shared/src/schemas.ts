@@ -39,13 +39,6 @@ export const VerifyEmailSchema = z.object({
   token: z.string(),
 });
 
-/** Validates upgrade-to-artist input. */
-export const UpgradeToArtistSchema = z.object({
-  stageName: z.string().min(1).max(100),
-  genre: z.string().max(50).optional(),
-  bio: z.string().max(500).optional(),
-});
-
 // --- Events ---
 
 /** Validates event creation input. */

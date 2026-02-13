@@ -37,7 +37,6 @@ const NotFoundPage = lazyRetry(() => import('./pages/NotFoundPage.js'));
 const PrivacyPolicyPage = lazyRetry(() => import('./pages/PrivacyPolicyPage.js'));
 const TermsOfServicePage = lazyRetry(() => import('./pages/TermsOfServicePage.js'));
 const CreateCampaignPage = lazyRetry(() => import('./pages/CreateCampaignPage.js'));
-const BecomeArtistPage = lazyRetry(() => import('./pages/BecomeArtistPage.js'));
 const ConnectDashboardPage = lazyRetry(() => import('./pages/ConnectDashboardPage.js'));
 const StorefrontPage = lazyRetry(() => import('./pages/StorefrontPage.js'));
 
@@ -70,12 +69,10 @@ function PageFallback() {
   );
 }
 
-function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: string }) {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <PageFallback />;
   if (!user) return <Navigate to="/login" />;
-  if (role === 'ARTIST' && user.role !== 'ARTIST') return <Navigate to="/become-artist" />;
-  if (role && user.role !== role) return <Navigate to="/" />;
   return <>{children}</>;
 }
 
@@ -107,17 +104,9 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route
-              path="/become-artist"
-              element={
-                <ProtectedRoute>
-                  <BecomeArtistPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/artist/dashboard"
               element={
-                <ProtectedRoute role="ARTIST">
+                <ProtectedRoute>
                   <ArtistDashboardPage />
                 </ProtectedRoute>
               }
@@ -125,7 +114,7 @@ export default function App() {
             <Route
               path="/artist/events/new"
               element={
-                <ProtectedRoute role="ARTIST">
+                <ProtectedRoute>
                   <CreateEventPage />
                 </ProtectedRoute>
               }
@@ -133,7 +122,7 @@ export default function App() {
             <Route
               path="/artist/campaigns/new"
               element={
-                <ProtectedRoute role="ARTIST">
+                <ProtectedRoute>
                   <CreateCampaignPage />
                 </ProtectedRoute>
               }

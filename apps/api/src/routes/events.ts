@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 import { CreateEventSchema, EventSearchSchema, NearbyEventsSchema, UuidParamSchema } from '@miraculturee/shared';
-import { requireRole } from '../middleware/authenticate.js';
 import { EventService } from '../services/event.service.js';
 
 export async function eventRoutes(app: FastifyInstance) {
@@ -48,11 +47,20 @@ export async function eventRoutes(app: FastifyInstance) {
     return event;
   });
 
-  // Artist: create event
-  app.post('/', { preHandler: [requireRole('ARTIST')] }, async (req, reply) => {
+  // Authenticated: create event (auto-creates artist profile if needed)
+  app.post('/', { preHandler: [app.authenticate] }, async (req, reply) => {
     const body = CreateEventSchema.parse(req.body);
-    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
-    if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+
+    // Auto-create artist profile if user doesn't have one
+    let artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
+    if (!artist) {
+      const user = await app.prisma.user.findUnique({ where: { id: req.user.id } });
+      if (!user) return reply.code(404).send({ error: 'User not found' });
+      [, artist] = await app.prisma.$transaction([
+        app.prisma.user.update({ where: { id: user.id }, data: { role: 'ARTIST' } }),
+        app.prisma.artist.create({ data: { userId: user.id, stageName: user.name } }),
+      ]);
+    }
 
     const event = await eventService.create(artist.id, body);
     return reply.code(201).send(event);

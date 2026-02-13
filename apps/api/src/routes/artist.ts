@@ -5,24 +5,37 @@ import {
   CampaignListSchema,
   UuidParamSchema,
 } from '@miraculturee/shared';
-import { requireRole } from '../middleware/authenticate.js';
 import { ArtistService } from '../services/artist.service.js';
 
 export async function artistRoutes(app: FastifyInstance) {
   const artistService = new ArtistService(app.prisma);
 
-  app.get('/dashboard', { preHandler: [requireRole('ARTIST')] }, async (req) => {
+  /** Helper: get or auto-create artist profile for the authenticated user */
+  async function getOrCreateArtist(userId: string) {
+    let artist = await app.prisma.artist.findUnique({ where: { userId } });
+    if (!artist) {
+      const user = await app.prisma.user.findUnique({ where: { id: userId } });
+      if (!user) return null;
+      [, artist] = await app.prisma.$transaction([
+        app.prisma.user.update({ where: { id: user.id }, data: { role: 'ARTIST' } }),
+        app.prisma.artist.create({ data: { userId: user.id, stageName: user.name } }),
+      ]);
+    }
+    return artist;
+  }
+
+  app.get('/dashboard', { preHandler: [app.authenticate] }, async (req) => {
     return artistService.getDashboard(req.user.id);
   });
 
-  app.get('/earnings', { preHandler: [requireRole('ARTIST')] }, async (req) => {
+  app.get('/earnings', { preHandler: [app.authenticate] }, async (req) => {
     return artistService.getEarnings(req.user.id);
   });
 
   // --- Campaigns ---
 
   /** GET /artist/campaigns — list campaigns for the authenticated artist */
-  app.get('/campaigns', { preHandler: [requireRole('ARTIST')] }, async (req) => {
+  app.get('/campaigns', { preHandler: [app.authenticate] }, async (req) => {
     const query = CampaignListSchema.parse(req.query);
     const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
     if (!artist) return { campaigns: [], total: 0 };
@@ -60,10 +73,10 @@ export async function artistRoutes(app: FastifyInstance) {
   });
 
   /** POST /artist/campaigns — create a campaign for one of the artist's events */
-  app.post('/campaigns', { preHandler: [requireRole('ARTIST')] }, async (req, reply) => {
+  app.post('/campaigns', { preHandler: [app.authenticate] }, async (req, reply) => {
     const body = CreateCampaignSchema.parse(req.body);
-    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
-    if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+    const artist = await getOrCreateArtist(req.user.id);
+    if (!artist) return reply.code(404).send({ error: 'User not found' });
 
     // Verify the event belongs to this artist
     const event = await app.prisma.event.findFirst({
@@ -86,7 +99,7 @@ export async function artistRoutes(app: FastifyInstance) {
   });
 
   /** GET /artist/campaigns/:id — get a single campaign */
-  app.get('/campaigns/:id', { preHandler: [requireRole('ARTIST')] }, async (req, reply) => {
+  app.get('/campaigns/:id', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { id } = UuidParamSchema.parse(req.params);
     const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
     if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
@@ -101,7 +114,7 @@ export async function artistRoutes(app: FastifyInstance) {
   });
 
   /** PUT /artist/campaigns/:id — update a campaign */
-  app.put('/campaigns/:id', { preHandler: [requireRole('ARTIST')] }, async (req, reply) => {
+  app.put('/campaigns/:id', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { id } = UuidParamSchema.parse(req.params);
     const body = UpdateCampaignSchema.parse(req.body);
     const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
@@ -127,7 +140,7 @@ export async function artistRoutes(app: FastifyInstance) {
   });
 
   /** DELETE /artist/campaigns/:id — delete a draft campaign */
-  app.delete('/campaigns/:id', { preHandler: [requireRole('ARTIST')] }, async (req, reply) => {
+  app.delete('/campaigns/:id', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { id } = UuidParamSchema.parse(req.params);
     const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
     if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });

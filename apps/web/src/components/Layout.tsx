@@ -151,15 +151,11 @@ export default function Layout({ children }: { children: ReactNode }) {
             <a href="/#for-artists" className={`nav-link ${activeSection === 'for-artists' ? 'nav-link-active' : ''}`}>
               For Artists
             </a>
-            {user?.role === 'ARTIST' ? (
-              <Link to="/artist/dashboard" className="nav-link">
-                Artist Dashboard
-              </Link>
-            ) : user ? (
-              <Link to="/become-artist" className="nav-link">
+            {user && (
+              <Link to="/artist/events/new" className="nav-link">
                 List Your Event
               </Link>
-            ) : null}
+            )}
             {user && (
               <Link to="/dashboard" className="nav-link">
                 My Dashboard
@@ -249,23 +245,15 @@ export default function Layout({ children }: { children: ReactNode }) {
             >
               For Artists
             </a>
-            {user?.role === 'ARTIST' ? (
+            {user && (
               <Link
-                to="/artist/dashboard"
-                onClick={closeMobile}
-                className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
-              >
-                Artist Dashboard
-              </Link>
-            ) : user ? (
-              <Link
-                to="/become-artist"
+                to="/artist/events/new"
                 onClick={closeMobile}
                 className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
               >
                 List Your Event
               </Link>
-            ) : null}
+            )}
             {user && (
               <Link
                 to="/dashboard"
