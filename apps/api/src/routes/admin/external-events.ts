@@ -26,7 +26,7 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
           apiKey: ticketmasterApiKey,
           countryCode: 'US',
           classificationName: 'music',
-          daysAhead: 90,
+          daysAhead: 180,
           // Denver, Los Angeles, New York, Chicago
           dmaIds: ['751', '803', '501', '602'],
         },
