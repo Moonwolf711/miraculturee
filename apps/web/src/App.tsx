@@ -36,6 +36,8 @@ const VerifyEmailPage = lazyRetry(() => import('./pages/VerifyEmailPage.js'));
 const NotFoundPage = lazyRetry(() => import('./pages/NotFoundPage.js'));
 const PrivacyPolicyPage = lazyRetry(() => import('./pages/PrivacyPolicyPage.js'));
 const TermsOfServicePage = lazyRetry(() => import('./pages/TermsOfServicePage.js'));
+const ConnectDashboardPage = lazyRetry(() => import('./pages/ConnectDashboardPage.js'));
+const StorefrontPage = lazyRetry(() => import('./pages/StorefrontPage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -117,6 +119,15 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/connect/dashboard"
+              element={
+                <ProtectedRoute>
+                  <ConnectDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/connect/storefront/:accountId" element={<StorefrontPage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/terms" element={<TermsOfServicePage />} />
             {/* Catch-all 404 route */}

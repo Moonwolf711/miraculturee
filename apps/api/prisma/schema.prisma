@@ -89,11 +89,12 @@ model User {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
-  artist         Artist?
-  supportTickets SupportTicket[]
-  raffleEntries  RaffleEntry[]
-  transactions   Transaction[]
-  notifications  Notification[]
+  artist           Artist?
+  connectedAccount ConnectedAccount?
+  supportTickets   SupportTicket[]
+  raffleEntries    RaffleEntry[]
+  transactions     Transaction[]
+  notifications    Notification[]
   directTickets        DirectTicket[]
   suspiciousActivities SuspiciousActivity[]
 }
@@ -346,6 +347,47 @@ model TicketAcquisition {
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
+  @@index([status])
+}
+
+// ─── Stripe Connect ───
+// Stores the mapping between a MiraCulture user and their Stripe Connected Account.
+// The stripeAccountId is the V2 account ID (shape: acct_...) returned by
+// stripeClient.v2.core.accounts.create(). We track onboarding status here so we
+// know when the account is ready to accept payments.
+model ConnectedAccount {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  stripeAccountId   String   @unique   // The Stripe account ID (acct_...)
+  displayName       String              // Business/artist display name
+  onboardingComplete Boolean @default(false)
+  paymentsEnabled   Boolean @default(false) // card_payments capability is active
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptions ConnectSubscription[]
+
+  @@index([stripeAccountId])
+}
+
+// Tracks subscription status for connected accounts subscribing to the platform.
+// Updated via Stripe webhooks (customer.subscription.updated/deleted).
+// The stripeSubscriptionId is the sub_... ID from Stripe.
+model ConnectSubscription {
+  id                    String   @id @default(uuid())
+  connectedAccountId    String
+  stripeSubscriptionId  String   @unique  // sub_...
+  status                String   @default("incomplete") // active, past_due, canceled, etc.
+  priceId               String?           // The Stripe price ID
+  currentPeriodEnd      DateTime?         // When the current billing period ends
+  cancelAtPeriodEnd     Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  connectedAccount ConnectedAccount @relation(fields: [connectedAccountId], references: [id], onDelete: Cascade)
+
+  @@index([connectedAccountId])
   @@index([status])
 }
 

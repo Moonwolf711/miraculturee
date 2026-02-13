@@ -18,6 +18,8 @@ import { ticketRoutes } from './routes/ticket.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { userRoutes } from './routes/user.js';
 import { applePayRoutes } from './routes/applepay.js';
+import { connectRoutes } from './routes/connect.js';
+import { connectWebhookRoutes } from './routes/connect-webhooks.js';
 import externalEventsRoutes from './routes/admin/external-events.js';
 import issuingRoutes from './routes/admin/issuing.js';
 import { initWorkers } from './jobs/workers.js';
@@ -49,8 +51,10 @@ async function start() {
   await app.register(ticketRoutes, { prefix: '/tickets' });
   await app.register(userRoutes, { prefix: '/user' });
   await app.register(applePayRoutes, { prefix: '/apple-pay' });
-  // Webhook route — uses its own raw body parser for Stripe signature verification
+  await app.register(connectRoutes, { prefix: '/connect' });
+  // Webhook routes — use their own raw body parsers for Stripe signature verification
   await app.register(webhookRoutes, { prefix: '/webhook' });
+  await app.register(connectWebhookRoutes, { prefix: '/connect-webhooks' });
   await app.register(externalEventsRoutes, { prefix: '/admin/external-events' });
   await app.register(issuingRoutes, { prefix: '/admin/issuing' });
 
