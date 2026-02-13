@@ -68,13 +68,13 @@ export class BrowserPurchaseService {
     cardId: string;
     eventTitle: string;
   }): Promise<BrowserPurchaseResult> {
-    let puppeteer: typeof import('puppeteer');
+    let puppeteer: typeof import('puppeteer-core');
     try {
-      puppeteer = await import('puppeteer');
+      puppeteer = await import('puppeteer-core');
     } catch {
       return {
         success: false,
-        error: 'Puppeteer not installed. Run: pnpm add puppeteer',
+        error: 'puppeteer-core not installed. Run: pnpm add puppeteer-core',
         requiresManual: true,
       };
     }
@@ -96,15 +96,30 @@ export class BrowserPurchaseService {
       data: { status: 'PURCHASING' },
     });
 
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-      ],
-    });
+    // puppeteer-core requires an explicit executablePath (no bundled Chromium)
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH
+      || process.env.CHROME_PATH
+      || '/usr/bin/chromium-browser';
+
+    let browser;
+    try {
+      browser = await puppeteer.default.launch({
+        headless: true,
+        executablePath,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+        ],
+      });
+    } catch (launchErr) {
+      return {
+        success: false,
+        error: `Browser launch failed (no Chromium at ${executablePath}): ${(launchErr as Error).message}. Set PUPPETEER_EXECUTABLE_PATH or install chromium in the container.`,
+        requiresManual: true,
+      };
+    }
 
     const screenshots: string[] = [];
 
