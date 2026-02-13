@@ -113,7 +113,7 @@ export default function EventsPage() {
   }, []);
 
   const loadEvents = useCallback(async (opts: {
-    city?: string; genre?: string; type?: EventTypeFilter;
+    q?: string; city?: string; genre?: string; type?: EventTypeFilter;
     dateFrom?: string; dateTo?: string; page?: number;
     sort?: string; lat?: number; lng?: number;
   } = {}) => {
@@ -121,6 +121,7 @@ export default function EventsPage() {
     setFetchError(null);
     try {
       const qp = new URLSearchParams();
+      if (opts.q) qp.set('q', opts.q);
       if (opts.city) qp.set('city', opts.city);
       if (opts.genre) qp.set('genre', opts.genre);
       if (opts.type) qp.set('type', opts.type);
@@ -148,7 +149,8 @@ export default function EventsPage() {
     // Build compound sort string — filter out distance if no location
     const sortKeys = activeSorts.filter((s) => s !== 'distance' || userLocation);
     return {
-      city: cityFilter || search || undefined,
+      q: search || undefined,
+      city: cityFilter || undefined,
       genre: genreFilter || undefined,
       type: activeTab,
       dateFrom,
@@ -180,7 +182,7 @@ export default function EventsPage() {
     e.preventDefault();
     setCityFilter('');
     setCurrentPage(1);
-    loadEvents({ ...currentFilters(), city: search || undefined, page: 1 });
+    loadEvents({ ...currentFilters(), q: search || undefined, page: 1 });
   };
 
   const clearFilters = () => {
@@ -332,7 +334,7 @@ export default function EventsPage() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Artist or city..."
+                  placeholder="Search events, artists, venues..."
                   aria-label="Search events"
                   className="flex-1 bg-noir-800 border border-noir-700 text-gray-200 placeholder-gray-600 rounded-lg pl-3 pr-3 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-300"
                 />

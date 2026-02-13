@@ -82,6 +82,7 @@ export class EventService {
   }
 
   async search(params: {
+    q?: string;
     city?: string;
     artistName?: string;
     genre?: string;
@@ -105,6 +106,13 @@ export class EventService {
 
     if (params.type) {
       where.type = params.type as any;
+    }
+    if (params.q) {
+      where.OR = [
+        { title: { contains: params.q, mode: 'insensitive' } },
+        { artist: { stageName: { contains: params.q, mode: 'insensitive' } } },
+        { venueName: { contains: params.q, mode: 'insensitive' } },
+      ];
     }
     if (params.city) {
       where.venueCity = { contains: params.city, mode: 'insensitive' };

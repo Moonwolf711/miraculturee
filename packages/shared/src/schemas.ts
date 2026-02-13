@@ -49,6 +49,7 @@ export const CreateEventSchema = z.object({
 });
 
 export const EventSearchSchema = z.object({
+  q: z.string().optional(),
   city: z.string().optional(),
   artistName: z.string().optional(),
   genre: z.string().optional(),
