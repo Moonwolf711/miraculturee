@@ -116,7 +116,9 @@ export class EventService {
       where.artist = { ...where.artist as any, genre: { contains: params.genre, mode: 'insensitive' } };
     }
 
-    const needsAppSort = params.sort === 'distance' || params.sort === 'popular';
+    // Parse compound sort keys (e.g. "distance,popular,date")
+    const sortKeys = (params.sort || 'date').split(',').filter(Boolean);
+    const needsAppSort = sortKeys.includes('distance') || sortKeys.includes('popular');
 
     if (needsAppSort) {
       // Fetch all matching events, sort in-app, then paginate
@@ -128,28 +130,37 @@ export class EventService {
         this.prisma.event.count({ where }),
       ]);
 
-      let sorted: typeof allEvents;
+      const userLat = params.lat;
+      const userLng = params.lng;
+      const hasGeo = userLat != null && userLng != null;
 
-      if (params.sort === 'distance' && params.lat != null && params.lng != null) {
-        const userLat = params.lat;
-        const userLng = params.lng;
-        sorted = allEvents.sort((a, b) => {
-          const distA = haversineDistanceKm(userLat, userLng, a.venueLat, a.venueLng);
-          const distB = haversineDistanceKm(userLat, userLng, b.venueLat, b.venueLng);
-          if (distA !== distB) return distA - distB;
-          return a.date.getTime() - b.date.getTime();
-        });
-      } else {
-        // popular: sort by supportedTickets desc, then date asc
-        sorted = allEvents.sort((a, b) => {
-          const supA = a.supportTickets.reduce((s, t) => s + t.ticketCount, 0);
-          const supB = b.supportTickets.reduce((s, t) => s + t.ticketCount, 0);
-          if (supB !== supA) return supB - supA;
-          return a.date.getTime() - b.date.getTime();
-        });
+      // Precompute values for sorting
+      const distMap = new Map<string, number>();
+      const supMap = new Map<string, number>();
+      for (const e of allEvents) {
+        if (hasGeo) {
+          distMap.set(e.id, haversineDistanceKm(userLat!, userLng!, e.venueLat, e.venueLng));
+        }
+        supMap.set(e.id, e.supportTickets.reduce((s, t) => s + t.ticketCount, 0));
       }
 
-      const paginated = sorted.slice((params.page - 1) * params.limit, params.page * params.limit);
+      // Compound sort: apply each sort key in order as tiebreakers
+      allEvents.sort((a, b) => {
+        for (const key of sortKeys) {
+          let cmp = 0;
+          if (key === 'distance' && hasGeo) {
+            cmp = (distMap.get(a.id) ?? 0) - (distMap.get(b.id) ?? 0);
+          } else if (key === 'popular') {
+            cmp = (supMap.get(b.id) ?? 0) - (supMap.get(a.id) ?? 0);
+          } else if (key === 'date') {
+            cmp = a.date.getTime() - b.date.getTime();
+          }
+          if (cmp !== 0) return cmp;
+        }
+        return 0;
+      });
+
+      const paginated = allEvents.slice((params.page - 1) * params.limit, params.page * params.limit);
 
       return {
         data: paginated.map((e) => this.toSummary(e)),

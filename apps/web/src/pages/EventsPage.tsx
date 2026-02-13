@@ -7,7 +7,7 @@ import SEO, { getBreadcrumbSchema } from '../components/SEO.js';
 import { CardSkeleton, InlineError } from '../components/LoadingStates.js';
 
 type EventTypeFilter = 'SHOW' | 'FESTIVAL';
-type SortOption = 'distance' | 'popular' | 'date';
+type SortKey = 'distance' | 'popular' | 'date';
 
 interface EventSummary {
   id: string;
@@ -48,7 +48,7 @@ const DATE_RANGES = [
   { label: 'Next 6 Months', value: '6months' },
 ];
 
-const SORT_OPTIONS: { label: string; value: SortOption }[] = [
+const SORT_OPTIONS: { label: string; value: SortKey }[] = [
   { label: 'Nearest', value: 'distance' },
   { label: 'Most Popular', value: 'popular' },
   { label: 'Date', value: 'date' },
@@ -78,7 +78,7 @@ export default function EventsPage() {
   const [genreFilter, setGenreFilter] = useState('');
   const [dateRange, setDateRange] = useState('');
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('distance');
+  const [activeSorts, setActiveSorts] = useState<SortKey[]>(['distance', 'popular', 'date']);
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -90,7 +90,7 @@ export default function EventsPage() {
   useEffect(() => {
     if (!navigator.geolocation) {
       setLocationLoading(false);
-      setSortBy('popular');
+      setActiveSorts(['popular', 'date']);
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -99,8 +99,8 @@ export default function EventsPage() {
         setLocationLoading(false);
       },
       () => {
-        // Denied or unavailable — fall back to popular sort
-        setSortBy('popular');
+        // Denied or unavailable — fall back to popular + date
+        setActiveSorts(['popular', 'date']);
         setLocationLoading(false);
       },
       { timeout: 5000, maximumAge: 300000 },
@@ -115,7 +115,7 @@ export default function EventsPage() {
   const loadEvents = useCallback(async (opts: {
     city?: string; genre?: string; type?: EventTypeFilter;
     dateFrom?: string; dateTo?: string; page?: number;
-    sort?: SortOption; lat?: number; lng?: number;
+    sort?: string; lat?: number; lng?: number;
   } = {}) => {
     setLoading(true);
     setFetchError(null);
@@ -145,23 +145,25 @@ export default function EventsPage() {
 
   const currentFilters = useCallback(() => {
     const { dateFrom, dateTo } = getDateRange(dateRange);
+    // Build compound sort string — filter out distance if no location
+    const sortKeys = activeSorts.filter((s) => s !== 'distance' || userLocation);
     return {
       city: cityFilter || search || undefined,
       genre: genreFilter || undefined,
       type: activeTab,
       dateFrom,
       dateTo,
-      sort: sortBy,
+      sort: sortKeys.length > 0 ? sortKeys.join(',') : 'date',
       lat: userLocation?.lat,
       lng: userLocation?.lng,
     };
-  }, [cityFilter, search, genreFilter, dateRange, activeTab, sortBy, userLocation]);
+  }, [cityFilter, search, genreFilter, dateRange, activeTab, activeSorts, userLocation]);
 
   // Load events when filters change (wait for location to resolve first)
   useEffect(() => {
     if (locationLoading) return;
     loadEvents({ ...currentFilters(), page: 1 });
-  }, [loadEvents, activeTab, cityFilter, genreFilter, dateRange, sortBy, locationLoading, userLocation]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadEvents, activeTab, cityFilter, genreFilter, dateRange, activeSorts, locationLoading, userLocation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTabChange = (tab: EventTypeFilter) => {
     setActiveTab(tab);
@@ -186,7 +188,7 @@ export default function EventsPage() {
     setGenreFilter('');
     setDateRange('');
     setSearch('');
-    setSortBy(userLocation ? 'distance' : 'popular');
+    setActiveSorts(userLocation ? ['distance', 'popular', 'date'] : ['popular', 'date']);
     setCurrentPage(1);
   };
 
@@ -271,29 +273,49 @@ export default function EventsPage() {
 
         {/* Filter bar */}
         <div className="bg-noir-900/50 border border-noir-700 rounded-xl p-4 mb-8">
-          {/* Sort row */}
+          {/* Sort row — multi-select with priority badges */}
           <div className="flex items-center gap-2 mb-4">
             <span className="font-body text-xs text-gray-500 uppercase tracking-wider mr-1">Sort by</span>
             {SORT_OPTIONS.map((opt) => {
               const disabled = opt.value === 'distance' && !userLocation;
+              const idx = activeSorts.indexOf(opt.value);
+              const isActive = idx !== -1;
+              const priority = idx + 1; // 1-based
+
+              const toggleSort = () => {
+                if (disabled) return;
+                setActiveSorts((prev) => {
+                  if (isActive) {
+                    // Don't allow removing the last sort
+                    if (prev.length <= 1) return prev;
+                    return prev.filter((s) => s !== opt.value);
+                  }
+                  return [...prev, opt.value];
+                });
+                setCurrentPage(1);
+              };
+
               return (
                 <button
                   key={opt.value}
-                  onClick={() => !disabled && setSortBy(opt.value)}
+                  onClick={toggleSort}
                   disabled={disabled}
-                  className={`px-3 py-1.5 rounded-full font-body text-xs tracking-wide transition-all duration-300 ${
-                    sortBy === opt.value
+                  className={`relative px-3 py-1.5 rounded-full font-body text-xs tracking-wide transition-all duration-300 ${
+                    isActive
                       ? 'bg-amber-500 text-noir-950 font-semibold'
                       : disabled
                         ? 'text-gray-700 border border-noir-800 cursor-not-allowed'
                         : 'text-gray-400 border border-noir-700 hover:border-amber-500/40 hover:text-amber-400'
                   }`}
-                  title={disabled ? 'Enable location access for nearby sorting' : ''}
+                  title={disabled ? 'Enable location access for nearby sorting' : isActive ? `Priority ${priority} — click to remove` : 'Click to add'}
                 >
-                  {opt.value === 'distance' && (
-                    <span className="inline-block mr-1" aria-hidden="true">
-                      {userLocation ? '\u{1F4CD}' : '\u{1F512}'}
+                  {isActive && activeSorts.length > 1 && (
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-noir-950/30 text-[10px] font-bold mr-1.5">
+                      {priority}
                     </span>
+                  )}
+                  {opt.value === 'distance' && !userLocation && (
+                    <span className="inline-block mr-1" aria-hidden="true">{'\u{1F512}'}</span>
                   )}
                   {opt.label}
                 </button>
