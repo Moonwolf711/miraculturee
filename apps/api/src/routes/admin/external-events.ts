@@ -14,22 +14,32 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
     // TODO: Add admin authentication middleware
     
     const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
-    if (!ticketmasterApiKey) {
-      return reply.code(500).send({ error: 'TICKETMASTER_API_KEY not configured' });
+    const edmtrainApiKey = process.env.EDMTRAIN_API_KEY;
+
+    if (!ticketmasterApiKey && !edmtrainApiKey) {
+      return reply.code(500).send({ error: 'No event API keys configured' });
     }
 
     const ingestionService = new EventIngestionService(
       app.prisma,
       app.log,
       {
-        ticketmaster: {
-          apiKey: ticketmasterApiKey,
-          countryCode: 'US',
-          classificationName: 'music',
-          daysAhead: 180,
-          // Denver, Los Angeles, New York, Chicago
-          dmaIds: ['751', '803', '501', '602'],
-        },
+        ...(ticketmasterApiKey && {
+          ticketmaster: {
+            apiKey: ticketmasterApiKey,
+            countryCode: 'US',
+            classificationName: 'music',
+            daysAhead: 180,
+            dmaIds: ['751', '803', '501', '602'],
+          },
+        }),
+        ...(edmtrainApiKey && {
+          edmtrain: {
+            clientKey: edmtrainApiKey,
+            // Denver, NYC, LA, Chicago, SF, Miami, Atlanta, Detroit
+            locationIds: [76, 70, 73, 71, 72, 87, 84, 102],
+          },
+        }),
       },
     );
 

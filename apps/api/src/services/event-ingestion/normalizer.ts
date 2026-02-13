@@ -5,6 +5,7 @@
  */
 
 import type { TicketmasterEvent } from './ticketmaster.client.js';
+import type { EdmtrainEvent } from './edmtrain.client.js';
 
 export interface NormalizedEvent {
   externalId: string;
@@ -107,6 +108,63 @@ export class EventNormalizer {
       genre,
       category: classification?.segment?.name || null,
       
+      rawData: event,
+    };
+  }
+
+  /**
+   * Normalize EDMTrain event to common format
+   */
+  static normalizeEdmtrainEvent(event: EdmtrainEvent): NormalizedEvent {
+    const artistName = event.artistList.length > 0
+      ? event.artistList.map((a) => a.name).join(', ')
+      : event.name || 'TBA';
+
+    const title = event.name || artistName;
+
+    // Parse location string like "Denver, CO"
+    const locationParts = event.venue.location?.split(', ') || [];
+    const city = locationParts[0] || 'TBD';
+    const stateAbbr = locationParts[1] || event.venue.state || null;
+
+    // Parse date — EDMTrain gives "YYYY-MM-DD" format
+    let eventDate: Date;
+    if (event.startTime) {
+      eventDate = new Date(event.startTime);
+    } else {
+      eventDate = new Date(`${event.date}T20:00:00`);
+    }
+
+    const genre = event.electronicGenreInd ? 'Electronic' : event.otherGenreInd ? 'Other' : null;
+
+    return {
+      externalId: String(event.id),
+      source: 'edmtrain',
+      sourceUrl: event.link,
+
+      title,
+      description: null,
+      artistName,
+
+      venueName: event.venue.name || 'TBD',
+      venueAddress: event.venue.address || event.venue.name || 'TBD',
+      venueCity: city,
+      venueState: stateAbbr,
+      venueCountry: event.venue.country || 'United States',
+      venueLat: event.venue.latitude,
+      venueLng: event.venue.longitude,
+
+      eventDate,
+      onSaleDate: null,
+      offSaleDate: null,
+
+      minPriceCents: null,
+      maxPriceCents: null,
+      currency: 'USD',
+
+      genre,
+      category: event.festivalInd ? 'Festival' : 'Concert',
+
       rawData: event,
     };
   }

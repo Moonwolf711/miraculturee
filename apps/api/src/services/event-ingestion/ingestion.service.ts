@@ -7,10 +7,12 @@
 import type { PrismaClient } from '@prisma/client';
 import type { FastifyBaseLogger } from 'fastify';
 import { TicketmasterClient, type TicketmasterConfig } from './ticketmaster.client.js';
+import { EdmtrainClient, type EdmtrainConfig } from './edmtrain.client.js';
 import { EventNormalizer, type NormalizedEvent } from './normalizer.js';
 
 export interface IngestionConfig {
   ticketmaster?: TicketmasterConfig;
+  edmtrain?: EdmtrainConfig;
 }
 
 export interface IngestionResult {
@@ -45,7 +47,11 @@ export class EventIngestionService {
       results.push(result);
     }
 
-    // Future: Add Eventbrite, Bandsintown, etc.
+    // Sync EDMTrain
+    if (this.config.edmtrain) {
+      const result = await this.syncEdmtrain();
+      results.push(result);
+    }
 
     return results;
   }
@@ -137,6 +143,60 @@ export class EventIngestionService {
         eventsUpdated: 0,
         errorMessage,
       };
+    }
+  }
+
+  /**
+   * Sync events from EDMTrain
+   */
+  async syncEdmtrain(): Promise<IngestionResult> {
+    const startedAt = new Date();
+    const source = 'edmtrain';
+
+    this.log.info('Starting EDMTrain sync');
+
+    try {
+      if (!this.config.edmtrain) {
+        throw new Error('EDMTrain config not provided');
+      }
+
+      const client = new EdmtrainClient(this.config.edmtrain, this.log);
+      const rawEvents = await client.fetchEvents();
+
+      this.log.info(`Fetched ${rawEvents.length} events from EDMTrain`);
+
+      const normalizedEvents = rawEvents
+        .map((event) => EventNormalizer.normalizeEdmtrainEvent(event))
+        .filter((event) => EventNormalizer.isValid(event));
+
+      this.log.info(`Normalized ${normalizedEvents.length} valid events`);
+
+      const { newCount, updatedCount } = await this.storeEvents(normalizedEvents);
+
+      await this.prisma.eventSyncLog.create({
+        data: {
+          source,
+          status: 'success',
+          eventsFound: rawEvents.length,
+          eventsNew: newCount,
+          eventsUpdated: updatedCount,
+          startedAt,
+          completedAt: new Date(),
+        },
+      });
+
+      this.log.info({ source, found: rawEvents.length, new: newCount, updated: updatedCount }, 'EDMTrain sync complete');
+
+      return { source, success: true, eventsFound: rawEvents.length, eventsNew: newCount, eventsUpdated: updatedCount };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.log.error({ error }, 'EDMTrain sync failed');
+
+      await this.prisma.eventSyncLog.create({
+        data: { source, status: 'failed', eventsFound: 0, eventsNew: 0, eventsUpdated: 0, errorMessage, startedAt, completedAt: new Date() },
+      });
+
+      return { source, success: false, eventsFound: 0, eventsNew: 0, eventsUpdated: 0, errorMessage };
     }
   }
 
