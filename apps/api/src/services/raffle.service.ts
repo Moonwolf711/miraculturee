@@ -160,31 +160,54 @@ export class RaffleService {
       const winnerCount = Math.min(shuffled.length, availableTickets.length);
       const winners: { userId: string; ticketId: string }[] = [];
 
+      // Build winner pairs for batched updates
+      const winnerEntryIds: string[] = [];
+      const notifications: { userId: string; title: string; body: string; metadata: any }[] = [];
+
       for (let i = 0; i < winnerCount; i++) {
         const entry = shuffled[i];
         const ticket = availableTickets[i];
-
-        await tx.raffleEntry.update({
-          where: { id: entry.id },
-          data: { won: true, ticketId: ticket.id },
-        });
-
-        await tx.poolTicket.update({
-          where: { id: ticket.id },
-          data: { status: 'ASSIGNED', assignedUserId: entry.userId },
-        });
-
+        winnerEntryIds.push(entry.id);
         winners.push({ userId: entry.userId, ticketId: ticket.id });
-
-        await tx.notification.create({
-          data: {
-            userId: entry.userId,
-            title: 'You won a ticket!',
-            body: `Congratulations! You won a ticket in the raffle draw.`,
-            metadata: { poolId, ticketId: ticket.id, eventId: pool.eventId },
-          },
+        notifications.push({
+          userId: entry.userId,
+          title: 'You won a ticket!',
+          body: 'Congratulations! You won a ticket in the raffle draw.',
+          metadata: { poolId, ticketId: ticket.id, eventId: pool.eventId },
         });
       }
+
+      // Batch: mark all winning entries at once
+      await tx.raffleEntry.updateMany({
+        where: { id: { in: winnerEntryIds } },
+        data: { won: true },
+      });
+
+      // Individual ticketId assignment (updateMany can't set per-row values)
+      // Use Promise.all to run concurrently within the transaction
+      await Promise.all(
+        winners.map((w, i) =>
+          tx.raffleEntry.update({
+            where: { id: winnerEntryIds[i] },
+            data: { ticketId: w.ticketId },
+          }),
+        ),
+      );
+
+      // Batch: assign all pool tickets at once per-winner
+      await Promise.all(
+        winners.map((w) =>
+          tx.poolTicket.update({
+            where: { id: w.ticketId },
+            data: { status: 'ASSIGNED', assignedUserId: w.userId },
+          }),
+        ),
+      );
+
+      // Batch: create all notifications at once
+      await tx.notification.createMany({
+        data: notifications,
+      });
 
       // Reveal the seed and mark as completed
       await tx.rafflePool.update({

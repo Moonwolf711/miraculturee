@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "cd ../.. && pnpm --filter @miraculturee/shared build && pnpm --filter @miraculturee/pos build && cd apps/api && DATABASE_URL=\"postgresql://placeholder:5432/db\" npx prisma generate",
-    "start": "npx prisma migrate deploy && npx tsx src/server.ts",
+    "start": "npx prisma migrate deploy && node dist/server.js",
     "test": "vitest run",
     "lint": "tsc --noEmit",
     "prisma:migrate": "prisma migrate dev",

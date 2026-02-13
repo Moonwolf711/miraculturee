@@ -24,6 +24,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          /* React core — cached long-term, rarely changes */
+          if (id.includes('react-dom') || (id.includes('/react/') && !id.includes('react-router') && !id.includes('react-helmet') && !id.includes('react-stripe'))) {
+            return 'vendor-react';
+          }
           /* Stripe SDK — only loaded when payment form is shown (lazy) */
           if (id.includes('@stripe/stripe-js') || id.includes('@stripe/react-stripe-js')) {
             return 'vendor-stripe';
@@ -35,6 +39,10 @@ export default defineConfig({
           /* SEO / Helmet */
           if (id.includes('react-helmet-async')) {
             return 'vendor-seo';
+          }
+          /* Socket.io client */
+          if (id.includes('socket.io-client') || id.includes('engine.io')) {
+            return 'vendor-socket';
           }
         },
       },

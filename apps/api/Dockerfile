@@ -19,8 +19,10 @@ RUN pnpm --filter @miraculturee/pos build
 # Generate Prisma client
 RUN cd apps/api && npx prisma generate
 
+# Compile TypeScript to JavaScript (faster cold start, lower memory)
+RUN pnpm --filter @miraculturee/api exec tsc
+
 WORKDIR /app/apps/api
 EXPOSE ${PORT:-3000}
 
-# Use tsx for production — no tsc build step needed
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && npx tsx src/server.ts"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/server.js"]

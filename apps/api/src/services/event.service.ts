@@ -207,13 +207,23 @@ export class EventService {
     page: number;
     limit: number;
   }): Promise<PaginatedResponse<EventSummary>> {
-    // Fetch all published future events, then filter by distance
+    // Bounding box pre-filter: convert radius to approximate lat/lng deltas
+    // 1 degree latitude ≈ 111 km; longitude varies by cos(lat)
+    const latDelta = params.radiusKm / 111;
+    const lngDelta = params.radiusKm / (111 * Math.cos((params.lat * Math.PI) / 180));
+
     const events = await this.prisma.event.findMany({
-      where: { status: 'PUBLISHED', date: { gte: new Date() } },
+      where: {
+        status: 'PUBLISHED',
+        date: { gte: new Date() },
+        venueLat: { gte: params.lat - latDelta, lte: params.lat + latDelta },
+        venueLng: { gte: params.lng - lngDelta, lte: params.lng + lngDelta },
+      },
       include: { artist: true, supportTickets: { where: { confirmed: true } } },
       orderBy: { date: 'asc' },
     });
 
+    // Precise Haversine filter on the reduced candidate set
     const nearby = events.filter(
       (e) => haversineDistanceKm(params.lat, params.lng, e.venueLat, e.venueLng) <= params.radiusKm,
     );
