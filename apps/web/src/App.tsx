@@ -36,6 +36,7 @@ const VerifyEmailPage = lazyRetry(() => import('./pages/VerifyEmailPage.js'));
 const NotFoundPage = lazyRetry(() => import('./pages/NotFoundPage.js'));
 const PrivacyPolicyPage = lazyRetry(() => import('./pages/PrivacyPolicyPage.js'));
 const TermsOfServicePage = lazyRetry(() => import('./pages/TermsOfServicePage.js'));
+const CreateCampaignPage = lazyRetry(() => import('./pages/CreateCampaignPage.js'));
 const ConnectDashboardPage = lazyRetry(() => import('./pages/ConnectDashboardPage.js'));
 const StorefrontPage = lazyRetry(() => import('./pages/StorefrontPage.js'));
 
@@ -116,6 +117,14 @@ export default function App() {
               element={
                 <ProtectedRoute role="ARTIST">
                   <CreateEventPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/artist/campaigns/new"
+              element={
+                <ProtectedRoute role="ARTIST">
+                  <CreateCampaignPage />
                 </ProtectedRoute>
               }
             />

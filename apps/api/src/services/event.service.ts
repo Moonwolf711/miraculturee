@@ -254,11 +254,17 @@ export class EventService {
     if (!event) return null;
 
     const supportedTickets = event.supportTickets.reduce((sum, s) => sum + s.ticketCount, 0);
-    const [availableTickets, externalEvent] = await Promise.all([
+    const [availableTickets, externalEvent, activeCampaigns] = await Promise.all([
       this.prisma.poolTicket.count({ where: { eventId: id, status: 'AVAILABLE' } }),
       this.prisma.externalEvent.findFirst({
         where: { importedEventId: id },
         select: { sourceUrl: true },
+      }),
+      this.prisma.campaign.findMany({
+        where: { eventId: id, status: 'ACTIVE' },
+        select: { id: true, headline: true, message: true },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
       }),
     ]);
     const currentProcessingFeeCents = await calculateDynamicFee(this.prisma, id, event.totalTickets);
@@ -291,6 +297,7 @@ export class EventService {
         totalEntries: p.entries.length,
         drawTime: p.scheduledDrawTime?.toISOString() ?? null,
       })),
+      campaigns: activeCampaigns,
     };
   }
 

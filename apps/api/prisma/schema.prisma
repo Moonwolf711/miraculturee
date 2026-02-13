@@ -109,8 +109,34 @@ model Artist {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events Event[]
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events    Event[]
+  campaigns Campaign[]
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+}
+
+model Campaign {
+  id        String         @id @default(uuid())
+  artistId  String
+  eventId   String
+  headline  String
+  message   String
+  status    CampaignStatus @default(DRAFT)
+  startAt   DateTime?
+  endAt     DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([artistId])
+  @@index([eventId, status])
 }
 
 model Event {
@@ -132,12 +158,13 @@ model Event {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
-  artist         Artist          @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  supportTickets SupportTicket[]
-  poolTickets    PoolTicket[]
-  rafflePools    RafflePool[]
-  directTickets        DirectTicket[]
-  ticketAcquisitions   TicketAcquisition[]
+  artist             Artist              @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  supportTickets     SupportTicket[]
+  poolTickets        PoolTicket[]
+  rafflePools        RafflePool[]
+  directTickets      DirectTicket[]
+  ticketAcquisitions TicketAcquisition[]
+  campaigns          Campaign[]
 
   @@index([artistId])
   @@index([status, date])

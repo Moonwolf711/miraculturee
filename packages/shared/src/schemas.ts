@@ -180,6 +180,33 @@ export const SyncLogsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(20),
 });
 
+// --- Artist Campaigns ---
+
+/** Validates campaign creation input. */
+export const CreateCampaignSchema = z.object({
+  eventId: z.string().uuid(),
+  headline: z.string().min(1).max(200),
+  message: z.string().min(1).max(2000),
+  startAt: z.string().datetime().optional(),
+  endAt: z.string().datetime().optional(),
+});
+
+/** Validates campaign update input. */
+export const UpdateCampaignSchema = z.object({
+  headline: z.string().min(1).max(200).optional(),
+  message: z.string().min(1).max(2000).optional(),
+  status: z.enum(['DRAFT', 'ACTIVE', 'ENDED']).optional(),
+  startAt: z.string().datetime().nullable().optional(),
+  endAt: z.string().datetime().nullable().optional(),
+});
+
+/** Validates campaign list query. */
+export const CampaignListSchema = z.object({
+  status: z.enum(['DRAFT', 'ACTIVE', 'ENDED']).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
 // --- Shared param schemas ---
 
 /** Validates a generic UUID path parameter. */

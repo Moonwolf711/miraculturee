@@ -78,34 +78,14 @@ export default function EventsPage() {
   const [genreFilter, setGenreFilter] = useState('');
   const [dateRange, setDateRange] = useState('');
   const [search, setSearch] = useState('');
-  const [activeSorts, setActiveSorts] = useState<SortKey[]>(['distance', 'popular', 'date']);
+  const [activeSorts, setActiveSorts] = useState<SortKey[]>(['popular', 'date']);
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({ cities: [], genres: [] });
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [locationLoading, setLocationLoading] = useState(true);
-
-  // Request geolocation on mount
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocationLoading(false);
-      setActiveSorts(['popular', 'date']);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setLocationLoading(false);
-      },
-      () => {
-        // Denied or unavailable — fall back to popular + date
-        setActiveSorts(['popular', 'date']);
-        setLocationLoading(false);
-      },
-      { timeout: 5000, maximumAge: 300000 },
-    );
-  }, []);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
 
   // Load filter options once
   useEffect(() => {
@@ -161,11 +141,10 @@ export default function EventsPage() {
     };
   }, [cityFilter, search, genreFilter, dateRange, activeTab, activeSorts, userLocation]);
 
-  // Load events when filters change (wait for location to resolve first)
+  // Load events when filters change
   useEffect(() => {
-    if (locationLoading) return;
     loadEvents({ ...currentFilters(), page: 1 });
-  }, [loadEvents, activeTab, cityFilter, genreFilter, dateRange, activeSorts, locationLoading, userLocation]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadEvents, activeTab, cityFilter, genreFilter, dateRange, activeSorts, userLocation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTabChange = (tab: EventTypeFilter) => {
     setActiveTab(tab);
@@ -191,6 +170,7 @@ export default function EventsPage() {
     setDateRange('');
     setSearch('');
     setActiveSorts(userLocation ? ['distance', 'popular', 'date'] : ['popular', 'date']);
+    setLocationDenied(false);
     setCurrentPage(1);
   };
 
@@ -279,16 +259,41 @@ export default function EventsPage() {
           <div className="flex items-center gap-2 mb-4">
             <span className="font-body text-xs text-gray-500 uppercase tracking-wider mr-1">Sort by</span>
             {SORT_OPTIONS.map((opt) => {
-              const disabled = opt.value === 'distance' && !userLocation;
+              const isGeoLoading = opt.value === 'distance' && locationLoading;
+              const isGeoDenied = opt.value === 'distance' && locationDenied;
               const idx = activeSorts.indexOf(opt.value);
               const isActive = idx !== -1;
               const priority = idx + 1; // 1-based
 
               const toggleSort = () => {
-                if (disabled) return;
+                if (isGeoLoading) return;
+
+                // When clicking Nearest, request geolocation if we don't have it yet
+                if (opt.value === 'distance' && !userLocation && !isActive) {
+                  if (!navigator.geolocation) {
+                    setLocationDenied(true);
+                    return;
+                  }
+                  setLocationLoading(true);
+                  setLocationDenied(false);
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                      setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                      setLocationLoading(false);
+                      setActiveSorts((prev) => [...prev, 'distance']);
+                      setCurrentPage(1);
+                    },
+                    () => {
+                      setLocationDenied(true);
+                      setLocationLoading(false);
+                    },
+                    { timeout: 10000, maximumAge: 600000 },
+                  );
+                  return;
+                }
+
                 setActiveSorts((prev) => {
                   if (isActive) {
-                    // Don't allow removing the last sort
                     if (prev.length <= 1) return prev;
                     return prev.filter((s) => s !== opt.value);
                   }
@@ -301,22 +306,33 @@ export default function EventsPage() {
                 <button
                   key={opt.value}
                   onClick={toggleSort}
-                  disabled={disabled}
+                  disabled={isGeoLoading}
                   className={`relative px-3 py-1.5 rounded-full font-body text-xs tracking-wide transition-all duration-300 ${
                     isActive
                       ? 'bg-amber-500 text-noir-950 font-semibold'
-                      : disabled
-                        ? 'text-gray-700 border border-noir-800 cursor-not-allowed'
-                        : 'text-gray-400 border border-noir-700 hover:border-amber-500/40 hover:text-amber-400'
+                      : isGeoLoading
+                        ? 'text-gray-500 border border-noir-700 animate-pulse cursor-wait'
+                        : isGeoDenied
+                          ? 'text-gray-700 border border-noir-800 cursor-not-allowed'
+                          : 'text-gray-400 border border-noir-700 hover:border-amber-500/40 hover:text-amber-400'
                   }`}
-                  title={disabled ? 'Enable location access for nearby sorting' : isActive ? `Priority ${priority} — click to remove` : 'Click to add'}
+                  title={
+                    isGeoLoading ? 'Getting your location...'
+                      : isGeoDenied ? 'Location access denied — enable in browser settings'
+                        : isActive ? `Priority ${priority} — click to remove`
+                          : opt.value === 'distance' ? 'Click to enable — will ask for location'
+                            : 'Click to add'
+                  }
                 >
                   {isActive && activeSorts.length > 1 && (
                     <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-noir-950/30 text-[10px] font-bold mr-1.5">
                       {priority}
                     </span>
                   )}
-                  {opt.value === 'distance' && !userLocation && (
+                  {isGeoLoading && (
+                    <span className="inline-block mr-1 animate-spin" aria-hidden="true">&#9696;</span>
+                  )}
+                  {isGeoDenied && (
                     <span className="inline-block mr-1" aria-hidden="true">{'\u{1F512}'}</span>
                   )}
                   {opt.label}

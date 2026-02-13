@@ -7,7 +7,6 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('FAN');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -18,8 +17,8 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      await register(email, password, name, role);
-      navigate(role === 'ARTIST' ? '/artist/dashboard' : '/events');
+      await register(email, password, name, 'FAN');
+      navigate('/events');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed.');
     } finally {
@@ -95,34 +94,6 @@ export default function RegisterPage() {
                 placeholder="Min. 8 characters"
               />
             </div>
-
-            <fieldset>
-              <legend className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-3">
-                I am a...
-              </legend>
-              <div className="grid grid-cols-3 gap-3" role="group">
-                {[
-                  { value: 'FAN', label: 'Fan', desc: 'Support artists worldwide' },
-                  { value: 'LOCAL_FAN', label: 'Local Fan', desc: 'Enter local raffles' },
-                  { value: 'ARTIST', label: 'Artist', desc: 'List your events' },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setRole(opt.value)}
-                    aria-pressed={role === opt.value}
-                    className={`p-3 border rounded-lg text-center transition-colors ${
-                      role === opt.value
-                        ? 'border-amber-500 bg-amber-500/5 text-warm-50'
-                        : 'border-noir-700 bg-noir-800 text-gray-400 hover:border-noir-600'
-                    }`}
-                  >
-                    <div className="font-semibold text-sm">{opt.label}</div>
-                    <div className="text-xs text-gray-400 mt-1">{opt.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </fieldset>
 
             <button
               type="submit"

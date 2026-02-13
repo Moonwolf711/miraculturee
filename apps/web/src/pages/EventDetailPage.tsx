@@ -41,6 +41,7 @@ interface EventDetail {
   sourceUrl: string | null;
   status: string;
   rafflePools: RafflePool[];
+  campaigns?: { id: string; headline: string; message: string }[];
 }
 
 interface SupportPurchaseResponse {
@@ -425,6 +426,23 @@ export default function EventDetailPage() {
               >
                 View on EDMTrain &rarr;
               </a>
+            )}
+            {/* Artist campaign messages */}
+            {event.campaigns && event.campaigns.length > 0 && (
+              <div className="mt-5 space-y-3">
+                {event.campaigns.map((c) => (
+                  <div
+                    key={c.id}
+                    className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-amber-400 text-xs font-semibold uppercase tracking-wider">From the Artist</span>
+                    </div>
+                    <p className="text-warm-50 font-medium text-sm">{c.headline}</p>
+                    <p className="text-gray-400 text-sm mt-1 leading-relaxed">{c.message}</p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 

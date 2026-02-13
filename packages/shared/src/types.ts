@@ -48,6 +48,7 @@ export interface EventDetail extends EventSummary {
   currentProcessingFeeCents: number;
   sourceUrl: string | null;
   rafflePools: RafflePoolSummary[];
+  campaigns?: { id: string; headline: string; message: string }[];
 }
 
 /** Raffle pool data included in event detail responses. */
@@ -121,5 +122,20 @@ export interface DirectTicketSummary {
   status: DirectTicketStatus;
   priceCents: number;
   feeCents: number;
+  createdAt: string;
+}
+
+export type CampaignStatus = 'DRAFT' | 'ACTIVE' | 'ENDED';
+
+export interface CampaignSummary {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  eventDate: string;
+  headline: string;
+  message: string;
+  status: CampaignStatus;
+  startAt: string | null;
+  endAt: string | null;
   createdAt: string;
 }
