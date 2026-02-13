@@ -22,6 +22,7 @@ import { connectRoutes } from './routes/connect.js';
 import { connectWebhookRoutes } from './routes/connect-webhooks.js';
 import externalEventsRoutes from './routes/admin/external-events.js';
 import issuingRoutes from './routes/admin/issuing.js';
+import vendorTicketRoutes from './routes/admin/vendor-tickets.js';
 import { initWorkers } from './jobs/workers.js';
 
 const app = Fastify({
@@ -57,6 +58,7 @@ async function start() {
   await app.register(connectWebhookRoutes, { prefix: '/connect-webhooks' });
   await app.register(externalEventsRoutes, { prefix: '/admin/external-events' });
   await app.register(issuingRoutes, { prefix: '/admin/issuing' });
+  await app.register(vendorTicketRoutes, { prefix: '/admin/vendors' });
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));

@@ -25,7 +25,7 @@ interface PurchaseResult {
   requiresManual?: boolean;
 }
 
-type VenuePlatform = 'eventbrite' | 'axs' | 'dice' | 'ra' | 'unknown';
+type VenuePlatform = 'ticketmaster' | 'eventbrite' | 'axs' | 'dice' | 'ra' | 'unknown';
 
 /**
  * RESELLER / SECONDARY MARKET BLOCKLIST
@@ -315,7 +315,14 @@ export class PurchaseAgentService {
     // 4. Detect platform and attempt automated purchase
     const platform = this.detectPlatform(purchaseUrl);
 
-    if (platform === 'eventbrite' && purchaseUrl) {
+    if (platform === 'ticketmaster' && purchaseUrl) {
+      // Ticketmaster has no public purchase API — go straight to browser automation
+      console.log(`[PurchaseAgent] Ticketmaster detected — using browser automation for ${event.eventId}`);
+      await this.prisma.ticketAcquisition.update({
+        where: { id: acquisition.id },
+        data: { status: 'PURCHASING' },
+      });
+    } else if (platform === 'eventbrite' && purchaseUrl) {
       // Attempt Eventbrite API purchase first
       await this.prisma.ticketAcquisition.update({
         where: { id: acquisition.id },
@@ -400,6 +407,7 @@ export class PurchaseAgentService {
     if (!url) return 'unknown';
     const lower = url.toLowerCase();
 
+    if (lower.includes('ticketmaster.com') || lower.includes('livenation.com')) return 'ticketmaster';
     if (lower.includes('eventbrite.com')) return 'eventbrite';
     if (lower.includes('axs.com')) return 'axs';
     if (lower.includes('dice.fm')) return 'dice';
