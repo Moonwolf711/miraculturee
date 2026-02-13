@@ -20,7 +20,7 @@ RUN pnpm --filter @miraculturee/pos build
 RUN cd apps/api && npx prisma generate
 
 # Compile TypeScript to JavaScript (faster cold start, lower memory)
-RUN pnpm --filter @miraculturee/api exec tsc
+RUN pnpm --filter @miraculturee/api run build
 
 WORKDIR /app/apps/api
 EXPOSE ${PORT:-3000}
