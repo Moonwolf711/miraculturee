@@ -6,6 +6,7 @@ import {
   ForgotPasswordSchema,
   ResetPasswordSchema,
   VerifyEmailSchema,
+  UpgradeToArtistSchema,
 } from '@miraculturee/shared';
 import { AuthService } from '../services/auth.service.js';
 
@@ -40,6 +41,36 @@ export async function authRoutes(app: FastifyInstance) {
       select: { id: true, email: true, name: true, role: true, city: true, emailVerified: true, createdAt: true },
     });
     return user;
+  });
+
+  // --- Upgrade to Artist ---
+
+  app.post('/upgrade-to-artist', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const body = UpgradeToArtistSchema.parse(req.body);
+    const user = await app.prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+    if (user.role === 'ARTIST') return reply.code(400).send({ error: 'Already an artist' });
+
+    // Upgrade role and create artist profile in a transaction
+    const [updated] = await app.prisma.$transaction([
+      app.prisma.user.update({ where: { id: user.id }, data: { role: 'ARTIST' } }),
+      app.prisma.artist.create({
+        data: {
+          userId: user.id,
+          stageName: body.stageName,
+          genre: body.genre ?? null,
+          bio: body.bio ?? null,
+        },
+      }),
+    ]);
+
+    // Re-issue tokens with the new ARTIST role
+    const payload = { id: updated.id, email: updated.email, role: updated.role };
+    const accessToken = app.jwt.sign(payload);
+    const refreshToken = app.jwt.sign(payload, { expiresIn: '7d' });
+    await app.prisma.user.update({ where: { id: updated.id }, data: { refreshToken } });
+
+    return reply.send({ accessToken, refreshToken });
   });
 
   // --- Password Reset ---
