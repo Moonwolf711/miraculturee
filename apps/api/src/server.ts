@@ -35,6 +35,8 @@ async function start() {
   // Plugins
   const allowedOrigins = [
     'https://miracultureeweb-production.up.railway.app',
+    'https://www.mira-culture.com',
+    'https://mira-culture.com',
     ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : []),
     ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173', 'http://localhost:3000'] : []),
   ];
