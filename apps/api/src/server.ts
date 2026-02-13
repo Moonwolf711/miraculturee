@@ -18,6 +18,7 @@ import { ticketRoutes } from './routes/ticket.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { userRoutes } from './routes/user.js';
 import { applePayRoutes } from './routes/applepay.js';
+import externalEventsRoutes from './routes/admin/external-events.js';
 import { initWorkers } from './jobs/workers.js';
 
 const app = Fastify({
@@ -51,6 +52,7 @@ async function start() {
   await app.register(applePayRoutes, { prefix: '/apple-pay' });
   // Webhook route — uses its own raw body parser for Stripe signature verification
   await app.register(webhookRoutes, { prefix: '/webhook' });
+  await app.register(externalEventsRoutes, { prefix: '/admin/external-events' });
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
