@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { EmailService } from '../services/email.service.js';
 import { EdmtrainService } from '../services/edmtrain.service.js';
+import { PurchaseAgentService } from '../services/purchase-agent.service.js';
 import { EDMTRAIN_SYNC_INTERVAL_MS, EVENT_CLEANUP_INTERVAL_MS } from '@miraculturee/shared';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
@@ -26,6 +27,7 @@ function getConnection() {
 let raffleDrawQueue: Queue | null = null;
 let notificationQueue: Queue | null = null;
 let preEventQueue: Queue | null = null;
+let purchaseAgentQueue: Queue | null = null;
 
 function getRaffleDrawQueue() {
   if (!raffleDrawQueue) {
@@ -64,6 +66,30 @@ function getPreEventQueue() {
     });
   }
   return preEventQueue;
+}
+
+function getPurchaseAgentQueue() {
+  if (!purchaseAgentQueue) {
+    purchaseAgentQueue = new Queue('purchase-agent', {
+      connection: getConnection(),
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 10000 },
+        removeOnComplete: 50,
+        removeOnFail: 50,
+      },
+    });
+  }
+  return purchaseAgentQueue;
+}
+
+/** Trigger the purchase agent for a specific event (called from admin route). */
+export async function triggerPurchaseAgent(eventId?: string) {
+  await getPurchaseAgentQueue().add(
+    'acquire',
+    { eventId },
+    { jobId: eventId ? `acquire-${eventId}-${Date.now()}` : `acquire-cycle-${Date.now()}` },
+  );
 }
 
 export async function scheduleRaffleDraw(poolId: string, drawTime: Date) {
@@ -422,5 +448,44 @@ export async function initWorkers() {
     { connection: getConnection(), concurrency: 1 },
   );
 
-  console.log('[Workers] Raffle draw, notification, pre-event, event-sync, and event-cleanup workers initialized');
+  // ──── Purchase Agent (every 4 hours + on-demand) ────
+  const purchaseAgentQ = new Queue('purchase-agent', {
+    connection: getConnection(),
+    defaultJobOptions: {
+      attempts: 2,
+      backoff: { type: 'exponential', delay: 10000 },
+      removeOnComplete: 50,
+      removeOnFail: 50,
+    },
+  });
+  await purchaseAgentQ.add(
+    'acquire-cycle',
+    {},
+    { repeat: { every: 4 * 60 * 60 * 1000 }, jobId: 'purchase-agent-cycle' },
+  );
+
+  new Worker(
+    'purchase-agent',
+    async (job) => {
+      const { POSClient, StripeProvider } = await import('@miraculturee/pos');
+      const stripeKey = process.env.STRIPE_SECRET_KEY ?? '';
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
+      const provider = new StripeProvider(stripeKey, webhookSecret);
+      const pos = new POSClient(provider);
+      const agent = new PurchaseAgentService(prisma, pos);
+
+      if (job.data.eventId) {
+        // Single event trigger
+        const result = await agent.acquireSingleEvent(job.data.eventId);
+        console.log(`[PurchaseAgent] Single event ${job.data.eventId}: ${JSON.stringify(result)}`);
+      } else {
+        // Full cycle
+        const result = await agent.runAcquisitionCycle();
+        console.log(`[PurchaseAgent] Cycle: ${JSON.stringify(result)}`);
+      }
+    },
+    { connection: getConnection(), concurrency: 1 },
+  );
+
+  console.log('[Workers] Raffle draw, notification, pre-event, purchase-agent, event-sync, and event-cleanup workers initialized');
 }

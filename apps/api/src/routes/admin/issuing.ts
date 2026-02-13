@@ -13,6 +13,8 @@
 
 import type { FastifyInstance } from 'fastify';
 import { TicketAcquisitionService } from '../../services/ticket-acquisition.service.js';
+import { PurchaseAgentService } from '../../services/purchase-agent.service.js';
+import { triggerPurchaseAgent } from '../../jobs/workers.js';
 
 export default async function issuingRoutes(app: FastifyInstance) {
   const getService = () => new TicketAcquisitionService(app.prisma, app.pos);
@@ -147,5 +149,59 @@ export default async function issuingRoutes(app: FastifyInstance) {
     const service = getService();
     const acquisition = await service.failAcquisition(id, errorMessage || 'Manual failure');
     return reply.send({ success: true, acquisition });
+  });
+
+  /* ─── Purchase Agent Controls ─── */
+
+  /**
+   * POST /admin/issuing/agent/run
+   * Trigger a full purchase agent cycle (scans all events, buys tickets).
+   * Runs asynchronously via BullMQ.
+   */
+  app.post('/agent/run', async (_req, reply) => {
+    await triggerPurchaseAgent();
+    return reply.send({
+      success: true,
+      message: 'Purchase agent cycle queued. Check /admin/issuing/acquisitions for results.',
+    });
+  });
+
+  /**
+   * POST /admin/issuing/agent/run/:eventId
+   * Trigger the purchase agent for a specific event.
+   */
+  app.post('/agent/run/:eventId', async (req, reply) => {
+    const { eventId } = req.params as { eventId: string };
+
+    const event = await app.prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) return reply.code(404).send({ error: 'Event not found' });
+
+    await triggerPurchaseAgent(eventId);
+    return reply.send({
+      success: true,
+      message: `Purchase agent queued for event "${event.title}". Check acquisitions for results.`,
+    });
+  });
+
+  /**
+   * POST /admin/issuing/agent/run-now
+   * Run the purchase agent synchronously (blocks until complete).
+   * Useful for testing — returns results immediately.
+   */
+  app.post('/agent/run-now', async (_req, reply) => {
+    const agent = new PurchaseAgentService(app.prisma, app.pos);
+    const result = await agent.runAcquisitionCycle();
+    return reply.send({ success: true, result });
+  });
+
+  /**
+   * POST /admin/issuing/agent/run-now/:eventId
+   * Run the purchase agent synchronously for a single event.
+   */
+  app.post('/agent/run-now/:eventId', async (req, reply) => {
+    const { eventId } = req.params as { eventId: string };
+    const agent = new PurchaseAgentService(app.prisma, app.pos);
+    const result = await agent.acquireSingleEvent(eventId);
+    return reply.send({ success: true, result });
   });
 }
