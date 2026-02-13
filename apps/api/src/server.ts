@@ -23,9 +23,7 @@ import issuingRoutes from './routes/admin/issuing.js';
 import { initWorkers } from './jobs/workers.js';
 
 const app = Fastify({
-  logger: {
-    level: process.env.LOG_LEVEL ?? 'info',
-  },
+  logger: { level: process.env.LOG_LEVEL ?? 'info' },
   trustProxy: true,
 });
 
