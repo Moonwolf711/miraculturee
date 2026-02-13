@@ -139,7 +139,9 @@ model Event {
   directTickets        DirectTicket[]
   ticketAcquisitions   TicketAcquisition[]
 
+  @@index([artistId])
   @@index([status, date])
+  @@index([venueCity, date])
   @@index([venueLat, venueLng])
 }
 
@@ -175,6 +177,7 @@ model PoolTicket {
   supportTicket SupportTicket @relation(fields: [supportTicketId], references: [id], onDelete: Cascade)
 
   @@index([eventId, status])
+  @@index([assignedUserId])
 }
 
 model RafflePool {
@@ -209,6 +212,7 @@ model RaffleEntry {
 
   @@unique([poolId, userId])
   @@index([poolId])
+  @@index([userId])
 }
 
 model Transaction {

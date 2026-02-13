@@ -12,19 +12,23 @@ import { AuthService } from '../services/auth.service.js';
 export async function authRoutes(app: FastifyInstance) {
   const authService = new AuthService(app.prisma, app);
 
-  app.post('/register', async (req, reply) => {
+  // Stricter rate limits for auth endpoints (brute force protection)
+  const authRateLimit = { max: 10, timeWindow: '1 minute' };
+  const resetRateLimit = { max: 5, timeWindow: '1 minute' };
+
+  app.post('/register', { config: { rateLimit: authRateLimit } }, async (req, reply) => {
     const body = RegisterSchema.parse(req.body);
     const tokens = await authService.register(body.email, body.password, body.name, body.role);
     return reply.code(201).send(tokens);
   });
 
-  app.post('/login', async (req, reply) => {
+  app.post('/login', { config: { rateLimit: authRateLimit } }, async (req, reply) => {
     const body = LoginSchema.parse(req.body);
     const tokens = await authService.login(body.email, body.password);
     return reply.send(tokens);
   });
 
-  app.post('/refresh', async (req, reply) => {
+  app.post('/refresh', { config: { rateLimit: authRateLimit } }, async (req, reply) => {
     const body = RefreshSchema.parse(req.body);
     const tokens = await authService.refresh(body.refreshToken);
     return reply.send(tokens);
@@ -40,14 +44,14 @@ export async function authRoutes(app: FastifyInstance) {
 
   // --- Password Reset ---
 
-  app.post('/forgot-password', async (req, reply) => {
+  app.post('/forgot-password', { config: { rateLimit: resetRateLimit } }, async (req, reply) => {
     const { email } = ForgotPasswordSchema.parse(req.body);
     await authService.forgotPassword(email);
     // Always return 200 to prevent email enumeration
     return reply.send({ message: 'If that email exists, we sent a reset link.' });
   });
 
-  app.post('/reset-password', async (req, reply) => {
+  app.post('/reset-password', { config: { rateLimit: resetRateLimit } }, async (req, reply) => {
     const { token, password } = ResetPasswordSchema.parse(req.body);
     const tokens = await authService.resetPassword(token, password);
     return reply.send(tokens);
