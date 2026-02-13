@@ -23,6 +23,7 @@ import { connectWebhookRoutes } from './routes/connect-webhooks.js';
 import externalEventsRoutes from './routes/admin/external-events.js';
 import issuingRoutes from './routes/admin/issuing.js';
 import vendorTicketRoutes from './routes/admin/vendor-tickets.js';
+import { requireRole } from './middleware/authenticate.js';
 import { initWorkers } from './jobs/workers.js';
 
 const app = Fastify({
@@ -32,7 +33,21 @@ const app = Fastify({
 
 async function start() {
   // Plugins
-  await app.register(cors, { origin: true, credentials: true });
+  const allowedOrigins = [
+    'https://miracultureeweb-production.up.railway.app',
+    ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : []),
+    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173', 'http://localhost:3000'] : []),
+  ];
+  await app.register(cors, {
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Not allowed by CORS'), false);
+      }
+    },
+    credentials: true,
+  });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(dbPlugin);
   await app.register(authPlugin);
@@ -56,9 +71,13 @@ async function start() {
   // Webhook routes — use their own raw body parsers for Stripe signature verification
   await app.register(webhookRoutes, { prefix: '/webhook' });
   await app.register(connectWebhookRoutes, { prefix: '/connect-webhooks' });
-  await app.register(externalEventsRoutes, { prefix: '/admin/external-events' });
-  await app.register(issuingRoutes, { prefix: '/admin/issuing' });
-  await app.register(vendorTicketRoutes, { prefix: '/admin/vendors' });
+  // Admin routes — all require authentication + ADMIN role
+  await app.register(async function adminRoutes(admin) {
+    admin.addHook('onRequest', requireRole('ADMIN'));
+    await admin.register(externalEventsRoutes, { prefix: '/external-events' });
+    await admin.register(issuingRoutes, { prefix: '/issuing' });
+    await admin.register(vendorTicketRoutes, { prefix: '/vendors' });
+  }, { prefix: '/admin' });
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));

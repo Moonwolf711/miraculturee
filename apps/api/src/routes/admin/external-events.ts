@@ -11,8 +11,6 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
    * Trigger manual sync from all sources
    */
   app.post('/sync', async (req, reply) => {
-    // TODO: Add admin authentication middleware
-
     const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
     const edmtrainApiKey = process.env.EDMTRAIN_API_KEY;
 
@@ -70,8 +68,6 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
    * List external events with filters
    */
   app.get('/', async (req, reply) => {
-    // TODO: Add admin authentication middleware
-
     const { source, status, city, limit = '50', offset = '0' } = req.query as any;
 
     const where: any = {};
@@ -120,8 +116,6 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
    * Get details of a specific external event
    */
   app.get('/:id', async (req, reply) => {
-    // TODO: Add admin authentication middleware
-
     const { id } = req.params as { id: string };
 
     const event = await app.prisma.externalEvent.findUnique({
@@ -140,8 +134,6 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
    * Get recent sync logs
    */
   app.get('/sync-logs', async (req, reply) => {
-    // TODO: Add admin authentication middleware
-
     const { source, limit = '20' } = req.query as any;
 
     const where: any = {};
