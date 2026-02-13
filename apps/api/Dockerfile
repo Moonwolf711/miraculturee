@@ -12,15 +12,11 @@ COPY apps/web/package.json apps/web/package.json
 # Install deps
 RUN pnpm install --frozen-lockfile
 
-# Build workspace deps
+# Build workspace deps, generate Prisma client, compile TypeScript
 RUN pnpm --filter @miraculturee/shared build
 RUN pnpm --filter @miraculturee/pos build
-
-# Generate Prisma client
 RUN cd apps/api && npx prisma generate
-
-# Compile TypeScript to JavaScript (faster cold start, lower memory)
-RUN pnpm --filter @miraculturee/api run build
+RUN cd apps/api && npx tsc
 
 WORKDIR /app/apps/api
 EXPOSE ${PORT:-3000}
