@@ -28,25 +28,31 @@ interface PaginatedEvents {
   totalPages: number;
 }
 
+const CITY_FILTERS = ['All Cities', 'New York', 'Los Angeles', 'Chicago', 'Denver', 'Brooklyn', 'Queens'];
+
 export default function EventsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('type') === 'FESTIVAL' ? 'FESTIVAL' : 'SHOW';
+  const initialPage = Number(searchParams.get('page')) || 1;
   const [activeTab, setActiveTab] = useState<EventTypeFilter>(initialTab as EventTypeFilter);
   const [events, setEvents] = useState<PaginatedEvents | null>(null);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const loadEvents = useCallback(async (city?: string, type?: EventTypeFilter) => {
+  const loadEvents = useCallback(async (city?: string, type?: EventTypeFilter, page = 1) => {
     setLoading(true);
     setFetchError(null);
     try {
       const qp = new URLSearchParams();
       if (city) qp.set('city', city);
       if (type) qp.set('type', type);
+      if (page > 1) qp.set('page', String(page));
       const qs = qp.toString();
       const data = await api.get<PaginatedEvents>(`/events${qs ? `?${qs}` : ''}`);
       setEvents(data);
+      setCurrentPage(page);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load events.';
       setFetchError(msg);
@@ -56,12 +62,25 @@ export default function EventsPage() {
   }, []);
 
   useEffect(() => {
-    loadEvents(search || undefined, activeTab);
+    loadEvents(search || undefined, activeTab, 1);
   }, [loadEvents, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTabChange = (tab: EventTypeFilter) => {
     setActiveTab(tab);
+    setCurrentPage(1);
     setSearchParams(tab === 'SHOW' ? {} : { type: tab });
+  };
+
+  const handlePageChange = (page: number) => {
+    loadEvents(search || undefined, activeTab, page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCityFilter = (city: string) => {
+    const val = city === 'All Cities' ? '' : city;
+    setSearch(val);
+    setCurrentPage(1);
+    loadEvents(val || undefined, activeTab, 1);
   };
 
   /* ---------- WebSocket real-time ticket count updates ---------- */
@@ -93,14 +112,15 @@ export default function EventsPage() {
   // Polling fallback — refresh events every 30s if WS is disconnected
   usePollingFallback(
     () => {
-      loadEvents(search || undefined, activeTab);
+      loadEvents(search || undefined, activeTab, currentPage);
     },
     30_000,
   );
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    loadEvents(search || undefined, activeTab);
+    setCurrentPage(1);
+    loadEvents(search || undefined, activeTab, 1);
   };
 
   const formatDate = (iso: string) =>
@@ -210,6 +230,26 @@ export default function EventsPage() {
           </button>
         </form>
 
+        {/* City filter pills */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          {CITY_FILTERS.map((city) => {
+            const isActive = city === 'All Cities' ? !search : search.toLowerCase() === city.toLowerCase();
+            return (
+              <button
+                key={city}
+                onClick={() => handleCityFilter(city)}
+                className={`px-4 py-1.5 rounded-full font-body text-xs tracking-wide transition-all duration-300 ${
+                  isActive
+                    ? 'bg-amber-500 text-noir-950 font-semibold'
+                    : 'bg-noir-800 border border-noir-700 text-gray-400 hover:text-gray-300 hover:border-noir-600'
+                }`}
+              >
+                {city}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Content area */}
         {loading ? (
           /* Loading skeleton — matches event card layout to prevent CLS */
@@ -218,7 +258,7 @@ export default function EventsPage() {
           /* Error state with retry */
           <InlineError
             message={fetchError}
-            onRetry={() => loadEvents(search || undefined)}
+            onRetry={() => loadEvents(search || undefined, activeTab, currentPage)}
           />
         ) : !events?.data.length ? (
           /* Empty state */
@@ -340,14 +380,60 @@ export default function EventsPage() {
           </div>
         )}
 
-        {/* Pagination info */}
+        {/* Pagination controls */}
         {events && events.totalPages > 1 && (
-          <div className="mt-8 text-center">
-            <p className="font-body text-gray-400 text-sm">
-              Page {events.page} of {events.totalPages} &middot;{' '}
-              {events.total} total {activeTab === 'FESTIVAL' ? 'festivals' : 'shows'}
-            </p>
+          <div className="mt-10 flex items-center justify-center gap-3">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="px-4 py-2 rounded-lg font-body text-sm border border-noir-700 text-gray-400 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed hover:border-amber-500/40 hover:text-amber-400"
+            >
+              Previous
+            </button>
+
+            {/* Page numbers */}
+            <div className="flex items-center gap-1">
+              {Array.from({ length: events.totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === events.totalPages || Math.abs(p - currentPage) <= 2)
+                .reduce<(number | '...')[]>((acc, p, i, arr) => {
+                  if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((item, i) =>
+                  item === '...' ? (
+                    <span key={`dots-${i}`} className="px-2 text-gray-600 font-body text-sm">...</span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => handlePageChange(item as number)}
+                      className={`w-9 h-9 rounded-lg font-body text-sm transition-all duration-300 ${
+                        currentPage === item
+                          ? 'bg-amber-500 text-noir-950 font-semibold'
+                          : 'text-gray-400 hover:text-amber-400 hover:bg-noir-800'
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  ),
+                )}
+            </div>
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= events.totalPages}
+              className="px-4 py-2 rounded-lg font-body text-sm border border-noir-700 text-gray-400 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed hover:border-amber-500/40 hover:text-amber-400"
+            >
+              Next
+            </button>
           </div>
+        )}
+
+        {/* Result count */}
+        {events && events.total > 0 && (
+          <p className="mt-4 text-center font-body text-gray-500 text-xs">
+            {events.total} {activeTab === 'FESTIVAL' ? 'festivals' : 'shows'} found
+          </p>
         )}
       </div>
 
