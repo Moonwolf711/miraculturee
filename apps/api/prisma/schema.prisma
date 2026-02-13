@@ -63,6 +63,14 @@ enum ExternalEventStatus {
   ARCHIVED
 }
 
+enum AcquisitionStatus {
+  PENDING
+  CARD_CREATED
+  PURCHASING
+  COMPLETED
+  FAILED
+}
+
 model User {
   id             String          @id @default(uuid())
   email          String          @unique
@@ -127,7 +135,8 @@ model Event {
   supportTickets SupportTicket[]
   poolTickets    PoolTicket[]
   rafflePools    RafflePool[]
-  directTickets  DirectTicket[]
+  directTickets        DirectTicket[]
+  ticketAcquisitions   TicketAcquisition[]
 
   @@index([status, date])
   @@index([venueLat, venueLng])
@@ -318,6 +327,26 @@ model EventSyncLog {
   completedAt   DateTime
 
   @@index([source, startedAt])
+}
+
+model TicketAcquisition {
+  id               String            @id @default(uuid())
+  eventId          String
+  ticketCount      Int
+  totalAmountCents Int
+  status           AcquisitionStatus @default(PENDING)
+  stripeCardId     String?
+  cardLast4        String?
+  purchaseUrl      String?
+  confirmationRef  String?
+  errorMessage     String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([status])
 }
 
 model SuspiciousActivity {

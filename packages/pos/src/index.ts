@@ -7,4 +7,8 @@ export type {
   PaymentConfirmResult,
   RefundResult,
   TransferResult,
+  CreateCardholderParams,
+  CardholderResult,
+  VirtualCardResult,
+  CardDetails,
 } from './types.js';

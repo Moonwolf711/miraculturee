@@ -6,6 +6,10 @@ import type {
   PaymentConfirmResult,
   RefundResult,
   TransferResult,
+  CreateCardholderParams,
+  CardholderResult,
+  VirtualCardResult,
+  CardDetails,
 } from './types.js';
 
 export class StripeProvider implements PaymentProvider {
@@ -84,5 +88,56 @@ export class StripeProvider implements PaymentProvider {
 
   constructWebhookEvent(payload: string | Buffer, signature: string) {
     return this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
+  }
+
+  /* ─── Stripe Issuing (virtual cards for ticket acquisition) ─── */
+
+  async createCardholder(params: CreateCardholderParams): Promise<CardholderResult> {
+    const cardholder = await this.stripe.issuing.cardholders.create({
+      name: params.name,
+      email: params.email,
+      type: 'company',
+      billing: { address: params.billingAddress },
+    });
+    return { id: cardholder.id, name: cardholder.name, status: cardholder.status };
+  }
+
+  async createVirtualCard(cardholderId: string, spendingLimitCents?: number): Promise<VirtualCardResult> {
+    const card = await this.stripe.issuing.cards.create({
+      cardholder: cardholderId,
+      currency: 'usd',
+      type: 'virtual',
+      status: 'active',
+      ...(spendingLimitCents && {
+        spending_controls: {
+          spending_limits: [{ amount: spendingLimitCents, interval: 'per_authorization' }],
+        },
+      }),
+    });
+    return {
+      id: card.id,
+      last4: card.last4,
+      status: card.status,
+      expMonth: card.exp_month,
+      expYear: card.exp_year,
+    };
+  }
+
+  async getCardDetails(cardId: string): Promise<CardDetails> {
+    const card = await this.stripe.issuing.cards.retrieve(cardId, {
+      expand: ['number', 'cvc'],
+    });
+    return {
+      id: card.id,
+      number: (card as any).number,
+      expMonth: card.exp_month,
+      expYear: card.exp_year,
+      cvc: (card as any).cvc,
+      last4: card.last4,
+    };
+  }
+
+  async freezeCard(cardId: string): Promise<void> {
+    await this.stripe.issuing.cards.update(cardId, { status: 'inactive' });
   }
 }

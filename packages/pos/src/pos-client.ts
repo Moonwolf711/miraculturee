@@ -5,6 +5,10 @@ import type {
   PaymentConfirmResult,
   RefundResult,
   TransferResult,
+  CreateCardholderParams,
+  CardholderResult,
+  VirtualCardResult,
+  CardDetails,
 } from './types.js';
 
 /**
@@ -42,5 +46,27 @@ export class POSClient {
 
   parseWebhook(payload: string | Buffer, signature: string): unknown {
     return this.provider.constructWebhookEvent(payload, signature);
+  }
+
+  /* ─── Stripe Issuing (virtual cards for ticket acquisition) ─── */
+
+  async createCardholder(params: CreateCardholderParams): Promise<CardholderResult> {
+    if (!this.provider.createCardholder) throw new Error('Issuing not supported by provider');
+    return this.provider.createCardholder(params);
+  }
+
+  async createVirtualCard(cardholderId: string, spendingLimitCents?: number): Promise<VirtualCardResult> {
+    if (!this.provider.createVirtualCard) throw new Error('Issuing not supported by provider');
+    return this.provider.createVirtualCard(cardholderId, spendingLimitCents);
+  }
+
+  async getCardDetails(cardId: string): Promise<CardDetails> {
+    if (!this.provider.getCardDetails) throw new Error('Issuing not supported by provider');
+    return this.provider.getCardDetails(cardId);
+  }
+
+  async freezeCard(cardId: string): Promise<void> {
+    if (!this.provider.freezeCard) throw new Error('Issuing not supported by provider');
+    return this.provider.freezeCard(cardId);
   }
 }
