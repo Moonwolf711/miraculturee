@@ -41,6 +41,10 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel, captchaTok
   const [processing, setProcessing] = useState(false);
   const [ready, setReady] = useState(false);
 
+  // If no hCaptcha site key is configured, skip CAPTCHA requirement
+  const captchaRequired = !!import.meta.env.VITE_HCAPTCHA_SITE_KEY;
+  const captchaPassed = !captchaRequired || !!captchaToken;
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -49,7 +53,7 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel, captchaTok
         return;
       }
 
-      if (!captchaToken) {
+      if (captchaRequired && !captchaToken) {
         onError('Please complete the CAPTCHA verification');
         return;
       }
@@ -105,7 +109,7 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel, captchaTok
       {/* Submit button */}
       <button
         type="submit"
-        disabled={!stripe || processing || !ready || !captchaToken}
+        disabled={!stripe || processing || !ready || !captchaPassed}
         className="w-full px-6 py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm tracking-wide uppercase"
       >
         {processing ? (
@@ -137,7 +141,7 @@ function PaymentForm({ clientSecret, onSuccess, onError, submitLabel, captchaTok
         )}
       </button>
 
-      {!captchaToken && (
+      {captchaRequired && !captchaToken && (
         <p className="text-center text-amber-400 text-xs">
           Please complete the CAPTCHA to continue
         </p>
