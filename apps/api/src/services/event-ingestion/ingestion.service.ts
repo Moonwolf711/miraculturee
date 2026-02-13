@@ -201,6 +201,143 @@ export class EventIngestionService {
   }
 
   /**
+   * Auto-publish DISCOVERED external events into the main Event table.
+   * Creates a system user/artist per unique artistName if needed.
+   */
+  async publishExternalEvents(): Promise<{ published: number; skipped: number }> {
+    // Ensure system user exists for external event artists
+    const systemEmail = 'system@miraculture.com';
+    let systemUser = await this.prisma.user.findUnique({ where: { email: systemEmail } });
+    if (!systemUser) {
+      systemUser = await this.prisma.user.create({
+        data: {
+          email: systemEmail,
+          passwordHash: 'SYSTEM_NO_LOGIN',
+          name: 'MiraCulture System',
+          role: 'ARTIST',
+        },
+      });
+    }
+
+    const discovered = await this.prisma.externalEvent.findMany({
+      where: { status: 'DISCOVERED', importedEventId: null },
+      orderBy: { eventDate: 'asc' },
+    });
+
+    let published = 0;
+    let skipped = 0;
+
+    // Cache artists by name to avoid duplicate lookups
+    const artistCache = new Map<string, string>();
+
+    for (const ext of discovered) {
+      try {
+        // Skip events without coordinates
+        if (ext.venueLat == null || ext.venueLng == null) {
+          skipped++;
+          continue;
+        }
+
+        // Find or create artist by stageName
+        const artistKey = ext.artistName.toLowerCase().trim();
+        let artistId = artistCache.get(artistKey);
+
+        if (!artistId) {
+          // Check if artist already exists
+          const existing = await this.prisma.artist.findFirst({
+            where: { stageName: { equals: ext.artistName, mode: 'insensitive' } },
+          });
+          if (existing) {
+            artistId = existing.id;
+          } else {
+            // Create artist linked to system user — use a unique dummy userId
+            // Since userId is @unique on Artist, we create a placeholder user per artist
+            const placeholderUser = await this.prisma.user.create({
+              data: {
+                email: `artist-${ext.id}@system.miraculture.com`,
+                passwordHash: 'SYSTEM_NO_LOGIN',
+                name: ext.artistName,
+                role: 'ARTIST',
+              },
+            });
+            const newArtist = await this.prisma.artist.create({
+              data: {
+                userId: placeholderUser.id,
+                stageName: ext.artistName,
+                genre: ext.genre || null,
+              },
+            });
+            artistId = newArtist.id;
+          }
+          artistCache.set(artistKey, artistId);
+        }
+
+        // Check for duplicate event (same title + date + venue)
+        const existingEvent = await this.prisma.event.findFirst({
+          where: {
+            title: ext.title,
+            date: ext.eventDate,
+            venueName: ext.venueName,
+          },
+        });
+        if (existingEvent) {
+          await this.prisma.externalEvent.update({
+            where: { id: ext.id },
+            data: { status: 'PUBLISHED', importedEventId: existingEvent.id },
+          });
+          skipped++;
+          continue;
+        }
+
+        // Determine ticket price — use min price from external data or default $25
+        const ticketPriceCents = ext.minPriceCents || 2500;
+        const isFestival = ext.category === 'Festival' || ext.title.toLowerCase().includes('festival');
+
+        // Create event
+        const event = await this.prisma.event.create({
+          data: {
+            artistId,
+            title: ext.title,
+            description: null,
+            venueName: ext.venueName,
+            venueAddress: ext.venueAddress,
+            venueLat: ext.venueLat,
+            venueLng: ext.venueLng,
+            venueCity: `${ext.venueCity}${ext.venueState ? `, ${ext.venueState}` : ''}`,
+            date: ext.eventDate,
+            ticketPriceCents,
+            totalTickets: isFestival ? 500 : 200,
+            localRadiusKm: 50,
+            type: isFestival ? 'FESTIVAL' : 'SHOW',
+            status: 'PUBLISHED',
+          },
+        });
+
+        // Create raffle pool
+        const drawTime = new Date(ext.eventDate);
+        drawTime.setDate(drawTime.getDate() - 1);
+        await this.prisma.rafflePool.create({
+          data: { eventId: event.id, tierCents: 500, scheduledDrawTime: drawTime },
+        });
+
+        // Mark external event as published
+        await this.prisma.externalEvent.update({
+          where: { id: ext.id },
+          data: { status: 'PUBLISHED', importedEventId: event.id },
+        });
+
+        published++;
+      } catch (error) {
+        this.log.error({ error, externalEventId: ext.id }, 'Failed to publish external event');
+        skipped++;
+      }
+    }
+
+    this.log.info({ published, skipped }, 'External event publishing complete');
+    return { published, skipped };
+  }
+
+  /**
    * Store normalized events in database (upsert logic)
    */
   private async storeEvents(events: NormalizedEvent[]): Promise<{ newCount: number; updatedCount: number }> {

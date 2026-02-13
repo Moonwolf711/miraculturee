@@ -45,10 +45,24 @@ export default async function externalEventsRoutes(app: FastifyInstance) {
 
     const results = await ingestionService.syncAll();
 
+    // Auto-publish discovered events to main Event table
+    const publishResult = await ingestionService.publishExternalEvents();
+
     return reply.send({
       success: true,
       results,
+      published: publishResult,
     });
+  });
+
+  /**
+   * POST /admin/external-events/publish
+   * Publish discovered external events to main Event table
+   */
+  app.post('/publish', async (req, reply) => {
+    const ingestionService = new EventIngestionService(app.prisma, app.log, {});
+    const result = await ingestionService.publishExternalEvents();
+    return reply.send({ success: true, ...result });
   });
 
   /**
