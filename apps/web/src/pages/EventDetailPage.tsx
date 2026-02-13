@@ -62,6 +62,7 @@ interface TicketPurchaseResponse {
   eventId: string;
   priceCents: number;
   feeCents: number;
+  platformFeeCents: number;
   totalCents: number;
   clientSecret: string;
 }
@@ -70,7 +71,7 @@ type CheckoutState =
   | { type: 'none' }
   | { type: 'support'; clientSecret: string; ticketCount: number; totalCents: number }
   | { type: 'raffle'; clientSecret: string; poolId: string; tierCents: number }
-  | { type: 'ticket'; clientSecret: string; priceCents: number; feeCents: number; totalCents: number };
+  | { type: 'ticket'; clientSecret: string; priceCents: number; feeCents: number; platformFeeCents: number; totalCents: number };
 
 type PaymentTab = 'ticket' | 'support' | 'raffle';
 
@@ -249,6 +250,7 @@ export default function EventDetailPage() {
         clientSecret: result.clientSecret,
         priceCents: result.priceCents,
         feeCents: result.feeCents,
+        platformFeeCents: result.platformFeeCents,
         totalCents: result.totalCents,
       });
     } catch (err: unknown) {
@@ -518,7 +520,7 @@ export default function EventDetailPage() {
                           onCancel={handleCancelCheckout}
                           submitLabel={`Pay ${formatPrice(checkout.totalCents)}`}
                           title="Complete Ticket Purchase"
-                          description={`${formatPrice(checkout.priceCents)} + ${formatPrice(checkout.feeCents)} processing fee`}
+                          description={`${formatPrice(checkout.priceCents)} + ${formatPrice(checkout.feeCents)} processing + ${formatPrice(checkout.platformFeeCents)} MiraCulture fee`}
                           onCaptchaVerify={setCaptchaToken}
                         />
                       </Suspense>
@@ -536,9 +538,13 @@ export default function EventDetailPage() {
                             <span className="text-gray-400">Processing fee</span>
                             <span className="text-warm-50 font-medium">{formatPrice(event.currentProcessingFeeCents)}</span>
                           </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">MiraCulture fee</span>
+                            <span className="text-warm-50 font-medium">{formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)}</span>
+                          </div>
                           <div className="border-t border-noir-700 pt-2 flex justify-between text-sm font-semibold">
                             <span className="text-warm-50">Total</span>
-                            <span className="text-amber-400">{formatPrice(event.ticketPriceCents + event.currentProcessingFeeCents)}</span>
+                            <span className="text-amber-400">{formatPrice(event.ticketPriceCents + event.currentProcessingFeeCents + SUPPORT_FEE_PER_TICKET_CENTS)}</span>
                           </div>
                         </div>
                         <button

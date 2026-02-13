@@ -96,6 +96,7 @@ export interface TicketPurchaseResult {
   eventId: string;
   priceCents: number;
   feeCents: number;
+  platformFeeCents: number;
   totalCents: number;
   clientSecret: string;
 }

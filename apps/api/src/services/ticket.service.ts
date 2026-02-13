@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { POSClient } from '@miraculturee/pos';
 import type { TicketPurchaseResult } from '@miraculturee/shared';
-import { isDirectSalesOpen } from '@miraculturee/shared';
+import { isDirectSalesOpen, SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
 import { calculateDynamicFee } from './event.service.js';
 
 export class TicketService {
@@ -74,7 +74,8 @@ export class TicketService {
 
     const priceCents = event.ticketPriceCents;
     const feeCents = await calculateDynamicFee(this.prisma, eventId, event.totalTickets);
-    const totalCents = priceCents + feeCents;
+    const platformFeeCents = SUPPORT_FEE_PER_TICKET_CENTS;
+    const totalCents = priceCents + feeCents + platformFeeCents;
 
     // Create direct ticket record
     const ticket = await this.prisma.directTicket.create({
@@ -117,6 +118,7 @@ export class TicketService {
       eventId,
       priceCents,
       feeCents,
+      platformFeeCents,
       totalCents,
       clientSecret: payment.clientSecret,
     };
