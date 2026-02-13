@@ -21,6 +21,60 @@ export default async function issuingRoutes(app: FastifyInstance) {
   const getService = () => new TicketAcquisitionService(app.prisma, app.pos);
 
   /**
+   * GET /admin/issuing/setup-status
+   * Check Stripe Issuing configuration and readiness for live purchases.
+   * Returns what's configured, what's missing, and next steps.
+   */
+  app.get('/setup-status', async (_req, reply) => {
+    const stripeKey = process.env.STRIPE_SECRET_KEY || '';
+    const isLiveMode = stripeKey.startsWith('sk_live_');
+    const isTestMode = stripeKey.startsWith('sk_test_');
+    const cardholderId = process.env.STRIPE_ISSUING_CARDHOLDER_ID || '';
+    const hasCardholder = cardholderId.length > 0;
+
+    const cardholderStatus = hasCardholder ? 'configured' : 'not_configured';
+
+    const steps: string[] = [];
+    if (!isLiveMode) {
+      steps.push('Switch STRIPE_SECRET_KEY to live mode (sk_live_...) — test mode cards cannot make real purchases');
+      steps.push('Update STRIPE_PUBLISHABLE_KEY to live mode (pk_live_...) as well');
+    }
+    if (!hasCardholder) {
+      steps.push('Create a cardholder via POST /admin/issuing/cardholder with business address');
+      steps.push('Then set STRIPE_ISSUING_CARDHOLDER_ID env var with the returned ID');
+    }
+    if (!process.env.TICKETMASTER_API_KEY) {
+      steps.push('Set TICKETMASTER_API_KEY env var for Ticketmaster event search');
+    }
+    if (!process.env.EVENTBRITE_API_TOKEN) {
+      steps.push('Set EVENTBRITE_API_TOKEN env var for Eventbrite event search and API purchases');
+    }
+
+    const ready = isLiveMode && hasCardholder;
+
+    return reply.send({
+      ready,
+      stripe: {
+        mode: isLiveMode ? 'live' : isTestMode ? 'test' : 'unknown',
+        liveMode: isLiveMode,
+        note: isLiveMode
+          ? 'Live mode — virtual cards can make real purchases'
+          : 'Test mode — cards will be declined at real vendor checkouts',
+      },
+      cardholder: {
+        configured: hasCardholder,
+        id: hasCardholder ? cardholderId : null,
+        status: cardholderStatus,
+      },
+      vendors: {
+        ticketmaster: !!process.env.TICKETMASTER_API_KEY,
+        eventbrite: !!process.env.EVENTBRITE_API_TOKEN,
+      },
+      nextSteps: steps.length > 0 ? steps : ['All configured — ready for automated purchases'],
+    });
+  });
+
+  /**
    * POST /admin/issuing/cardholder
    * Create the MiraCulture business cardholder in Stripe Issuing.
    * Only needs to be called once — store the returned cardholder ID.
