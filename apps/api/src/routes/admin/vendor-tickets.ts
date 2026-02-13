@@ -14,6 +14,7 @@
 import type { FastifyInstance } from 'fastify';
 import { TicketmasterAdapter } from '../../services/vendors/ticketmaster.js';
 import { EventbriteAdapter } from '../../services/vendors/eventbrite.js';
+import { VendorOrchestrator } from '../../services/vendors/orchestrator.js';
 import type { VendorSearchParams, VendorEvent } from '../../services/vendors/types.js';
 
 export default async function vendorTicketRoutes(app: FastifyInstance) {
@@ -294,6 +295,44 @@ export default async function vendorTicketRoutes(app: FastifyInstance) {
       limit: query.limit ? parseInt(query.limit) : 10,
     });
     return reply.send({ venues });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 7. PRE-PURCHASE AVAILABILITY CHECK
+  //
+  // Before creating a virtual card, verify the event is still on sale
+  // and check current pricing against our stored face value.
+  //
+  // GET /admin/vendors/check/:eventId
+  // ═══════════════════════════════════════════════════════════════════════════
+  app.get('/check/:eventId', async (req, reply) => {
+    const { eventId } = req.params as { eventId: string };
+
+    const orchestrator = new VendorOrchestrator(app.prisma);
+    const check = await orchestrator.checkAvailability(eventId);
+
+    // Also get our stored event info for comparison
+    const event = await app.prisma.event.findUnique({
+      where: { id: eventId },
+      select: { title: true, ticketPriceCents: true, venueName: true },
+    });
+
+    return reply.send({
+      eventId,
+      eventTitle: event?.title,
+      storedPriceCents: event?.ticketPriceCents,
+      vendorCheck: check,
+      priceMatch: check.currentPriceCents && event?.ticketPriceCents
+        ? {
+            vendorPriceCents: check.currentPriceCents,
+            storedPriceCents: event.ticketPriceCents,
+            differencePercent: Math.round(
+              ((check.currentPriceCents - event.ticketPriceCents) / event.ticketPriceCents) * 100,
+            ),
+            withinTolerance: check.currentPriceCents <= Math.ceil(event.ticketPriceCents * 1.15),
+          }
+        : null,
+    });
   });
 }
 
