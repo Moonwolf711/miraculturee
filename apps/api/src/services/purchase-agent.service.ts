@@ -154,7 +154,16 @@ export class PurchaseAgentService {
   }
 
   /**
-   * Find events with confirmed support funds that still need real tickets purchased.
+   * Find events with CONFIRMED + STRIPE-VERIFIED support funds that still
+   * need real tickets purchased.
+   *
+   * Only counts funds from support tickets where:
+   *   1. confirmed = true (set by webhook handler)
+   *   2. A matching Transaction exists with status = 'completed'
+   *      AND a non-null stripePaymentId (proves Stripe actually charged)
+   *
+   * This prevents purchasing venue tickets before fan payments have
+   * fully settled through Stripe.
    */
   private async findEventsNeedingAcquisition() {
     const events = await this.prisma.event.findMany({
@@ -184,12 +193,36 @@ export class PurchaseAgentService {
     }> = [];
 
     for (const event of events) {
-      const totalFunded = event.supportTickets.reduce((s, t) => s + t.totalAmountCents, 0);
+      // Only count funds from support tickets that have a completed Stripe payment
+      let verifiedFundsCents = 0;
+
+      for (const st of event.supportTickets) {
+        const tx = await this.prisma.transaction.findFirst({
+          where: {
+            posReference: st.id,
+            type: 'SUPPORT_PURCHASE',
+            status: 'completed',
+            stripePaymentId: { not: null },
+          },
+          select: { stripePaymentId: true },
+        });
+
+        if (tx?.stripePaymentId) {
+          verifiedFundsCents += st.totalAmountCents;
+        } else {
+          console.warn(
+            `[PurchaseAgent] Skipping support ticket ${st.id} — no completed Stripe payment found`,
+          );
+        }
+      }
+
+      if (verifiedFundsCents === 0) continue;
+
       const alreadyAcquired = event.ticketAcquisitions
         .filter((a) => a.status !== 'FAILED')
         .reduce((s, a) => s + a.ticketCount, 0);
 
-      const ticketsFromFunds = Math.floor(totalFunded / event.ticketPriceCents);
+      const ticketsFromFunds = Math.floor(verifiedFundsCents / event.ticketPriceCents);
       const remaining = ticketsFromFunds - alreadyAcquired;
 
       if (remaining > 0) {
@@ -695,6 +728,7 @@ export class PurchaseAgentService {
 
   /**
    * Process a single event by ID (for manual trigger).
+   * Only counts funds with a verified Stripe payment (completed transaction).
    */
   async acquireSingleEvent(eventId: string): Promise<PurchaseResult> {
     const event = await this.prisma.event.findUnique({
@@ -707,12 +741,33 @@ export class PurchaseAgentService {
 
     if (!event) return { success: false, error: 'Event not found' };
 
-    const totalFunded = event.supportTickets.reduce((s, t) => s + t.totalAmountCents, 0);
+    // Only count funds backed by a completed Stripe payment
+    let verifiedFundsCents = 0;
+    for (const st of event.supportTickets) {
+      const tx = await this.prisma.transaction.findFirst({
+        where: {
+          posReference: st.id,
+          type: 'SUPPORT_PURCHASE',
+          status: 'completed',
+          stripePaymentId: { not: null },
+        },
+        select: { stripePaymentId: true },
+      });
+
+      if (tx?.stripePaymentId) {
+        verifiedFundsCents += st.totalAmountCents;
+      }
+    }
+
+    if (verifiedFundsCents === 0) {
+      return { success: false, error: 'No verified Stripe payments found for this event' };
+    }
+
     const alreadyAcquired = event.ticketAcquisitions
       .filter((a) => a.status !== 'FAILED')
       .reduce((s, a) => s + a.ticketCount, 0);
 
-    const ticketsFromFunds = Math.floor(totalFunded / event.ticketPriceCents);
+    const ticketsFromFunds = Math.floor(verifiedFundsCents / event.ticketPriceCents);
     const ticketsNeeded = Math.max(0, ticketsFromFunds - alreadyAcquired);
 
     if (ticketsNeeded === 0) {
