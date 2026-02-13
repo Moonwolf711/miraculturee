@@ -84,13 +84,20 @@ export class EventService {
   async search(params: {
     city?: string;
     artistName?: string;
+    genre?: string;
     type?: string;
+    dateFrom?: string;
+    dateTo?: string;
     page: number;
     limit: number;
   }): Promise<PaginatedResponse<EventSummary>> {
+    const dateFilter: Prisma.DateTimeFilter = { gte: new Date() };
+    if (params.dateFrom) dateFilter.gte = new Date(params.dateFrom);
+    if (params.dateTo) dateFilter.lte = new Date(params.dateTo);
+
     const where: Prisma.EventWhereInput = {
       status: 'PUBLISHED',
-      date: { gte: new Date() },
+      date: dateFilter,
     };
 
     if (params.type) {
@@ -101,6 +108,9 @@ export class EventService {
     }
     if (params.artistName) {
       where.artist = { stageName: { contains: params.artistName, mode: 'insensitive' } };
+    }
+    if (params.genre) {
+      where.artist = { ...where.artist as any, genre: { contains: params.genre, mode: 'insensitive' } };
     }
 
     const [events, total] = await Promise.all([
@@ -270,6 +280,7 @@ export class EventService {
       supportedTickets,
       type: event.type,
       status: event.status,
+      genre: event.artist?.genre ?? null,
     };
   }
 }

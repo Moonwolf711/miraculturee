@@ -31,6 +31,7 @@ export interface EventSummary {
   supportedTickets: number;
   type: EventType;
   status: EventStatus;
+  genre: string | null;
 }
 
 export interface EventDetail extends EventSummary {

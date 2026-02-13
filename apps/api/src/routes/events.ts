@@ -12,6 +12,28 @@ export async function eventRoutes(app: FastifyInstance) {
     return eventService.search(query);
   });
 
+  // Public: distinct filter options (cities + genres)
+  app.get('/filters', async () => {
+    const [cities, genres] = await Promise.all([
+      app.prisma.event.findMany({
+        where: { status: 'PUBLISHED', date: { gte: new Date() } },
+        select: { venueCity: true },
+        distinct: ['venueCity'],
+        orderBy: { venueCity: 'asc' },
+      }),
+      app.prisma.artist.findMany({
+        where: { genre: { not: null }, events: { some: { status: 'PUBLISHED', date: { gte: new Date() } } } },
+        select: { genre: true },
+        distinct: ['genre'],
+        orderBy: { genre: 'asc' },
+      }),
+    ]);
+    return {
+      cities: cities.map((c) => c.venueCity).filter(Boolean),
+      genres: genres.map((g) => g.genre).filter(Boolean),
+    };
+  });
+
   // Public: nearby events
   app.get('/nearby', async (req) => {
     const query = NearbyEventsSchema.parse(req.query);
