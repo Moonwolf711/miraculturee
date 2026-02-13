@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { POSClient } from '@miraculturee/pos';
+import { BrowserPurchaseService } from './browser-purchase.service.js';
 
 /**
  * Automated Ticket Purchasing Agent
@@ -25,6 +26,74 @@ interface PurchaseResult {
 }
 
 type VenuePlatform = 'eventbrite' | 'axs' | 'dice' | 'ra' | 'unknown';
+
+/**
+ * RESELLER / SECONDARY MARKET BLOCKLIST
+ *
+ * MiraCulture ONLY purchases from primary vendors — the venue or promoter's
+ * own ticketing partner. We NEVER buy from resellers, secondary markets,
+ * or scalper platforms. This is a hard blocklist; any URL matching these
+ * domains is immediately rejected.
+ */
+const RESELLER_DOMAINS = [
+  'stubhub.com',
+  'vividseats.com',
+  'seatgeek.com',
+  'ticketnetwork.com',
+  'viagogo.com',
+  'gametime.co',
+  'tickpick.com',
+  'razorgator.com',
+  'fanxchange.com',
+  'ticketcity.com',
+  'cheaptickets.com',
+  'gotickets.com',
+  'ticketliquidator.com',
+  'ticketmaster.com/resale',
+  'livenation.com/resale',
+  'Barry\'stickets.com',
+  'premiumseating.com',
+  'scorebig.com',
+  'rukkus.com',
+  'ticketsales.com',
+  'theticketbroker.com',
+];
+
+/**
+ * ALLOWED PRIMARY VENDOR DOMAINS
+ *
+ * These are legitimate primary-market ticketing platforms used by venues
+ * and promoters to sell tickets at face value. Only these domains (plus
+ * direct venue websites) are allowed for automated purchase.
+ */
+const PRIMARY_VENDOR_DOMAINS = [
+  'eventbrite.com',
+  'axs.com',
+  'dice.fm',
+  'ra.co',
+  'residentadvisor.net',
+  'seetickets.us',
+  'seetickets.com',
+  'ticketmaster.com',  // Primary sales only (resale paths blocked above)
+  'livenation.com',    // Primary sales only
+  'etix.com',
+  'ticketfly.com',
+  'showclix.com',
+  'tixr.com',
+  'shotgun.live',
+  'skiddle.com',
+  'billetto.com',
+  'tickettailor.com',
+  'universe.com',
+  'edmtrain.com',      // EDMTrain links redirect to primary vendors
+];
+
+/**
+ * Maximum allowed price overage percentage above face value.
+ * e.g. 0.15 = 15% above face value max (accounts for service fees).
+ * Anything above this is considered scalper pricing and is rejected.
+ */
+const MAX_PRICE_OVERAGE_PERCENT = 0.15;
 
 export class PurchaseAgentService {
   private cardholderId: string;
@@ -155,6 +224,26 @@ export class PurchaseAgentService {
     // 1. Find the purchase URL from external event data
     const purchaseUrl = await this.resolvePurchaseUrl(event.eventId, event.title, event.venueName);
 
+    // ── ANTI-SCALPER GATE: Validate URL before spending any money ──
+    if (purchaseUrl) {
+      const urlCheck = this.validatePurchaseUrl(purchaseUrl);
+      if (!urlCheck.valid) {
+        console.error(`[PurchaseAgent] ${urlCheck.reason}`);
+        // Create a failed acquisition record so admins can see what was blocked
+        await this.prisma.ticketAcquisition.create({
+          data: {
+            eventId: event.eventId,
+            ticketCount: event.ticketsNeeded,
+            totalAmountCents: event.totalCostCents,
+            purchaseUrl,
+            status: 'FAILED',
+            errorMessage: urlCheck.reason,
+          },
+        });
+        return { success: false, error: urlCheck.reason };
+      }
+    }
+
     // 2. Create acquisition record
     const acquisition = await this.prisma.ticketAcquisition.create({
       data: {
@@ -166,11 +255,14 @@ export class PurchaseAgentService {
       },
     });
 
-    // 3. Create virtual card with spending limit
+    // 3. Create virtual card with spending limit = face value + max allowed fees
+    //    This is a HARD CAP enforced by Stripe — even if the bot somehow tried
+    //    to pay more, the card would decline. This is our final anti-scalper safety net.
+    const maxSpendCents = Math.ceil(event.totalCostCents * (1 + MAX_PRICE_OVERAGE_PERCENT));
     let cardId: string;
     let cardLast4: string;
     try {
-      const card = await this.pos.createVirtualCard(this.cardholderId, event.totalCostCents);
+      const card = await this.pos.createVirtualCard(this.cardholderId, maxSpendCents);
       cardId = card.id;
       cardLast4 = card.last4;
 
@@ -191,17 +283,48 @@ export class PurchaseAgentService {
     const platform = this.detectPlatform(purchaseUrl);
 
     if (platform === 'eventbrite' && purchaseUrl) {
-      // Attempt Eventbrite API purchase
+      // Attempt Eventbrite API purchase first
       await this.prisma.ticketAcquisition.update({
         where: { id: acquisition.id },
         data: { status: 'PURCHASING' },
       });
 
       const result = await this.purchaseViaEventbrite(acquisition.id, purchaseUrl, event, cardId);
-      return result;
+      if (result.success || !result.requiresManual) return result;
+
+      // Eventbrite API failed — try browser automation
+      console.log(`[PurchaseAgent] Eventbrite API failed, trying browser automation for ${event.eventId}`);
     }
 
-    // 5. Can't automate — flag for manual purchase by admin
+    // 5. Try browser-based automation for any platform with a purchase URL
+    if (purchaseUrl) {
+      try {
+        const browserService = new BrowserPurchaseService(this.prisma, this.pos);
+        const browserResult = await browserService.purchaseTickets({
+          acquisitionId: acquisition.id,
+          purchaseUrl,
+          ticketCount: event.ticketsNeeded,
+          cardId,
+          eventTitle: event.title,
+        });
+
+        if (browserResult.success) {
+          console.log(`[PurchaseAgent] Browser purchase success for ${event.eventId}: ${browserResult.confirmationRef}`);
+          return { success: true, confirmationRef: browserResult.confirmationRef };
+        }
+
+        if (!browserResult.requiresManual) {
+          return { success: false, error: browserResult.error };
+        }
+
+        // Browser automation failed too — fall through to manual
+        console.log(`[PurchaseAgent] Browser automation failed for ${event.eventId}: ${browserResult.error}`);
+      } catch (err) {
+        console.warn(`[PurchaseAgent] Browser service error: ${(err as Error).message}`);
+      }
+    }
+
+    // 6. All automation failed — flag for manual purchase by admin
     await this.flagForManualPurchase(acquisition.id, event, platform, purchaseUrl);
     return { success: false, requiresManual: true };
   }
@@ -250,6 +373,80 @@ export class PurchaseAgentService {
     if (lower.includes('ra.co') || lower.includes('residentadvisor.net')) return 'ra';
 
     return 'unknown';
+  }
+
+  /**
+   * ANTI-SCALPER: Check if a URL is a known reseller/secondary market.
+   * Returns the reseller domain if blocked, or null if safe.
+   */
+  private isResellerUrl(url: string): string | null {
+    const lower = url.toLowerCase();
+    for (const domain of RESELLER_DOMAINS) {
+      if (lower.includes(domain.toLowerCase())) {
+        return domain;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * ANTI-SCALPER: Validate that the purchase URL points to a known
+   * primary vendor or direct venue site. Rejects all resellers.
+   */
+  private validatePurchaseUrl(url: string): { valid: boolean; reason?: string } {
+    // 1. Block known resellers — hard reject
+    const reseller = this.isResellerUrl(url);
+    if (reseller) {
+      return {
+        valid: false,
+        reason: `BLOCKED: "${reseller}" is a reseller/secondary market. MiraCulture only buys from primary vendors at face value.`,
+      };
+    }
+
+    // 2. Check if it's a known primary vendor (informational — we still allow
+    //    direct venue websites even if not on the primary list)
+    const lower = url.toLowerCase();
+    const isPrimaryVendor = PRIMARY_VENDOR_DOMAINS.some((d) => lower.includes(d));
+    if (!isPrimaryVendor) {
+      // Log a warning but don't block — could be a direct venue website
+      console.warn(
+        `[PurchaseAgent] URL is not a recognized primary vendor: ${url}. ` +
+        `Proceeding with caution — verify this is a legitimate venue/promoter site.`,
+      );
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * ANTI-SCALPER: Validate that the ticket price at the vendor doesn't
+   * exceed our expected face value by more than MAX_PRICE_OVERAGE_PERCENT.
+   * This catches scalper markup even if the domain wasn't blocklisted.
+   *
+   * @param vendorPriceCents - The price found on the vendor's checkout page
+   * @param expectedPriceCents - Our stored face value (ticketPriceCents)
+   * @returns true if price is acceptable, false if it looks like scalper pricing
+   */
+  private validateTicketPrice(
+    vendorPriceCents: number,
+    expectedPriceCents: number,
+  ): { valid: boolean; reason?: string } {
+    if (expectedPriceCents <= 0) return { valid: true };
+
+    const maxAllowed = Math.ceil(expectedPriceCents * (1 + MAX_PRICE_OVERAGE_PERCENT));
+
+    if (vendorPriceCents > maxAllowed) {
+      return {
+        valid: false,
+        reason:
+          `PRICE BLOCKED: Vendor price $${(vendorPriceCents / 100).toFixed(2)} exceeds ` +
+          `face value $${(expectedPriceCents / 100).toFixed(2)} by more than ` +
+          `${Math.round(MAX_PRICE_OVERAGE_PERCENT * 100)}%. ` +
+          `This looks like scalper/reseller pricing. Purchase rejected.`,
+      };
+    }
+
+    return { valid: true };
   }
 
   /**
@@ -307,6 +504,33 @@ export class PurchaseAgentService {
           data: { status: 'FAILED', errorMessage: msg },
         });
         return { success: false, error: msg };
+      }
+
+      // ── ANTI-SCALPER: Validate ticket price against our face value ──
+      // Eventbrite returns cost in { major_value, currency } or { value (cents) }
+      const ebPriceCents = ticketClass.cost?.value
+        ? Number(ticketClass.cost.value)
+        : ticketClass.cost?.major_value
+          ? Math.round(Number(ticketClass.cost.major_value) * 100)
+          : 0;
+
+      if (ebPriceCents > 0) {
+        const priceCheck = this.validateTicketPrice(ebPriceCents, event.ticketPriceCents);
+        if (!priceCheck.valid) {
+          const msg = priceCheck.reason!;
+          console.error(`[PurchaseAgent] Eventbrite ${msg}`);
+          await this.prisma.ticketAcquisition.update({
+            where: { id: acquisitionId },
+            data: { status: 'FAILED', errorMessage: msg },
+          });
+          // Freeze the card since we won't use it
+          try { await this.pos.freezeCard(cardId); } catch { /* ok */ }
+          return { success: false, error: msg };
+        }
+        console.log(
+          `[PurchaseAgent] Eventbrite price check passed: vendor $${(ebPriceCents / 100).toFixed(2)} ` +
+          `vs face value $${(event.ticketPriceCents / 100).toFixed(2)}`,
+        );
       }
 
       // 2. Create order via Eventbrite API

@@ -41,6 +41,7 @@ export interface EventDetail extends EventSummary {
   venueLng: number;
   localRadiusKm: number;
   currentProcessingFeeCents: number;
+  sourceUrl: string | null;
   rafflePools: RafflePoolSummary[];
 }
 

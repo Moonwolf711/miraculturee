@@ -14,6 +14,7 @@
 import type { FastifyInstance } from 'fastify';
 import { TicketAcquisitionService } from '../../services/ticket-acquisition.service.js';
 import { PurchaseAgentService } from '../../services/purchase-agent.service.js';
+import { BrowserPurchaseService } from '../../services/browser-purchase.service.js';
 import { triggerPurchaseAgent } from '../../jobs/workers.js';
 
 export default async function issuingRoutes(app: FastifyInstance) {
@@ -203,5 +204,112 @@ export default async function issuingRoutes(app: FastifyInstance) {
     const agent = new PurchaseAgentService(app.prisma, app.pos);
     const result = await agent.acquireSingleEvent(eventId);
     return reply.send({ success: true, result });
+  });
+
+  /* ─── Browser Purchase (Playwright) ─── */
+
+  /**
+   * POST /admin/issuing/browser-purchase/:id
+   * Run Playwright browser automation for a specific acquisition.
+   * The acquisition must already have a virtual card (status: CARD_CREATED).
+   */
+  app.post('/browser-purchase/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+
+    const acquisition = await app.prisma.ticketAcquisition.findUnique({
+      where: { id },
+      include: { event: { select: { title: true } } },
+    });
+    if (!acquisition) return reply.code(404).send({ error: 'Acquisition not found' });
+    if (!acquisition.stripeCardId) {
+      return reply.code(400).send({ error: 'No virtual card — create one first via POST /acquire' });
+    }
+    if (!acquisition.purchaseUrl) {
+      return reply.code(400).send({ error: 'No purchase URL — cannot automate' });
+    }
+
+    const browserService = new BrowserPurchaseService(app.prisma, app.pos);
+    const result = await browserService.purchaseTickets({
+      acquisitionId: id,
+      purchaseUrl: acquisition.purchaseUrl,
+      ticketCount: acquisition.ticketCount,
+      cardId: acquisition.stripeCardId,
+      eventTitle: acquisition.event.title,
+    });
+
+    return reply.send({ success: result.success, result });
+  });
+
+  /* ─── n8n Webhook Integration ─── */
+
+  /**
+   * POST /admin/issuing/webhook/acquisition-status
+   * Webhook for n8n to receive acquisition status updates.
+   * n8n polls this or receives push notifications.
+   */
+  app.post('/webhook/acquisition-status', async (req, reply) => {
+    const { acquisitionId, action, confirmationRef, errorMessage } = req.body as any;
+
+    if (!acquisitionId || !action) {
+      return reply.code(400).send({ error: 'acquisitionId and action required' });
+    }
+
+    const service = getService();
+
+    switch (action) {
+      case 'complete':
+        if (!confirmationRef) {
+          return reply.code(400).send({ error: 'confirmationRef required for complete action' });
+        }
+        const completed = await service.completeAcquisition(acquisitionId, confirmationRef);
+        return reply.send({ success: true, acquisition: completed });
+
+      case 'fail':
+        const failed = await service.failAcquisition(acquisitionId, errorMessage || 'n8n workflow failure');
+        return reply.send({ success: true, acquisition: failed });
+
+      case 'status': {
+        const acquisition = await app.prisma.ticketAcquisition.findUnique({
+          where: { id: acquisitionId },
+          include: { event: { select: { title: true, venueName: true, date: true } } },
+        });
+        return reply.send({ acquisition });
+      }
+
+      default:
+        return reply.code(400).send({ error: `Unknown action: ${action}` });
+    }
+  });
+
+  /**
+   * GET /admin/issuing/webhook/pending-acquisitions
+   * n8n polls this to find acquisitions needing attention.
+   */
+  app.get('/webhook/pending-acquisitions', async (_req, reply) => {
+    const acquisitions = await app.prisma.ticketAcquisition.findMany({
+      where: { status: { in: ['CARD_CREATED', 'PENDING'] } },
+      include: {
+        event: { select: { title: true, venueName: true, date: true, ticketPriceCents: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return reply.send({
+      count: acquisitions.length,
+      acquisitions: acquisitions.map((a) => ({
+        id: a.id,
+        eventId: a.eventId,
+        eventTitle: a.event.title,
+        venueName: a.event.venueName,
+        eventDate: a.event.date,
+        ticketCount: a.ticketCount,
+        totalAmountCents: a.totalAmountCents,
+        purchaseUrl: a.purchaseUrl,
+        hasCard: !!a.stripeCardId,
+        cardLast4: a.cardLast4,
+        status: a.status,
+        createdAt: a.createdAt,
+      })),
+    });
   });
 }

@@ -52,6 +52,7 @@ export class ArtistService {
         supportedTickets: e.supportTickets.reduce((s, t) => s + t.ticketCount, 0),
         type: e.type,
         status: e.status,
+        genre: artist.genre ?? null,
       }));
 
     return {

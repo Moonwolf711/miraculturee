@@ -38,6 +38,7 @@ interface EventDetail {
   supportedTickets: number;
   localRadiusKm: number;
   currentProcessingFeeCents: number;
+  sourceUrl: string | null;
   status: string;
   rafflePools: RafflePool[];
 }
@@ -414,6 +415,16 @@ export default function EventDetailPage() {
             <p className="text-sm text-gray-400 mt-1">{event.venueAddress}</p>
             {event.description && (
               <p className="text-sm text-gray-400 mt-4 leading-relaxed">{event.description}</p>
+            )}
+            {event.sourceUrl && (
+              <a
+                href={event.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-4 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+              >
+                View on EDMTrain &rarr;
+              </a>
             )}
           </div>
 
