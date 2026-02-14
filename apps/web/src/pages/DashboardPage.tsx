@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import SEO from '../components/SEO.js';
+import { useAuth } from '../hooks/useAuth.js';
 
 // --- Types ---
 
@@ -55,6 +56,18 @@ interface Transaction {
   createdAt: string;
 }
 
+interface CampaignItem {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  eventDate: string;
+  venueName: string;
+  headline: string;
+  message: string;
+  status: string;
+  createdAt: string;
+}
+
 interface PaginatedTransactions {
   data: Transaction[];
   total: number;
@@ -86,11 +99,12 @@ function formatDateTime(iso: string): string {
   });
 }
 
-const TABS = ['overview', 'raffles', 'tickets', 'notifications', 'transactions'] as const;
+const TABS = ['overview', 'campaigns', 'raffles', 'tickets', 'notifications', 'transactions'] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   overview: 'Overview',
+  campaigns: 'Campaigns',
   raffles: 'Raffles',
   tickets: 'Tickets',
   notifications: 'Notifications',
@@ -188,6 +202,45 @@ export default function DashboardPage() {
       .finally(() => setRafflesLoading(false));
   }, [activeTab]);
 
+  // --- Campaigns ---
+  const { user } = useAuth();
+  const [campaigns, setCampaigns] = useState<CampaignItem[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const fetchCampaigns = useCallback(async () => {
+    setCampaignsLoading(true);
+    try {
+      const res = await api.get<{ campaigns: CampaignItem[] }>('/artist/campaigns?limit=50');
+      setCampaigns(res.campaigns);
+    } catch { /* artist profile may not exist yet */ }
+    setCampaignsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'campaigns') fetchCampaigns();
+  }, [activeTab, fetchCampaigns]);
+
+  const getEventUrl = (eventId: string) => `https://www.mira-culture.com/events/${eventId}`;
+
+  const shareToTwitter = (c: CampaignItem) => {
+    const text = `${c.headline}\n\n${c.message.slice(0, 200)}${c.message.length > 200 ? '...' : ''}\n\nGet tickets:`;
+    const url = getEventUrl(c.eventId);
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+  };
+
+  const shareToFacebook = (c: CampaignItem) => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getEventUrl(c.eventId))}`, '_blank');
+  };
+
+  const copyShareText = (c: CampaignItem) => {
+    const text = `${c.headline}\n\n${c.message}\n\nGet tickets: ${getEventUrl(c.eventId)}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(c.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
   return (
     <div className="min-h-screen bg-noir-950 px-4 py-8 sm:py-12">
       <SEO title="Dashboard" description="Your MiraCulture activity." noindex />
@@ -261,6 +314,109 @@ export default function DashboardPage() {
               </>
             ) : (
               <EmptyState message="Could not load dashboard." />
+            )}
+          </div>
+        )}
+
+        {activeTab === 'campaigns' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <p className="text-gray-400 text-sm">Create campaigns for your events and share them on social media.</p>
+              <Link
+                to="/artist/campaigns/new"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg text-sm transition-colors flex-shrink-0"
+              >
+                New Campaign
+              </Link>
+            </div>
+
+            {campaignsLoading ? (
+              <LoadingList />
+            ) : campaigns.length > 0 ? (
+              <div className="space-y-4">
+                {campaigns.map((c) => (
+                  <div
+                    key={c.id}
+                    className="bg-noir-900 border border-noir-800 rounded-xl p-5"
+                  >
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div>
+                        <h3 className="text-warm-50 font-medium">{c.headline}</h3>
+                        <p className="text-gray-500 text-sm mt-0.5">
+                          {c.eventTitle} &middot; {formatDate(c.eventDate)}
+                        </p>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold flex-shrink-0 ${
+                        c.status === 'ACTIVE' ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                          : c.status === 'DRAFT' ? 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                            : 'bg-noir-700 text-gray-500 border border-noir-600'
+                      }`}>
+                        {c.status}
+                      </span>
+                    </div>
+
+                    <p className="text-gray-400 text-sm mb-4 line-clamp-2">{c.message}</p>
+
+                    {/* Social Share Buttons */}
+                    <div className="flex items-center gap-2 pt-3 border-t border-noir-800">
+                      <span className="text-gray-500 text-xs uppercase tracking-wider mr-1">Share:</span>
+                      <button
+                        onClick={() => shareToTwitter(c)}
+                        className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors"
+                        title="Share on X (Twitter)"
+                      >
+                        X
+                      </button>
+                      <button
+                        onClick={() => shareToFacebook(c)}
+                        className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors"
+                        title="Share on Facebook"
+                      >
+                        FB
+                      </button>
+                      <button
+                        onClick={() => {
+                          const text = `${c.headline}\n\n${c.message.slice(0, 200)}\n\nGet tickets: ${getEventUrl(c.eventId)}`;
+                          window.open(`https://www.instagram.com/`, '_blank');
+                          navigator.clipboard.writeText(text);
+                          setCopiedId(c.id + '-ig');
+                          setTimeout(() => setCopiedId(null), 3000);
+                        }}
+                        className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors"
+                        title="Open Instagram (copies text to clipboard)"
+                      >
+                        {copiedId === c.id + '-ig' ? 'Copied!' : 'IG'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const text = `${c.headline}\n\n${c.message.slice(0, 200)}\n\nGet tickets: ${getEventUrl(c.eventId)}`;
+                          window.open(`https://www.tiktok.com/`, '_blank');
+                          navigator.clipboard.writeText(text);
+                          setCopiedId(c.id + '-tt');
+                          setTimeout(() => setCopiedId(null), 3000);
+                        }}
+                        className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors"
+                        title="Open TikTok (copies text to clipboard)"
+                      >
+                        {copiedId === c.id + '-tt' ? 'Copied!' : 'TT'}
+                      </button>
+                      <button
+                        onClick={() => copyShareText(c)}
+                        className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors"
+                        title="Copy campaign text to clipboard"
+                      >
+                        {copiedId === c.id ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                message="No campaigns yet. Create one to promote your shows on social media."
+                ctaText="Create Campaign"
+                ctaLink="/artist/campaigns/new"
+              />
             )}
           </div>
         )}
