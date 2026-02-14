@@ -6,7 +6,7 @@ const DEFAULT_TITLE = 'MiraCulture — Fan-Powered Tickets';
 const DEFAULT_DESCRIPTION =
   'Fans worldwide buy tickets at face value to support artists. Local fans win those tickets through fair, cryptographic raffles for just $5. No scalpers. No bots.';
 const DEFAULT_IMAGE = '/og-image.png';
-const BASE_URL = 'https://miraculture.com';
+const BASE_URL = 'https://mira-culture.com';
 
 interface SEOProps {
   title?: string;

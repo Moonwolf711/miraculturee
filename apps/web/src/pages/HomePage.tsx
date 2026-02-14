@@ -394,12 +394,12 @@ export default function HomePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                 </svg>
               </Link>
-              <a
-                href="#how-it-works"
+              <Link
+                to="/register"
                 className="btn-ghost inline-flex items-center justify-center px-8 py-3.5 text-base rounded-sm"
               >
-                HOW IT WORKS
-              </a>
+                SIGN UP
+              </Link>
             </div>
 
             {/* Bouncing chevrons (double) — decorative */}

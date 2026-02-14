@@ -392,9 +392,9 @@ export default function EventDetailPage() {
         jsonLd={[
           getEventSchema(event),
           getBreadcrumbSchema([
-            { name: 'Home', url: 'https://miraculture.com/' },
-            { name: 'Events', url: 'https://miraculture.com/events' },
-            { name: event.title, url: `https://miraculture.com/events/${event.id}` },
+            { name: 'Home', url: 'https://mira-culture.com/' },
+            { name: 'Events', url: 'https://mira-culture.com/events' },
+            { name: event.title, url: `https://mira-culture.com/events/${event.id}` },
           ]),
         ]}
       />
