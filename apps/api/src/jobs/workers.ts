@@ -368,7 +368,8 @@ export async function initWorkers() {
 
       // Check if sold out → process surplus payout
       const totalAllocatedAfter = alreadyAllocatedTickets + ticketsToBuy + directTicketCount;
-      if (totalAllocatedAfter >= event.totalTickets) {
+      const isSoldOut = totalAllocatedAfter >= event.totalTickets;
+      if (isSoldOut) {
         console.info(`[PreEvent] Event ${eventId} is sold out, processing surplus payout`);
         // Import dynamically to avoid circular dependency at module load
         const { EventService } = await import('../services/event.service.js');
@@ -376,6 +377,27 @@ export async function initWorkers() {
         // The event service will guard against missing POS.
         const eventService = new EventService(prisma);
         await eventService.processSurplusPayout(eventId);
+      }
+
+      // Update active campaign bonus if sold out
+      const activeCampaign = await prisma.campaign.findFirst({
+        where: { eventId, status: 'ACTIVE' },
+      });
+      if (activeCampaign && isSoldOut) {
+        const surplusCents = Math.max(0, remainingFunds - (ticketsToBuy * event.ticketPriceCents));
+        if (surplusCents > 0) {
+          await prisma.campaign.update({
+            where: { id: activeCampaign.id },
+            data: { bonusCents: surplusCents, status: 'ENDED' },
+          });
+          console.info(`[PreEvent] Campaign ${activeCampaign.id} bonus: ${surplusCents} cents`);
+        }
+      } else if (activeCampaign && !isSoldOut) {
+        // Not sold out — just end the campaign, tickets were bought and will be raffled
+        await prisma.campaign.update({
+          where: { id: activeCampaign.id },
+          data: { status: 'ENDED' },
+        });
       }
     },
     { connection: getConnection(), concurrency: 1 },

@@ -88,6 +88,21 @@ export const SupportPurchaseSchema = z.object({
   ticketCount: z.number().int().min(1).max(100),
   message: z.string().max(500).optional(),
   captchaToken: z.string().optional(),
+  optInConnection: z.boolean().optional(),
+  socials: z.object({
+    instagram: z.string().max(100).optional(),
+    twitter: z.string().max(100).optional(),
+  }).optional(),
+});
+
+/** Validates donor connection response input (receiver choosing connect or anonymous). */
+export const ConnectionChoiceSchema = z.object({
+  choice: z.enum(['connect', 'anonymous']),
+  socials: z.object({
+    instagram: z.string().max(100).optional(),
+    twitter: z.string().max(100).optional(),
+  }).optional(),
+  thankYouMessage: z.string().max(500).optional(),
 });
 
 // --- Raffle ---
@@ -189,6 +204,7 @@ export const CreateCampaignSchema = z.object({
   message: z.string().min(1).max(2000),
   startAt: z.string().datetime().optional(),
   endAt: z.string().datetime().optional(),
+  discountCents: z.number().int().min(500).max(1000).optional(),
 });
 
 /** Validates campaign update input. */

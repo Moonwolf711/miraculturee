@@ -24,6 +24,8 @@ export async function supportRoutes(app: FastifyInstance) {
       body.eventId,
       body.ticketCount,
       body.message,
+      body.optInConnection,
+      body.socials,
     );
     return reply.code(201).send(result);
   });

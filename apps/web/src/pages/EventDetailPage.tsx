@@ -41,7 +41,16 @@ interface EventDetail {
   sourceUrl: string | null;
   status: string;
   rafflePools: RafflePool[];
-  campaigns?: { id: string; headline: string; message: string }[];
+  campaigns?: {
+    id: string;
+    headline: string;
+    message: string;
+    goalCents: number;
+    fundedCents: number;
+    goalReached: boolean;
+    discountCents: number;
+    maxLocalTickets: number;
+  }[];
 }
 
 interface SupportPurchaseResponse {
@@ -90,6 +99,14 @@ export default function EventDetailPage() {
   const [checkout, setCheckout] = useState<CheckoutState>({ type: 'none' });
   const [activeTab, setActiveTab] = useState<PaymentTab>('ticket');
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [optInConnection, setOptInConnection] = useState(false);
+  const [donorInstagram, setDonorInstagram] = useState('');
+  const [donorTwitter, setDonorTwitter] = useState('');
+  const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [connectionChoice, setConnectionChoice] = useState<'connect' | 'anonymous' | null>(null);
+  const [receiverInstagram, setReceiverInstagram] = useState('');
+  const [receiverTwitter, setReceiverTwitter] = useState('');
+  const [thankYouMessage, setThankYouMessage] = useState('');
 
   const fetchEvent = useCallback(() => {
     if (!id) return;
@@ -189,6 +206,10 @@ export default function EventDetailPage() {
         ticketCount: supportCount,
         message: message || undefined,
         captchaToken: captchaToken || undefined,
+        optInConnection: optInConnection || undefined,
+        socials: optInConnection && (donorInstagram || donorTwitter)
+          ? { instagram: donorInstagram || undefined, twitter: donorTwitter || undefined }
+          : undefined,
       });
       // Show the Stripe checkout form with the clientSecret
       setCheckout({
@@ -488,6 +509,166 @@ export default function EventDetailPage() {
         {/* Unified Payment Section with Tabs */}
         {user && event.status === 'PUBLISHED' && (
           <ErrorBoundary label="Payment Options">
+            {/* Local Discounted Tickets — shown when campaign goal reached */}
+            {event.campaigns?.some((c) => c.goalReached) && (() => {
+              const campaign = event.campaigns!.find((c) => c.goalReached)!;
+              return (
+                <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-6 mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                    <h3 className="font-display text-sm tracking-wider text-green-400 uppercase">
+                      Local Fan Tickets Available
+                    </h3>
+                  </div>
+                  <p className="text-gray-300 text-sm font-body mb-4">
+                    Thanks to fan donations, <strong className="text-warm-50">{campaign.maxLocalTickets} discounted tickets</strong> are
+                    available for local fans at just <strong className="text-amber-400">${(campaign.discountCents / 100).toFixed(0)}</strong> each.
+                    Location verification required.
+                  </p>
+                  {user ? (
+                    <button
+                      onClick={() => {
+                        if (!navigator.geolocation) {
+                          setFeedback({ type: 'error', text: 'Geolocation is not supported by your browser.' });
+                          return;
+                        }
+                        setFeedback(null);
+                        navigator.geolocation.getCurrentPosition(
+                          async (pos) => {
+                            try {
+                              const res = await api.post<{ ticketId: string; clientSecret: string; connectionId?: string }>(
+                                `/campaign-tickets/${campaign.id}/local`,
+                                { lat: pos.coords.latitude, lng: pos.coords.longitude },
+                              );
+                              if (res.connectionId) setConnectionId(res.connectionId);
+                              setCheckout({ type: 'ticket', clientSecret: res.clientSecret, priceCents: campaign.discountCents, feeCents: 0, platformFeeCents: 0, totalCents: campaign.discountCents });
+                            } catch (err: unknown) {
+                              setFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Failed to purchase local ticket.' });
+                            }
+                          },
+                          () => {
+                            setFeedback({ type: 'error', text: 'Location access is required for local tickets.' });
+                          },
+                        );
+                      }}
+                      className="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg disabled:opacity-50 transition-colors text-sm"
+                    >
+                      Get Local Ticket &mdash; ${(campaign.discountCents / 100).toFixed(0)}
+                    </button>
+                  ) : (
+                    <Link
+                      to="/login"
+                      className="block w-full py-3 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg text-center text-sm transition-colors"
+                    >
+                      Log in to get a Local Ticket
+                    </Link>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Donor Connection Choice — shown after local ticket purchase when matched */}
+            {connectionId && !connectionChoice && (
+              <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-6 mb-6">
+                <h3 className="font-display text-sm tracking-wider text-purple-400 uppercase mb-2">
+                  A Fan Donated Your Ticket
+                </h3>
+                <p className="text-gray-300 text-sm font-body mb-4">
+                  The supporter who paid for your ticket would like to connect. Would you like to exchange socials, or stay anonymous?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setConnectionChoice('connect')}
+                    className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg text-sm transition-colors"
+                  >
+                    Exchange Socials
+                  </button>
+                  <button
+                    onClick={() => setConnectionChoice('anonymous')}
+                    className="flex-1 py-2.5 bg-noir-700 hover:bg-noir-600 text-gray-300 font-semibold rounded-lg text-sm transition-colors"
+                  >
+                    Stay Anonymous
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Connection: Exchange Socials form */}
+            {connectionId && connectionChoice === 'connect' && (
+              <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-6 mb-6">
+                <h3 className="font-display text-sm tracking-wider text-purple-400 uppercase mb-3">
+                  Share Your Socials
+                </h3>
+                <div className="space-y-2 mb-4">
+                  <input
+                    type="text"
+                    value={receiverInstagram}
+                    onChange={(e) => setReceiverInstagram(e.target.value)}
+                    placeholder="Instagram handle (optional)"
+                    className="w-full px-3 py-2 bg-noir-900 border border-noir-700 text-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-colors placeholder-gray-600"
+                  />
+                  <input
+                    type="text"
+                    value={receiverTwitter}
+                    onChange={(e) => setReceiverTwitter(e.target.value)}
+                    placeholder="Twitter/X handle (optional)"
+                    className="w-full px-3 py-2 bg-noir-900 border border-noir-700 text-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-colors placeholder-gray-600"
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.post(`/donor-connections/${connectionId}/respond`, {
+                        choice: 'connect',
+                        socials: { instagram: receiverInstagram || undefined, twitter: receiverTwitter || undefined },
+                      });
+                      setFeedback({ type: 'success', text: 'Socials shared! Your supporter will see your info.' });
+                      setConnectionId(null);
+                    } catch (err: unknown) {
+                      setFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Failed to submit.' });
+                    }
+                  }}
+                  className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg text-sm transition-colors"
+                >
+                  Share &amp; Connect
+                </button>
+              </div>
+            )}
+
+            {/* Connection: Stay Anonymous form */}
+            {connectionId && connectionChoice === 'anonymous' && (
+              <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-6 mb-6">
+                <h3 className="font-display text-sm tracking-wider text-purple-400 uppercase mb-3">
+                  Send a Thank You
+                </h3>
+                <textarea
+                  value={thankYouMessage}
+                  onChange={(e) => setThankYouMessage(e.target.value)}
+                  placeholder="Thanks for the ticket! (optional)"
+                  maxLength={500}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-noir-900 border border-noir-700 text-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-colors placeholder-gray-600 mb-4 resize-none"
+                />
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.post(`/donor-connections/${connectionId}/respond`, {
+                        choice: 'anonymous',
+                        thankYouMessage: thankYouMessage || undefined,
+                      });
+                      setFeedback({ type: 'success', text: 'Your thanks have been sent to the supporter!' });
+                      setConnectionId(null);
+                    } catch (err: unknown) {
+                      setFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Failed to submit.' });
+                    }
+                  }}
+                  className="w-full py-2.5 bg-noir-700 hover:bg-noir-600 text-gray-300 font-semibold rounded-lg text-sm transition-colors"
+                >
+                  Send Thanks &amp; Stay Anonymous
+                </button>
+              </div>
+            )}
+
             <div className="bg-noir-800 border border-noir-700 rounded-xl p-6 mb-8">
               <h2 className="font-display text-lg tracking-wider text-warm-50 mb-5">
                 GET YOUR TICKETS
@@ -660,6 +841,41 @@ export default function EventDetailPage() {
                           >
                             Support {formatPrice((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) * supportCount)}
                           </button>
+                        </div>
+                        {/* Donor Connection Opt-in */}
+                        <div className="mt-4 pt-4 border-t border-noir-700">
+                          <label className="flex items-start gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={optInConnection}
+                              onChange={(e) => setOptInConnection(e.target.checked)}
+                              className="mt-0.5 w-4 h-4 rounded border-noir-600 bg-noir-900 text-amber-500 focus:ring-amber-500 focus:ring-offset-noir-800"
+                            />
+                            <span className="text-sm text-gray-300">
+                              Connect with the fan who gets your ticket
+                              <span className="block text-xs text-gray-500 mt-0.5">
+                                If they opt in, you can exchange socials and meet at the show
+                              </span>
+                            </span>
+                          </label>
+                          {optInConnection && (
+                            <div className="mt-3 ml-7 space-y-2">
+                              <input
+                                type="text"
+                                value={donorInstagram}
+                                onChange={(e) => setDonorInstagram(e.target.value)}
+                                placeholder="Instagram handle (optional)"
+                                className="w-full px-3 py-2 bg-noir-900 border border-noir-700 text-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                              />
+                              <input
+                                type="text"
+                                value={donorTwitter}
+                                onChange={(e) => setDonorTwitter(e.target.value)}
+                                placeholder="Twitter/X handle (optional)"
+                                className="w-full px-3 py-2 bg-noir-900 border border-noir-700 text-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

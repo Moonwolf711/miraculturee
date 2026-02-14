@@ -65,6 +65,10 @@ interface CampaignItem {
   headline: string;
   message: string;
   status: string;
+  goalCents: number;
+  fundedCents: number;
+  goalReached: boolean;
+  bonusCents: number;
   createdAt: string;
 }
 
@@ -356,6 +360,33 @@ export default function DashboardPage() {
                     </div>
 
                     <p className="text-gray-400 text-sm mb-4 line-clamp-2">{c.message}</p>
+
+                    {/* Campaign Goal Progress */}
+                    {c.goalCents > 0 && (
+                      <div className="mb-4 p-3 bg-noir-950 rounded-lg border border-noir-800">
+                        <div className="flex items-center justify-between text-xs mb-2">
+                          <span className="text-gray-400">
+                            ${(c.fundedCents / 100).toFixed(0)} of ${(c.goalCents / 100).toFixed(0)} goal
+                          </span>
+                          {c.goalReached ? (
+                            <span className="text-green-400 font-semibold">Goal Reached!</span>
+                          ) : (
+                            <span className="text-gray-500">{Math.min(100, Math.round((c.fundedCents / c.goalCents) * 100))}%</span>
+                          )}
+                        </div>
+                        <div className="w-full h-2 bg-noir-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${c.goalReached ? 'bg-green-500' : 'bg-amber-500'}`}
+                            style={{ width: `${Math.min(100, (c.fundedCents / c.goalCents) * 100)}%` }}
+                          />
+                        </div>
+                        {c.bonusCents > 0 && (
+                          <p className="text-amber-400 text-xs mt-2 font-medium">
+                            Bonus earned: ${(c.bonusCents / 100).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Social Share Buttons */}
                     <div className="flex items-center gap-2 pt-3 border-t border-noir-800">

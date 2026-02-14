@@ -39,6 +39,7 @@ enum TransactionType {
   SUPPORT_PURCHASE
   RAFFLE_ENTRY
   TICKET_PURCHASE
+  LOCAL_TICKET
   ARTIST_PAYOUT
   REFUND
 }
@@ -121,16 +122,23 @@ enum CampaignStatus {
 }
 
 model Campaign {
-  id        String         @id @default(uuid())
-  artistId  String
-  eventId   String
-  headline  String
-  message   String
-  status    CampaignStatus @default(DRAFT)
-  startAt   DateTime?
-  endAt     DateTime?
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id              String         @id @default(uuid())
+  artistId        String
+  eventId         String
+  headline        String
+  message         String
+  status          CampaignStatus @default(DRAFT)
+  startAt         DateTime?
+  endAt           DateTime?
+  goalCents       Int            @default(0)
+  fundedCents     Int            @default(0)
+  goalReached     Boolean        @default(false)
+  goalReachedAt   DateTime?
+  discountCents   Int            @default(500)
+  maxLocalTickets Int            @default(10)
+  bonusCents      Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
   event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -165,6 +173,7 @@ model Event {
   directTickets      DirectTicket[]
   ticketAcquisitions TicketAcquisition[]
   campaigns          Campaign[]
+  donorConnections   DonorConnection[]
 
   @@index([artistId])
   @@index([status, date])
@@ -437,4 +446,24 @@ model SuspiciousActivity {
   @@index([ip])
   @@index([type])
   @@index([createdAt])
+}
+
+model DonorConnection {
+  id              String    @id @default(uuid())
+  eventId         String
+  donorUserId     String
+  receiverUserId  String?
+  donorSocials    Json?
+  receiverChoice  String?
+  receiverSocials Json?
+  thankYouMessage String?
+  matched         Boolean   @default(false)
+  matchedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, matched])
+  @@index([donorUserId])
+  @@index([receiverUserId])
 }

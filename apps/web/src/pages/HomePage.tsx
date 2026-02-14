@@ -1,11 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { useInView } from '../hooks/useInView.js';
-import { useCountUp } from '../hooks/useCountUp.js';
 import SEO, { getOrganizationSchema } from '../components/SEO.js';
 
 /* -------------------------------------------------------
-   Mock Data (replace with API calls later)
+   Decorative Ticker Data
    ------------------------------------------------------- */
 const TICKER_EVENTS = [
   { text: 'Kendrick Lamar — Los Angeles, CA', status: 'sold-out' },
@@ -26,12 +25,6 @@ const STATUS_CONFIG = {
   upcoming: { color: 'bg-gray-500', label: 'COMING SOON' },
 } as const;
 
-const STATS = [
-  { value: '12,400+', label: 'Fans Served' },
-  { value: '$2.1M', label: 'To Artists' },
-  { value: '340+', label: 'Shows' },
-  { value: '100%', label: 'Fair' },
-];
 
 const STEPS = [
   {
@@ -76,48 +69,6 @@ const STEPS = [
   },
 ];
 
-const FEATURED_EVENTS = [
-  {
-    artist: 'Kendrick Lamar',
-    venue: 'The Forum, Los Angeles',
-    date: 'Mar 15, 2026',
-    genre: 'Hip-Hop',
-    price: '$85',
-    progress: 100,
-    gradient: 'from-amber-900/60 to-noir-900',
-    soldOut: true,
-    supporters: 214,
-    daysUntil: 0,
-  },
-  {
-    artist: 'Tame Impala',
-    venue: 'Brooklyn Steel, NY',
-    date: 'Apr 2, 2026',
-    genre: 'Psych-Rock',
-    price: '$65',
-    progress: 54,
-    gradient: 'from-purple-900/60 to-noir-900',
-    soldOut: false,
-    supporters: 89,
-    daysUntil: 53,
-  },
-  {
-    artist: 'Billie Eilish',
-    venue: 'O2 Arena, London',
-    date: 'Apr 18, 2026',
-    genre: 'Pop',
-    price: '$95',
-    progress: 32,
-    gradient: 'from-emerald-900/60 to-noir-900',
-    soldOut: false,
-    supporters: 156,
-    daysUntil: 69,
-  },
-];
-
-const PRESS_LOGOS = [
-  'Pitchfork', 'Rolling Stone', 'NME', 'Complex', 'Stereogum', 'FADER',
-];
 
 const TESTIMONIALS = [
   {
@@ -206,31 +157,6 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   );
 }
 
-/* -------------------------------------------------------
-   Animated Stat Number
-   ------------------------------------------------------- */
-function StatValue({ raw, inView }: { raw: string; inView: boolean }) {
-  // Parse the numeric part and preserve prefix/suffix
-  const match = raw.match(/^([^0-9]*)([0-9,]+)(.*)$/);
-  if (!match) return <>{raw}</>;
-
-  const prefix = match[1];
-  const numStr = match[2].replace(/,/g, '');
-  const suffix = match[3];
-  const num = parseInt(numStr, 10);
-  const animated = useCountUp(num, inView);
-
-  // Format with commas
-  const formatted = animated.toLocaleString();
-
-  return (
-    <>
-      {prefix}
-      {formatted}
-      {suffix}
-    </>
-  );
-}
 
 /* -------------------------------------------------------
    Reusable Section Wrapper with scroll-in animation
@@ -272,22 +198,6 @@ function TickerItem({ text, status }: { text: string; status: keyof typeof STATU
   );
 }
 
-/* -------------------------------------------------------
-   Animated Progress Bar — width animates on scroll
-   ------------------------------------------------------- */
-function AnimatedBar({ progress, soldOut }: { progress: number; soldOut: boolean }) {
-  const { ref, inView } = useInView(0.5);
-  return (
-    <div ref={ref} className="h-1.5 bg-noir-700 rounded-full overflow-hidden">
-      <div
-        className={`h-full rounded-full transition-all duration-1000 ease-out ${
-          soldOut ? 'bg-red-500/60' : 'bg-amber-500'
-        }`}
-        style={{ width: inView ? `${progress}%` : '0%' }}
-      />
-    </div>
-  );
-}
 
 /* -------------------------------------------------------
    Mouse Parallax — subtle depth on hero glow orbs
@@ -346,35 +256,6 @@ function BackToTop() {
   );
 }
 
-/* -------------------------------------------------------
-   Stats Bar — animated counters triggered on scroll
-   ------------------------------------------------------- */
-function StatsBar() {
-  const { ref, inView } = useInView(0.3);
-  return (
-    <section
-      ref={ref}
-      className={`bg-noir-900 border-y border-noir-800/40 transition-all duration-700 ease-out ${
-        inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-      }`}
-    >
-      <div className="max-w-5xl mx-auto px-6 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {STATS.map((s) => (
-            <div key={s.label} className="group">
-              <div className="font-display text-3xl md:text-4xl text-amber-500 mb-1 glow-text transition-all duration-300 group-hover:scale-105">
-                <StatValue raw={s.value} inView={inView} />
-              </div>
-              <div className="font-body text-xs tracking-widest uppercase text-gray-400">
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
 /* -------------------------------------------------------
    HomePage
@@ -533,9 +414,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* ===== 2. SOCIAL PROOF STATS BAR ===== */}
-      <StatsBar />
 
       <hr className="section-divider" />
 
@@ -714,144 +592,29 @@ export default function HomePage() {
 
       <hr className="section-divider" />
 
-      {/* ===== 4. FEATURED EVENTS ===== */}
+      {/* ===== 4. BROWSE EVENTS CTA ===== */}
       <Section className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-14 gap-4">
-            <div>
-              <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
-                LIVE NOW
-              </p>
-              <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50">
-                FEATURED EVENTS
-              </h2>
-            </div>
-            <Link
-              to="/events"
-              className="hidden md:inline-flex items-center gap-2 text-sm font-body text-gray-400 hover:text-amber-500 transition-colors duration-200"
-              aria-label="View all events"
-            >
-              View all
-              <svg className="w-4 h-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </Link>
-          </div>
-
-          <div className="flex gap-6 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:overflow-visible md:pb-0 snap-x snap-mandatory -mx-6 px-6 md:mx-0 md:px-0 hide-scrollbar">
-            {FEATURED_EVENTS.map((ev) => (
-              <div
-                key={ev.artist}
-                className="card-hover ticket-tear flex-shrink-0 w-[280px] md:w-auto bg-noir-900 border border-noir-800 rounded-lg overflow-hidden group snap-center"
-              >
-                {/* Artwork placeholder */}
-                <div
-                  className={`relative h-44 bg-gradient-to-br ${ev.gradient} flex items-end p-4`}
-                >
-                  {/* Shimmer effect */}
-                  <div className="shimmer-overlay" aria-hidden="true" />
-
-                  {/* Sold out overlay */}
-                  {ev.soldOut && (
-                    <div className="sold-out-overlay rounded-t-lg">
-                      <span className="font-display text-2xl tracking-widest text-red-400/80 rotate-[-12deg]">
-                        SOLD OUT
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Hover CTA */}
-                  {!ev.soldOut && (
-                    <div className="event-card-cta rounded-t-lg">
-                      <Link
-                        to="/events"
-                        className="btn-amber px-6 py-2.5 text-xs inline-flex items-center gap-2"
-                      >
-                        <span>ENTER RAFFLE</span>
-                        <svg className="w-3.5 h-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                        </svg>
-                      </Link>
-                    </div>
-                  )}
-
-                  <div className="relative z-20 flex items-center gap-2">
-                    <span className="text-xs font-body tracking-widest uppercase px-2 py-1 bg-noir-950/70 rounded text-amber-400 border border-amber-500/20">
-                      {ev.genre}
-                    </span>
-                  </div>
-
-                  {/* Supporter count badge */}
-                  <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 bg-noir-950/70 rounded-full px-2.5 py-1 border border-noir-800/50">
-                    <svg className="w-3 h-3 text-amber-500" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <span className="text-[10px] font-body text-gray-400" aria-label={`${ev.supporters} supporters`}>{ev.supporters}</span>
-                  </div>
-                </div>
-
-                <div className="p-5">
-                  <h3 className="font-body font-semibold text-warm-50 text-lg mb-1 group-hover:text-amber-400 transition-colors duration-300">
-                    {ev.artist}
-                  </h3>
-                  <p className="font-body text-gray-400 text-sm mb-1 truncate">
-                    {ev.venue}
-                  </p>
-                  <div className="flex items-center gap-2 mb-4">
-                    <p className="font-body text-gray-400 text-xs">
-                      {ev.date}
-                    </p>
-                    {ev.daysUntil > 0 && (
-                      <span className="text-[10px] font-body tracking-wide text-amber-500/70 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                        in {ev.daysUntil}d
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Animated progress bar */}
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs font-body mb-1.5">
-                      <span className="text-gray-400">
-                        {ev.soldOut ? 'Raffle closed' : 'Raffle progress'}
-                      </span>
-                      <span className={ev.soldOut ? 'text-red-400' : 'text-amber-500'}>
-                        {ev.progress}%
-                      </span>
-                    </div>
-                    <AnimatedBar progress={ev.progress} soldOut={ev.soldOut} />
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="font-body text-warm-50 font-semibold text-lg">
-                      {ev.price}
-                    </span>
-                    <span className="text-xs text-gray-400 font-body tracking-wide uppercase">
-                      face value
-                    </span>
-                  </div>
-
-                  {/* Mobile tap-friendly CTA (touch devices) */}
-                  {!ev.soldOut && (
-                    <Link
-                      to="/events"
-                      className="mt-3 btn-amber w-full text-center py-2.5 text-xs md:hidden inline-flex items-center justify-center gap-1.5"
-                    >
-                      ENTER RAFFLE
-                      <svg className="w-3 h-3" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                      </svg>
-                    </Link>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-10 md:hidden">
-            <Link to="/events" className="btn-ghost">
-              VIEW ALL EVENTS
-            </Link>
-          </div>
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
+            LIVE EVENTS
+          </p>
+          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 mb-6">
+            SEE WHO&rsquo;S PLAYING
+          </h2>
+          <p className="font-body text-gray-400 text-base max-w-xl mx-auto leading-relaxed mb-10">
+            Browse real shows from real artists. Support the ones you love, enter
+            raffles for the ones near you, and help make live music accessible to
+            everyone.
+          </p>
+          <Link
+            to="/events"
+            className="btn-amber inline-flex items-center justify-center px-8 py-3.5 text-base rounded-sm group"
+          >
+            <span>BROWSE EVENTS</span>
+            <svg className="w-4 h-4 ml-2 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </Link>
         </div>
       </Section>
 
@@ -922,11 +685,11 @@ export default function HomePage() {
               <div className="p-5 font-mono text-xs space-y-1 overflow-x-auto">
                 <p className="text-gray-500">
                   {'{'} <span className="text-amber-500">"draw_id"</span>:{' '}
-                  <span className="text-gray-300">"mc-2026-0315-LA"</span>,
+                  <span className="text-gray-400">"mc-YYYY-MMDD-XX"</span>,
                 </p>
                 <p className="text-gray-500 pl-4">
                   <span className="text-amber-500">"event"</span>:{' '}
-                  <span className="text-gray-300">"Kendrick Lamar @ The Forum"</span>,
+                  <span className="text-gray-400">"Artist @ Venue"</span>,
                 </p>
                 <p className="text-gray-500 pl-4">
                   <span className="text-amber-500">"seed_hash"</span>:{' '}
@@ -938,11 +701,11 @@ export default function HomePage() {
                 </p>
                 <p className="text-gray-500 pl-4">
                   <span className="text-amber-500">"entries"</span>:{' '}
-                  <span className="text-sky-400">847</span>,
+                  <span className="text-gray-400">"&lt;total_entries&gt;"</span>,
                 </p>
                 <p className="text-gray-500 pl-4">
                   <span className="text-amber-500">"winners"</span>:{' '}
-                  <span className="text-sky-400">12</span>,
+                  <span className="text-gray-400">"&lt;winner_count&gt;"</span>,
                 </p>
                 <p className="text-gray-500 pl-4">
                   <span className="text-amber-500">"revealed_seed"</span>:{' '}
@@ -950,7 +713,7 @@ export default function HomePage() {
                 </p>
                 <p className="text-gray-500 pl-4">
                   <span className="text-amber-500">"timestamp"</span>:{' '}
-                  <span className="text-gray-400">"2026-03-15T22:00:00Z"</span>,
+                  <span className="text-gray-400">"&lt;draw_timestamp&gt;"</span>,
                 </p>
                 <p className="text-gray-500 pl-4">
                   <span className="text-amber-500">"status"</span>:{' '}
@@ -1182,25 +945,6 @@ export default function HomePage() {
                   {badge.label}
                 </span>
               </div>
-            ))}
-          </div>
-        </div>
-      </Section>
-
-      {/* ===== 8b. AS SEEN IN ===== */}
-      <Section className="py-10 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="font-body text-[10px] tracking-[0.3em] uppercase text-gray-400 mb-6">
-            As Featured In
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-5 sm:gap-x-8 md:gap-x-10 gap-y-3">
-            {PRESS_LOGOS.map((name) => (
-              <span
-                key={name}
-                className="font-display text-base sm:text-lg md:text-xl tracking-widest uppercase text-gray-700/50 hover:text-gray-500 transition-colors duration-300 cursor-default select-none"
-              >
-                {name}
-              </span>
             ))}
           </div>
         </div>

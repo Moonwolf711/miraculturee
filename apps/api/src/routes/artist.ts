@@ -66,6 +66,10 @@ export async function artistRoutes(app: FastifyInstance) {
         status: c.status,
         startAt: c.startAt?.toISOString() ?? null,
         endAt: c.endAt?.toISOString() ?? null,
+        goalCents: c.goalCents,
+        fundedCents: c.fundedCents,
+        goalReached: c.goalReached,
+        bonusCents: c.bonusCents,
         createdAt: c.createdAt.toISOString(),
       })),
       total,
@@ -84,6 +88,9 @@ export async function artistRoutes(app: FastifyInstance) {
     });
     if (!event) return reply.code(404).send({ error: 'Event not found or not owned by you' });
 
+    const goalCents = event.ticketPriceCents * 10;
+    const discountCents = body.discountCents ?? 500;
+
     const campaign = await app.prisma.campaign.create({
       data: {
         artistId: artist.id,
@@ -92,6 +99,8 @@ export async function artistRoutes(app: FastifyInstance) {
         message: body.message,
         startAt: body.startAt ? new Date(body.startAt) : null,
         endAt: body.endAt ? new Date(body.endAt) : null,
+        goalCents,
+        discountCents,
       },
     });
 

@@ -8,6 +8,7 @@ interface ArtistEvent {
   title: string;
   venueName: string;
   date: string;
+  ticketPriceCents: number;
 }
 
 export default function CreateCampaignPage() {
@@ -17,6 +18,7 @@ export default function CreateCampaignPage() {
   const [headline, setHeadline] = useState('');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'DRAFT' | 'ACTIVE'>('ACTIVE');
+  const [discountCents, setDiscountCents] = useState(500);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [eventsLoading, setEventsLoading] = useState(true);
@@ -42,6 +44,7 @@ export default function CreateCampaignPage() {
         eventId,
         headline,
         message,
+        discountCents,
       });
       // If they want it active immediately, update status
       if (status === 'ACTIVE') {
@@ -103,6 +106,47 @@ export default function CreateCampaignPage() {
                 </select>
               )}
             </div>
+
+            {/* Campaign Goal Display */}
+            {eventId && events.length > 0 && (() => {
+              const selectedEvent = events.find((e) => e.id === eventId);
+              if (!selectedEvent) return null;
+              const goalCents = selectedEvent.ticketPriceCents * 10;
+              return (
+                <div className="bg-noir-950 border border-noir-800 rounded-lg p-4">
+                  <p className="text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">Campaign Goal</p>
+                  <p className="text-warm-50 text-lg font-semibold">
+                    ${(goalCents / 100).toFixed(0)}
+                    <span className="text-gray-500 text-sm font-normal ml-2">
+                      (10 tickets x ${(selectedEvent.ticketPriceCents / 100).toFixed(0)} face value)
+                    </span>
+                  </p>
+                  <p className="text-gray-500 text-xs mt-1 font-body">
+                    When fans donate this amount, 10 discounted tickets unlock for local fans.
+                  </p>
+
+                  <div className="mt-4">
+                    <label htmlFor="discount-price" className="text-gray-400 text-xs uppercase tracking-wider font-medium">
+                      Local Ticket Price: ${(discountCents / 100).toFixed(0)}
+                    </label>
+                    <input
+                      id="discount-price"
+                      type="range"
+                      min={500}
+                      max={1000}
+                      step={100}
+                      value={discountCents}
+                      onChange={(e) => setDiscountCents(Number(e.target.value))}
+                      className="w-full mt-2 accent-amber-500"
+                    />
+                    <div className="flex justify-between text-gray-600 text-[10px] mt-1">
+                      <span>$5</span>
+                      <span>$10</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div>
               <label htmlFor="campaign-headline" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">

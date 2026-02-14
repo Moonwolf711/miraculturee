@@ -15,11 +15,13 @@ import { raffleRoutes } from './routes/raffle.js';
 import { posRoutes } from './routes/pos.js';
 import { artistRoutes } from './routes/artist.js';
 import { ticketRoutes } from './routes/ticket.js';
+import { campaignTicketRoutes } from './routes/campaign-tickets.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { userRoutes } from './routes/user.js';
 import { applePayRoutes } from './routes/applepay.js';
 import { connectRoutes } from './routes/connect.js';
 import { connectWebhookRoutes } from './routes/connect-webhooks.js';
+import { donorConnectionRoutes } from './routes/donor-connections.js';
 import externalEventsRoutes from './routes/admin/external-events.js';
 import issuingRoutes from './routes/admin/issuing.js';
 import vendorTicketRoutes from './routes/admin/vendor-tickets.js';
@@ -67,9 +69,11 @@ async function start() {
   await app.register(posRoutes, { prefix: '/pos' });
   await app.register(artistRoutes, { prefix: '/artist' });
   await app.register(ticketRoutes, { prefix: '/tickets' });
+  await app.register(campaignTicketRoutes, { prefix: '/campaign-tickets' });
   await app.register(userRoutes, { prefix: '/user' });
   await app.register(applePayRoutes, { prefix: '/apple-pay' });
   await app.register(connectRoutes, { prefix: '/connect' });
+  await app.register(donorConnectionRoutes, { prefix: '/donor-connections' });
   // Webhook routes — use their own raw body parsers for Stripe signature verification
   await app.register(webhookRoutes, { prefix: '/webhook' });
   await app.register(connectWebhookRoutes, { prefix: '/connect-webhooks' });

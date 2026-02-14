@@ -14,6 +14,8 @@ export class SupportService {
     eventId: string,
     ticketCount: number,
     message?: string,
+    optInConnection?: boolean,
+    socials?: { instagram?: string; twitter?: string },
   ): Promise<SupportPurchaseResult> {
     const event = await this.prisma.event.findUnique({ where: { id: eventId } });
     if (!event) {
@@ -35,6 +37,16 @@ export class SupportService {
         message,
       },
     });
+
+    // Create DonorConnection records if donor opted in (one per ticket)
+    if (optInConnection) {
+      const connections = Array.from({ length: ticketCount }, () => ({
+        eventId,
+        donorUserId: userId,
+        ...(socials ? { donorSocials: socials } : {}),
+      }));
+      await this.prisma.donorConnection.createMany({ data: connections });
+    }
 
     // Create POS payment
     const payment = await this.pos.createPayment({
@@ -89,5 +101,27 @@ export class SupportService {
       where: { posReference: supportTicketId },
       data: { status: 'completed', stripePaymentId },
     });
+
+    // Update campaign funding if there's an active campaign for this event
+    const event = await this.prisma.event.findUnique({
+      where: { id: supportTicket.eventId },
+    });
+    if (event) {
+      const donationCents = event.ticketPriceCents * supportTicket.ticketCount;
+      const campaign = await this.prisma.campaign.findFirst({
+        where: { eventId: supportTicket.eventId, status: 'ACTIVE' },
+      });
+      if (campaign) {
+        const newFunded = campaign.fundedCents + donationCents;
+        const justReachedGoal = !campaign.goalReached && newFunded >= campaign.goalCents && campaign.goalCents > 0;
+        await this.prisma.campaign.update({
+          where: { id: campaign.id },
+          data: {
+            fundedCents: newFunded,
+            ...(justReachedGoal && { goalReached: true, goalReachedAt: new Date() }),
+          },
+        });
+      }
+    }
   }
 }

@@ -262,7 +262,11 @@ export class EventService {
       }),
       this.prisma.campaign.findMany({
         where: { eventId: id, status: 'ACTIVE' },
-        select: { id: true, headline: true, message: true },
+        select: {
+          id: true, headline: true, message: true,
+          goalCents: true, fundedCents: true, goalReached: true,
+          discountCents: true, maxLocalTickets: true,
+        },
         orderBy: { createdAt: 'desc' },
         take: 3,
       }),
