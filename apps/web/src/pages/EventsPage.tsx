@@ -467,7 +467,7 @@ export default function EventsPage() {
                     </div>
 
                     {/* Center content */}
-                    <div className="flex-1 px-5 py-4 min-w-0">
+                    <div className="flex-1 px-3 sm:px-5 py-4 min-w-0 overflow-hidden">
                       <h2 className="font-body font-semibold text-warm-50 text-base md:text-lg truncate group-hover:text-amber-50 transition-colors duration-300">
                         {event.title}
                       </h2>
@@ -485,13 +485,13 @@ export default function EventsPage() {
                     </div>
 
                     {/* Right side */}
-                    <div className="flex-shrink-0 flex flex-col items-end justify-center px-5 py-4">
-                      <span className="font-display text-2xl text-amber-400 leading-none">{formatPrice(event.ticketPriceCents)}</span>
-                      <span className="font-body text-gray-400 text-xs mt-1.5">
+                    <div className="flex-shrink-0 flex flex-col items-end justify-center px-3 sm:px-5 py-4 min-w-[90px] sm:min-w-[120px]">
+                      <span className="font-display text-xl sm:text-2xl text-amber-400 leading-none whitespace-nowrap">{formatPrice(event.ticketPriceCents)}</span>
+                      <span className="font-body text-gray-400 text-[10px] sm:text-xs mt-1.5 whitespace-nowrap">
                         {event.supportedTickets}/{event.totalTickets} supported
                       </span>
                       <div
-                        className="mt-2.5 w-28 h-1.5 bg-noir-700 rounded-full overflow-hidden"
+                        className="mt-2.5 w-20 sm:w-28 h-1.5 bg-noir-700 rounded-full overflow-hidden"
                         role="progressbar"
                         aria-valuenow={Math.round(Math.min(100, (event.supportedTickets / event.totalTickets) * 100))}
                         aria-valuemin={0}
