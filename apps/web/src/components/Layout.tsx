@@ -152,11 +152,6 @@ export default function Layout({ children }: { children: ReactNode }) {
               For Artists
             </a>
             {user && (
-              <Link to="/artist/events/new" className="nav-link">
-                List Your Event
-              </Link>
-            )}
-            {user && (
               <Link to="/dashboard" className="nav-link">
                 My Dashboard
               </Link>
@@ -245,15 +240,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             >
               For Artists
             </a>
-            {user && (
-              <Link
-                to="/artist/events/new"
-                onClick={closeMobile}
-                className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
-              >
-                List Your Event
-              </Link>
-            )}
             {user && (
               <Link
                 to="/dashboard"

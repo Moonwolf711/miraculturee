@@ -28,7 +28,6 @@ const RegisterPage = lazyRetry(() => import('./pages/RegisterPage.js'));
 const EventsPage = lazyRetry(() => import('./pages/EventsPage.js'));
 const EventDetailPage = lazyRetry(() => import('./pages/EventDetailPage.js'));
 const ArtistDashboardPage = lazyRetry(() => import('./pages/ArtistDashboardPage.js'));
-const CreateEventPage = lazyRetry(() => import('./pages/CreateEventPage.js'));
 const DashboardPage = lazyRetry(() => import('./pages/DashboardPage.js'));
 const ForgotPasswordPage = lazyRetry(() => import('./pages/ForgotPasswordPage.js'));
 const ResetPasswordPage = lazyRetry(() => import('./pages/ResetPasswordPage.js'));
@@ -76,6 +75,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <PageFallback />;
+  if (!user) return <Navigate to="/login" />;
+  if (user.role !== 'ADMIN') return <Navigate to="/dashboard" />;
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <Layout>
@@ -112,19 +119,11 @@ export default function App() {
               }
             />
             <Route
-              path="/artist/events/new"
-              element={
-                <ProtectedRoute>
-                  <CreateEventPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/artist/campaigns/new"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <CreateCampaignPage />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             />
             <Route

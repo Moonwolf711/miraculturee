@@ -253,7 +253,7 @@ export default function DashboardPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-8 overflow-x-auto border-b border-noir-800 -mx-4 px-4 sm:mx-0 sm:px-0">
-          {TABS.map((tab) => (
+          {TABS.filter((tab) => tab !== 'campaigns' || user?.role === 'ADMIN').map((tab) => (
             <button
               key={tab}
               onClick={() => setTab(tab)}
@@ -322,7 +322,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {activeTab === 'campaigns' && (
+        {activeTab === 'campaigns' && user?.role === 'ADMIN' && (
           <div>
             <div className="flex items-center justify-between mb-6">
               <p className="text-gray-400 text-sm">Create campaigns for your events and share them on social media.</p>
