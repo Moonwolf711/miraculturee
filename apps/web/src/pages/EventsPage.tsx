@@ -456,25 +456,25 @@ export default function EventsPage() {
                 style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
               >
                 <div className="bg-noir-800 border border-noir-700 rounded-xl overflow-hidden transition-all duration-300 group-hover:border-amber-500/30 group-hover:shadow-lg group-hover:shadow-amber-500/5">
-                  <div className="flex items-stretch">
-                    {/* Date badge */}
-                    <div className="flex-shrink-0 w-20 bg-noir-900 flex flex-col items-center justify-center py-5 border-r border-noir-700 relative">
-                      <div className="absolute -right-2 top-4 w-4 h-4 rounded-full bg-noir-800 border border-noir-700" aria-hidden="true" />
-                      <div className="absolute -right-2 bottom-4 w-4 h-4 rounded-full bg-noir-800 border border-noir-700" aria-hidden="true" />
-                      <div className="absolute right-0 top-8 bottom-8 border-r border-dashed border-noir-700" aria-hidden="true" />
+                  {/* Top row: date + price */}
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-noir-900 border-b border-noir-700">
+                    <div className="flex items-center gap-2">
                       <span className="font-display text-xs tracking-widest text-amber-400">{getMonth(event.date)}</span>
-                      <span className="font-display text-3xl text-amber-500 leading-none mt-0.5">{getDay(event.date)}</span>
+                      <span className="font-display text-xl text-amber-500 leading-none">{getDay(event.date)}</span>
                     </div>
+                    <span className="font-display text-xl text-amber-400 leading-none whitespace-nowrap">{formatPrice(event.ticketPriceCents)}</span>
+                  </div>
 
-                    {/* Center content */}
-                    <div className="flex-1 px-3 sm:px-5 py-4 min-w-0 overflow-hidden">
-                      <h2 className="font-body font-semibold text-warm-50 text-base md:text-lg truncate group-hover:text-amber-50 transition-colors duration-300">
-                        {event.title}
-                      </h2>
-                      <p className="font-body text-gray-400 text-sm mt-1 truncate">
-                        {event.artistName} &middot; {event.venueName}, {event.venueCity}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1.5">
+                  {/* Card body */}
+                  <div className="px-4 py-3">
+                    <h2 className="font-body font-semibold text-warm-50 text-base truncate group-hover:text-amber-50 transition-colors duration-300">
+                      {event.title}
+                    </h2>
+                    <p className="font-body text-gray-400 text-sm mt-1 truncate">
+                      {event.artistName} &middot; {event.venueName}, {event.venueCity}
+                    </p>
+                    <div className="flex items-center justify-between mt-2.5">
+                      <div className="flex items-center gap-2">
                         <p className="font-body text-gray-400 text-xs">{formatDate(event.date)}</p>
                         {event.genre && (
                           <span className="px-2 py-0.5 rounded-full bg-noir-700 text-gray-400 font-body text-[10px] uppercase tracking-wider">
@@ -482,27 +482,22 @@ export default function EventsPage() {
                           </span>
                         )}
                       </div>
-                    </div>
-
-                    {/* Right side */}
-                    <div className="flex-shrink-0 flex flex-col items-end justify-center px-3 sm:px-5 py-4 min-w-[90px] sm:min-w-[120px]">
-                      <span className="font-display text-xl sm:text-2xl text-amber-400 leading-none whitespace-nowrap">{formatPrice(event.ticketPriceCents)}</span>
-                      <span className="font-body text-gray-400 text-[10px] sm:text-xs mt-1.5 whitespace-nowrap">
+                      <span className="font-body text-gray-400 text-[10px] sm:text-xs whitespace-nowrap">
                         {event.supportedTickets}/{event.totalTickets} supported
                       </span>
+                    </div>
+                    <div
+                      className="mt-2 w-full h-1.5 bg-noir-700 rounded-full overflow-hidden"
+                      role="progressbar"
+                      aria-valuenow={Math.round(Math.min(100, (event.supportedTickets / event.totalTickets) * 100))}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${event.supportedTickets} of ${event.totalTickets} tickets supported`}
+                    >
                       <div
-                        className="mt-2.5 w-20 sm:w-28 h-1.5 bg-noir-700 rounded-full overflow-hidden"
-                        role="progressbar"
-                        aria-valuenow={Math.round(Math.min(100, (event.supportedTickets / event.totalTickets) * 100))}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-label={`${event.supportedTickets} of ${event.totalTickets} tickets supported`}
-                      >
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min(100, (event.supportedTickets / event.totalTickets) * 100)}%` }}
-                        />
-                      </div>
+                        className="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, (event.supportedTickets / event.totalTickets) * 100)}%` }}
+                      />
                     </div>
                   </div>
                 </div>
