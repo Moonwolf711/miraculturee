@@ -278,10 +278,10 @@ export default function TermsOfServicePage() {
               Refund requests for cancelled events will be processed within 10 business days.
               Contact{' '}
               <a
-                href="mailto:support@miraculture.com"
+                href="mailto:support@mira-culture.com"
                 className="text-amber-500 hover:text-amber-400 underline"
               >
-                support@miraculture.com
+                support@mira-culture.com
               </a>{' '}
               for refund inquiries.
             </p>
@@ -350,10 +350,10 @@ export default function TermsOfServicePage() {
               Any disputes arising from these Terms or your use of the Service shall first be
               addressed through good-faith negotiation by contacting{' '}
               <a
-                href="mailto:support@miraculture.com"
+                href="mailto:support@mira-culture.com"
                 className="text-amber-500 hover:text-amber-400 underline"
               >
-                support@miraculture.com
+                support@mira-culture.com
               </a>
               . If a dispute cannot be resolved through negotiation, it shall be submitted to
               binding arbitration in accordance with applicable laws.
@@ -397,10 +397,10 @@ export default function TermsOfServicePage() {
             <p className="text-gray-400">
               For questions about these Terms, contact us at{' '}
               <a
-                href="mailto:legal@miraculture.com"
+                href="mailto:legal@mira-culture.com"
                 className="text-amber-500 hover:text-amber-400 underline"
               >
-                legal@miraculture.com
+                legal@mira-culture.com
               </a>
               .
             </p>

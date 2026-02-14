@@ -193,10 +193,10 @@ export default function PrivacyPolicyPage() {
             <p className="text-gray-400 mt-3">
               To exercise any of these rights, please contact us at{' '}
               <a
-                href="mailto:privacy@miraculture.com"
+                href="mailto:privacy@mira-culture.com"
                 className="text-amber-500 hover:text-amber-400 underline"
               >
-                privacy@miraculture.com
+                privacy@mira-culture.com
               </a>
               .
             </p>
@@ -236,10 +236,10 @@ export default function PrivacyPolicyPage() {
             <p className="text-gray-400">
               If you have questions about this Privacy Policy, please contact us at{' '}
               <a
-                href="mailto:privacy@miraculture.com"
+                href="mailto:privacy@mira-culture.com"
                 className="text-amber-500 hover:text-amber-400 underline"
               >
-                privacy@miraculture.com
+                privacy@mira-culture.com
               </a>
               .
             </p>
