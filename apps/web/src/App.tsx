@@ -38,6 +38,7 @@ const TermsOfServicePage = lazyRetry(() => import('./pages/TermsOfServicePage.js
 const CreateCampaignPage = lazyRetry(() => import('./pages/CreateCampaignPage.js'));
 const ConnectDashboardPage = lazyRetry(() => import('./pages/ConnectDashboardPage.js'));
 const StorefrontPage = lazyRetry(() => import('./pages/StorefrontPage.js'));
+const AdminPage = lazyRetry(() => import('./pages/AdminPage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -135,6 +136,14 @@ export default function App() {
               }
             />
             <Route path="/connect/storefront/:accountId" element={<StorefrontPage />} />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminPage />
+                </AdminRoute>
+              }
+            />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/terms" element={<TermsOfServicePage />} />
             {/* Catch-all 404 route */}

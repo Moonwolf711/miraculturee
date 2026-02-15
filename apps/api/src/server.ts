@@ -25,6 +25,7 @@ import { donorConnectionRoutes } from './routes/donor-connections.js';
 import externalEventsRoutes from './routes/admin/external-events.js';
 import issuingRoutes from './routes/admin/issuing.js';
 import vendorTicketRoutes from './routes/admin/vendor-tickets.js';
+import adminDashboardRoutes from './routes/admin/dashboard.js';
 import { requireRole } from './middleware/authenticate.js';
 import { initWorkers } from './jobs/workers.js';
 
@@ -83,6 +84,7 @@ async function start() {
     await admin.register(externalEventsRoutes, { prefix: '/external-events' });
     await admin.register(issuingRoutes, { prefix: '/issuing' });
     await admin.register(vendorTicketRoutes, { prefix: '/vendors' });
+    await admin.register(adminDashboardRoutes, { prefix: '/dashboard' });
   }, { prefix: '/admin' });
 
   // Health check
