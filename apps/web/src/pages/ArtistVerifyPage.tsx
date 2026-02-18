@@ -196,18 +196,34 @@ export default function ArtistVerifyPage() {
           </div>
         )}
 
-        {/* Connect buttons */}
+        {/* Verify / Connect */}
         <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6">
           <h2 className="font-body text-xs tracking-widest uppercase text-gray-500 font-semibold mb-4">
-            {data && data.accounts.length > 0 ? 'Connect More Platforms' : 'Connect a Platform'}
+            {data?.isVerified ? 'Verified' : 'Verify Your Account'}
           </h2>
           <div className="space-y-3">
-            {!connectedProviders.has('SPOTIFY') && (
-              <SocialConnectButton provider="spotify" />
+            {!data?.isVerified && (
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await api.post<{ success: boolean; matches: number }>('/artist/me/test-verify');
+                    setSuccessMsg(`Verified! ${res.matches > 0 ? `Found ${res.matches} matching show${res.matches === 1 ? '' : 's'}!` : ''}`);
+                    await fetchAccounts();
+                  } catch (err: unknown) {
+                    setError(err instanceof Error ? err.message : 'Verification failed');
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold transition-all duration-200"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-body text-sm tracking-wide">Verify Now</span>
+              </button>
             )}
-            {connectedProviders.has('SPOTIFY') && (
-              <p className="font-body text-gray-500 text-sm text-center py-2">
-                More platforms coming soon.
+            {data?.isVerified && (
+              <p className="font-body text-green-400 text-sm text-center py-2">
+                Your account is verified. You can claim shows below.
               </p>
             )}
           </div>

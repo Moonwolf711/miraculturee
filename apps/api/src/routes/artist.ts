@@ -170,6 +170,21 @@ export async function artistRoutes(app: FastifyInstance) {
     return { success: true };
   });
 
+  // --- Test: Skip Spotify for verification ---
+
+  /** POST /artist/me/test-verify — temporarily verify artist without Spotify (for testing) */
+  app.post('/me/test-verify', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const artist = await getOrCreateArtist(req.user.id);
+    if (!artist) return reply.code(404).send({ error: 'User not found' });
+    await app.prisma.artist.update({
+      where: { id: artist.id },
+      data: { isVerified: true, verificationStatus: 'VERIFIED', verifiedAt: new Date() },
+    });
+    // Run matching to find shows
+    const matches = await matchingService.findMatchingEvents(artist.stageName, artist.id);
+    return { success: true, matches: matches.length };
+  });
+
   // --- Social Account Verification ---
 
   /** GET /artist/me/social-accounts — list connected social accounts */
