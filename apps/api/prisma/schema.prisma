@@ -88,6 +88,8 @@ model User {
   emailVerifyExpiry   DateTime?
   passwordResetToken  String?   @unique
   passwordResetExpiry DateTime?
+  isBanned            Boolean   @default(false)
+  bannedAt            DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 

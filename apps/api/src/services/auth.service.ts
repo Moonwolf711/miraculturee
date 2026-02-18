@@ -49,6 +49,10 @@ export class AuthService {
       throw Object.assign(new Error('Invalid credentials'), { statusCode: 401 });
     }
 
+    if (user.isBanned) {
+      throw Object.assign(new Error('Account suspended. Contact support.'), { statusCode: 403 });
+    }
+
     return this.generateTokens(user);
   }
 
@@ -58,6 +62,10 @@ export class AuthService {
     });
     if (!user) {
       throw Object.assign(new Error('Invalid refresh token'), { statusCode: 401 });
+    }
+
+    if (user.isBanned) {
+      throw Object.assign(new Error('Account suspended. Contact support.'), { statusCode: 403 });
     }
 
     return this.generateTokens(user);
