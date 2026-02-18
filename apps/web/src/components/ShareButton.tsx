@@ -23,53 +23,56 @@ export default function ShareButton({ eventId, artistName, eventTitle, variant =
 
   const shareText = `Hey ${artistName}, your fans want you on MiraCulture! Activate a campaign so we can get fair tickets to "${eventTitle}"`;
 
+  const showCopied = () => {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleCopyLink = async () => {
     setLoading(true);
     try {
       const url = await getShareUrl(eventId, 'copy');
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      showCopied();
     } finally {
       setLoading(false);
     }
   };
 
-  const handleShare = async (platform: 'twitter' | 'facebook' | 'tiktok' | 'instagram') => {
-    setLoading(true);
-    try {
-      const url = await getShareUrl(eventId, platform);
-      const text = `${shareText} ${url}`;
-
-      switch (platform) {
-        case 'twitter':
-          window.open(
-            `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
-            '_blank', 'noopener,noreferrer',
-          );
-          break;
-        case 'facebook':
-          window.open(
-            `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(shareText)}`,
-            '_blank', 'noopener,noreferrer',
-          );
-          break;
-        case 'tiktok':
-          // TikTok doesn't have a web share intent — copy text for the user to paste
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-          break;
-        case 'instagram':
-          // Instagram doesn't have a web share intent — copy text for the user to paste into DM/story
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-          break;
-      }
-    } finally {
-      setLoading(false);
+  const handleShare = (platform: 'twitter' | 'facebook' | 'tiktok' | 'instagram') => {
+    // For platforms that open a popup, open the window SYNCHRONOUSLY
+    // to avoid popup blockers, then set the URL after the async call.
+    if (platform === 'twitter' || platform === 'facebook') {
+      const popup = window.open('about:blank', '_blank');
+      setLoading(true);
+      getShareUrl(eventId, platform).then((url) => {
+        const text = `${shareText} ${url}`;
+        if (platform === 'twitter') {
+          const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+          if (popup) {
+            popup.location.href = twitterUrl;
+          } else {
+            window.location.href = twitterUrl;
+          }
+        } else {
+          const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(shareText)}`;
+          if (popup) {
+            popup.location.href = fbUrl;
+          } else {
+            window.location.href = fbUrl;
+          }
+        }
+      }).finally(() => setLoading(false));
+      return;
     }
+
+    // Instagram & TikTok: copy text to clipboard (no web share intent)
+    setLoading(true);
+    getShareUrl(eventId, platform).then(async (url) => {
+      const text = `${shareText} ${url}`;
+      await navigator.clipboard.writeText(text);
+      showCopied();
+    }).finally(() => setLoading(false));
   };
 
   if (variant === 'icon') {
