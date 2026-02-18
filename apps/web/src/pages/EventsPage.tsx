@@ -466,16 +466,9 @@ export default function EventsPage() {
 
                   {/* Title + artist — truncates with ellipsis */}
                   <div style={{ minWidth: 0, overflow: 'hidden' }} className="flex-1 px-3 sm:px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <h2 style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="font-body font-semibold text-warm-50 text-sm group-hover:text-amber-50 transition-colors duration-300">
-                        {event.title}
-                      </h2>
-                      {event.status === 'AWAITING_ARTIST' && (
-                        <span className="flex-shrink-0 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/25 rounded">
-                          Invite Artist
-                        </span>
-                      )}
-                    </div>
+                    <h2 style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="font-body font-semibold text-warm-50 text-sm group-hover:text-amber-50 transition-colors duration-300">
+                      {event.title}
+                    </h2>
                     <p style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="font-body text-gray-500 text-xs">
                       {event.artistName} &middot; {event.venueName}, {event.venueCity}
                     </p>

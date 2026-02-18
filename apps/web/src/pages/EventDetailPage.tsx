@@ -393,6 +393,30 @@ export default function EventDetailPage() {
           </p>
         </div>
 
+        {/* Campaign Status — visible to all visitors */}
+        {activeCampaign && (
+          <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-5 py-4 mb-6 flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-emerald-400 text-sm font-semibold">
+                Campaign Active
+              </p>
+              <p className="text-gray-400 text-xs mt-0.5">
+                {ticketsFunded}/{totalTicketsGoal} tickets funded
+                {campaignGoalReached ? ' — Goal reached!' : ` — ${totalTicketsGoal - ticketsFunded} more to go`}
+              </p>
+            </div>
+            <div className="flex-shrink-0 w-24">
+              <div className="bg-noir-700 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-emerald-400 h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(100, (activeCampaign.fundedCents / activeCampaign.goalCents) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Two-Column Grid: Venue + Stats */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* Venue Card */}
