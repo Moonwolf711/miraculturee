@@ -149,12 +149,9 @@ export default function ArtistVerifyPage() {
             {!connectedProviders.has('SPOTIFY') && (
               <SocialConnectButton provider="spotify" />
             )}
-            {!connectedProviders.has('SOUNDCLOUD') && (
-              <SocialConnectButton provider="soundcloud" />
-            )}
-            {connectedProviders.has('SPOTIFY') && connectedProviders.has('SOUNDCLOUD') && (
+            {connectedProviders.has('SPOTIFY') && (
               <p className="font-body text-gray-500 text-sm text-center py-2">
-                All available platforms connected. More coming soon.
+                More platforms coming soon.
               </p>
             )}
           </div>

@@ -7,8 +7,15 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'https://mira-culture.com';
 export async function spotifyOAuthRoutes(app: FastifyInstance) {
   const verificationService = new ArtistVerificationService(app.prisma);
 
+  function isConfigured() {
+    return !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET && process.env.SPOTIFY_REDIRECT_URI);
+  }
+
   /** GET /auth/spotify/connect — initiate Spotify OAuth (requires auth via header or query param) */
   app.get('/connect', async (req, reply) => {
+    if (!isConfigured()) {
+      return reply.code(503).send({ error: 'Spotify integration is not configured yet' });
+    }
     // Support JWT from Authorization header or ?token= query param (for redirect flows)
     const queryToken = (req.query as { token?: string }).token;
     if (queryToken && !req.headers.authorization) {

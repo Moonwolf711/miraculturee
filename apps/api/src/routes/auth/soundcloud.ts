@@ -7,8 +7,15 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'https://mira-culture.com';
 export async function soundcloudOAuthRoutes(app: FastifyInstance) {
   const verificationService = new ArtistVerificationService(app.prisma);
 
+  function isConfigured() {
+    return !!(process.env.SOUNDCLOUD_CLIENT_ID && process.env.SOUNDCLOUD_CLIENT_SECRET && process.env.SOUNDCLOUD_REDIRECT_URI);
+  }
+
   /** GET /auth/soundcloud/connect — initiate SoundCloud OAuth (requires auth via header or query param) */
   app.get('/connect', async (req, reply) => {
+    if (!isConfigured()) {
+      return reply.code(503).send({ error: 'SoundCloud integration is not configured yet' });
+    }
     const queryToken = (req.query as { token?: string }).token;
     if (queryToken && !req.headers.authorization) {
       req.headers.authorization = `Bearer ${queryToken}`;
