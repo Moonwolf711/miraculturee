@@ -63,6 +63,10 @@ const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+const EVENT_KEYWORDS = /festival|wonderland|cruise|lands$|edc|beyond|circus|cove \d|dreamstate|wasteland|iii points|arc music|nocturnal|escape|north coast|outside lands|circuit(mom|sun)|ultra|tomorrowland|coachella|bonnaroo|lollapalooza|burning man|day\s?\d|year\s?\d/i;
+const isLikelyEvent = (name: string) => !name.includes(',') && EVENT_KEYWORDS.test(name);
+const splitArtists = (name: string) => name.includes(',') ? name.split(',').map(n => n.trim()).filter(Boolean) : [name];
+
 export default function AdminPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [users, setUsers] = useState<UsersResponse | null>(null);
@@ -503,20 +507,30 @@ export default function AdminPage() {
               {artists.artists.map((a) => (
                 <div key={a.id} className="bg-noir-800 border border-noir-700 rounded-xl px-4 py-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-warm-50 font-medium text-sm truncate mr-2">{a.stageName}</span>
                     <div className="flex gap-1 shrink-0">
-                      {a.isVerified && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>
+                      {isLikelyEvent(a.stageName) && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-orange-500/10 text-orange-400 border border-orange-500/20">Event</span>
                       )}
-                      {a.isPlaceholder && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-gray-500/10 text-gray-400 border border-gray-500/20">Placeholder</span>
+                      {a.isVerified ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-noir-700 text-gray-400 border border-noir-600">Unverified</span>
                       )}
                       {a.user.isBanned && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">Banned</span>
                       )}
                     </div>
                   </div>
-                  <p className="text-gray-400 text-xs truncate">{a.user.email}</p>
+                  {splitArtists(a.stageName).length > 1 ? (
+                    <div className="flex flex-wrap gap-1.5 my-2">
+                      {splitArtists(a.stageName).map((name, i) => (
+                        <span key={i} className="px-2 py-1 rounded-md text-xs bg-noir-700 text-warm-50 border border-noir-600">{name}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-warm-50 font-medium text-sm mt-1">{a.stageName}</p>
+                  )}
+                  <p className="text-gray-400 text-xs truncate mt-1">{a.user.email}</p>
                   <div className="flex items-center justify-between mt-2 text-[10px] text-gray-500 uppercase tracking-wider">
                     <span>{a.genre || 'No genre'}</span>
                     <span>{a._count.socialAccounts} socials</span>
@@ -563,17 +577,27 @@ export default function AdminPage() {
                 <tbody>
                   {artists.artists.map((a) => (
                     <tr key={a.id} className="border-b border-noir-700/50 last:border-0 hover:bg-noir-700/20">
-                      <td className="px-4 py-3 text-warm-50 whitespace-nowrap">{a.stageName}</td>
+                      <td className="px-4 py-3 text-warm-50 max-w-xs">
+                        {splitArtists(a.stageName).length > 1 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {splitArtists(a.stageName).map((name, i) => (
+                              <span key={i} className="px-2 py-0.5 rounded-md text-xs bg-noir-700 text-warm-50 border border-noir-600">{name}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="whitespace-nowrap">{a.stageName}</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-gray-400">{a.user.email}</td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap gap-1">
+                          {isLikelyEvent(a.stageName) && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-orange-500/10 text-orange-400 border border-orange-500/20">Event</span>
+                          )}
                           {a.isVerified ? (
                             <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-green-500/10 text-green-400 border border-green-500/20">Verified</span>
                           ) : (
                             <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-noir-700 text-gray-400 border border-noir-600">Unverified</span>
-                          )}
-                          {a.isPlaceholder && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-gray-500/10 text-gray-400 border border-gray-500/20">Placeholder</span>
                           )}
                           {a.user.isBanned && (
                             <span className="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">Banned</span>
