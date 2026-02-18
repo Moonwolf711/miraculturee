@@ -81,6 +81,10 @@ export default function AdminPage() {
   const [editingArtist, setEditingArtist] = useState<ArtistItem | null>(null);
   const [editForm, setEditForm] = useState({ stageName: '', genre: '', bio: '' });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [emailingArtist, setEmailingArtist] = useState<ArtistItem | null>(null);
+  const [emailForm, setEmailForm] = useState({ subject: '', message: '' });
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   const fetchAnalytics = useCallback(() => {
     api.get<Analytics>('/admin/dashboard/analytics')
@@ -181,6 +185,23 @@ export default function AdminPage() {
       fetchArtists();
     } catch (err: any) { setError(err.message); }
     finally { setActionLoading(null); }
+  };
+
+  const handleEmailOpen = (a: ArtistItem) => {
+    setEmailingArtist(a);
+    setEmailForm({ subject: '', message: '' });
+    setEmailSent(false);
+  };
+
+  const handleEmailSend = async () => {
+    if (!emailingArtist || !emailForm.subject.trim() || !emailForm.message.trim()) return;
+    setEmailSending(true);
+    try {
+      await api.post(`/admin/dashboard/artists/${emailingArtist.id}/email`, emailForm);
+      setEmailSent(true);
+      setTimeout(() => setEmailingArtist(null), 1500);
+    } catch (err: any) { setError(err.message); }
+    finally { setEmailSending(false); }
   };
 
   if (loading) {
@@ -510,6 +531,7 @@ export default function AdminPage() {
                         className="px-3 py-1.5 rounded-lg text-xs border border-green-600 text-green-400 hover:border-green-400 transition-colors disabled:opacity-30">Verify</button>
                     )}
                     <button onClick={() => handleEditOpen(a)} className="px-3 py-1.5 rounded-lg text-xs border border-amber-600 text-amber-400 hover:border-amber-400 transition-colors">Edit</button>
+                    <button onClick={() => handleEmailOpen(a)} className="px-3 py-1.5 rounded-lg text-xs border border-cyan-600 text-cyan-400 hover:border-cyan-400 transition-colors">Email</button>
                     {a.user.isBanned ? (
                       <button onClick={() => handleBan(a.id, false)} disabled={actionLoading === a.id}
                         className="px-3 py-1.5 rounded-lg text-xs border border-blue-600 text-blue-400 hover:border-blue-400 transition-colors disabled:opacity-30">Unban</button>
@@ -574,6 +596,8 @@ export default function AdminPage() {
                           )}
                           <button onClick={() => handleEditOpen(a)}
                             className="px-2.5 py-1 rounded text-[10px] uppercase tracking-wider border border-amber-600 text-amber-400 hover:border-amber-400 transition-colors">Edit</button>
+                          <button onClick={() => handleEmailOpen(a)}
+                            className="px-2.5 py-1 rounded text-[10px] uppercase tracking-wider border border-cyan-600 text-cyan-400 hover:border-cyan-400 transition-colors">Email</button>
                           {a.user.isBanned ? (
                             <button onClick={() => handleBan(a.id, false)} disabled={actionLoading === a.id}
                               className="px-2.5 py-1 rounded text-[10px] uppercase tracking-wider border border-blue-600 text-blue-400 hover:border-blue-400 transition-colors disabled:opacity-30">Unban</button>
@@ -652,6 +676,54 @@ export default function AdminPage() {
                 <button onClick={handleEditSave} disabled={actionLoading === editingArtist.id}
                   className="px-4 py-2 rounded-lg bg-amber-500 text-noir-950 text-sm font-medium hover:bg-amber-400 transition-colors disabled:opacity-50">Save</button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Email Artist Modal */}
+        {emailingArtist && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4" onClick={() => setEmailingArtist(null)}>
+            <div className="bg-noir-900 border border-noir-700 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <h3 className="font-display text-lg tracking-wider text-warm-50 mb-1">EMAIL ARTIST</h3>
+              <p className="text-gray-400 text-xs mb-4">To: {emailingArtist.stageName} ({emailingArtist.user.email})</p>
+              {emailSent ? (
+                <div className="text-center py-8">
+                  <p className="text-green-400 text-lg font-medium">Email sent!</p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Subject</label>
+                      <input
+                        type="text"
+                        value={emailForm.subject}
+                        onChange={(e) => setEmailForm((f) => ({ ...f, subject: e.target.value }))}
+                        placeholder="Email subject..."
+                        className="w-full bg-noir-800 border border-noir-700 text-gray-200 placeholder-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-xs uppercase tracking-wider block mb-1">Message</label>
+                      <textarea
+                        value={emailForm.message}
+                        onChange={(e) => setEmailForm((f) => ({ ...f, message: e.target.value }))}
+                        placeholder="Write your message..."
+                        rows={5}
+                        className="w-full bg-noir-800 border border-noir-700 text-gray-200 placeholder-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 mt-5">
+                    <button onClick={() => setEmailingArtist(null)}
+                      className="px-4 py-2 rounded-lg border border-noir-700 text-gray-400 text-sm hover:border-gray-500 transition-colors">Cancel</button>
+                    <button onClick={handleEmailSend} disabled={emailSending || !emailForm.subject.trim() || !emailForm.message.trim()}
+                      className="px-4 py-2 rounded-lg bg-cyan-600 text-white text-sm font-medium hover:bg-cyan-500 transition-colors disabled:opacity-50">
+                      {emailSending ? 'Sending...' : 'Send Email'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -42,6 +42,11 @@ export interface EmailVerificationData {
   verifyLink: string;
 }
 
+export interface AdminEmailData {
+  subject: string;
+  message: string;
+}
+
 export interface TicketConfirmationData {
   userName: string;
   eventTitle: string;
@@ -365,6 +370,33 @@ export class EmailService {
       });
     } catch (error) {
       console.error('[EmailService] Failed to send email verification:', error);
+    }
+  }
+
+  /**
+   * Sends a custom email from admin to an artist.
+   */
+  async sendAdminEmail(
+    to: string,
+    data: AdminEmailData,
+  ): Promise<void> {
+    const html = layout(`
+      ${heading(data.subject)}
+      ${paragraph(data.message.replace(/\n/g, '<br />'))}
+      ${paragraph('This message was sent by the MiraCulture admin team. If you have questions, reply to this email or visit your dashboard.')}
+      ${ctaButton('Go to Dashboard', 'https://mira-culture.com/dashboard')}
+    `);
+
+    try {
+      await this.resend.emails.send({
+        from: FROM_ADDRESS,
+        to,
+        subject: data.subject,
+        html,
+      });
+    } catch (error) {
+      console.error('[EmailService] Failed to send admin email:', error);
+      throw error;
     }
   }
 }

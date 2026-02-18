@@ -173,6 +173,30 @@ export default async function adminDashboardRoutes(app: FastifyInstance) {
   });
 
   /**
+   * POST /admin/artists/:id/email
+   * Send a custom email to an artist
+   */
+  app.post('/artists/:id/email', async (req) => {
+    const { id } = req.params as { id: string };
+    const { subject, message } = req.body as { subject: string; message: string };
+    if (!subject || !message) {
+      throw Object.assign(new Error('Subject and message are required'), { statusCode: 400 });
+    }
+    const artist = await app.prisma.artist.findUnique({
+      where: { id },
+      include: { user: { select: { email: true } } },
+    });
+    if (!artist) {
+      throw Object.assign(new Error('Artist not found'), { statusCode: 404 });
+    }
+    if (!app.emailService) {
+      throw Object.assign(new Error('Email service not configured'), { statusCode: 503 });
+    }
+    await app.emailService.sendAdminEmail(artist.user.email, { subject, message });
+    return { success: true };
+  });
+
+  /**
    * GET /admin/analytics
    * Platform-wide stats
    */
