@@ -70,32 +70,6 @@ const STEPS = [
 ];
 
 
-const TESTIMONIALS = [
-  {
-    quote: 'I supported an artist I love in Tokyo from my couch in Ohio. Two weeks later, a fan there got to see the show for $5. That\'s how music should work.',
-    name: 'Marcus T.',
-    role: 'Supporter',
-    location: 'Columbus, OH',
-    initials: 'MT',
-    color: 'bg-amber-500/20 text-amber-400',
-  },
-  {
-    quote: 'I won tickets to see SZA for five dollars. Five. I literally cried. No bots, no scalpers — just luck and a fair system.',
-    name: 'Priya K.',
-    role: 'Raffle Winner',
-    location: 'Toronto, ON',
-    initials: 'PK',
-    color: 'bg-emerald-500/20 text-emerald-400',
-  },
-  {
-    quote: 'My fans buy tickets because they believe in the music, not because they want to flip them. MiraCulture gave me that connection back.',
-    name: 'Jordan Wells',
-    role: 'Independent Artist',
-    location: 'Atlanta, GA',
-    initials: 'JW',
-    color: 'bg-purple-500/20 text-purple-400',
-  },
-];
 
 const FAQ_ITEMS = [
   {
@@ -731,56 +705,7 @@ export default function HomePage() {
 
       <hr className="section-divider" />
 
-      {/* ===== 6. TESTIMONIALS ===== */}
-      <Section className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
-              THE COMMUNITY
-            </p>
-            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 text-3d">
-              WHAT FANS SAY
-            </h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 perspective-container">
-            {TESTIMONIALS.map((t, i) => (
-              <div
-                key={t.name}
-                className="glass-card glass-shimmer fresnel-border card-3d ambient-glow rounded-lg p-6 flex flex-col animate-fade-in-up"
-                style={{ animationDelay: `${i * 150}ms` }}
-              >
-                {/* Quote mark */}
-                <span className="font-display text-5xl text-amber-500/20 leading-none select-none" aria-hidden="true">
-                  &ldquo;
-                </span>
-                <p className="font-body text-gray-300 text-sm italic leading-relaxed mb-6 -mt-4 flex-1">
-                  {t.quote}
-                </p>
-
-                {/* Author */}
-                <div className="flex items-center gap-3 pt-4 border-t border-noir-800/40">
-                  <div className={`avatar-circle ${t.color}`}>
-                    {t.initials}
-                  </div>
-                  <div>
-                    <p className="font-body text-warm-50 text-sm font-semibold">
-                      {t.name}
-                    </p>
-                    <p className="font-body text-amber-500/70 text-xs">
-                      {t.role} &middot; {t.location}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Section>
-
-      <hr className="section-divider" />
-
-      {/* ===== 6b. FAQ ===== */}
+      {/* ===== 6. FAQ ===== */}
       <Section className="py-24 px-6">
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-14">
