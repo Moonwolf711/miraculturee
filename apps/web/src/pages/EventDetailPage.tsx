@@ -508,7 +508,7 @@ export default function EventDetailPage() {
           </div>
         </div>
 
-        {/* AWAITING_ARTIST: Share CTA instead of payment tabs */}
+        {/* AWAITING_ARTIST: Ticket lock notice */}
         {event.status === 'AWAITING_ARTIST' && (
           <div className="bg-noir-800 border border-amber-500/30 rounded-xl p-6 mb-8">
             <div className="flex items-center gap-2 mb-4">
@@ -521,22 +521,31 @@ export default function EventDetailPage() {
               <strong className="text-warm-50">{event.artistName}</strong> hasn't activated a campaign on MiraCulture yet.
               Tickets are locked until they do.
             </p>
-            <p className="text-gray-400 text-sm font-body mb-5">
+            <p className="text-gray-400 text-sm font-body">
               Share this event with <strong className="text-warm-50">{event.artistName}</strong> to let them know fans want
               fair-price tickets through MiraCulture. When they join and activate a campaign, tickets unlock!
             </p>
-            {(event.shareCount ?? 0) > 0 && (
-              <p className="text-xs text-amber-400/70 font-body mb-4">
-                {event.shareCount} fan{event.shareCount === 1 ? ' has' : 's have'} shared this event
-              </p>
-            )}
-            <ShareButton
-              eventId={event.id}
-              artistName={event.artistName}
-              eventTitle={event.title}
-            />
           </div>
         )}
+
+        {/* Share section — always visible on every event */}
+        <div className="bg-noir-800 border border-noir-700 rounded-xl p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-sm tracking-wider text-warm-50 uppercase">
+              Share This Event
+            </h2>
+            {(event.shareCount ?? 0) > 0 && (
+              <span className="text-xs text-amber-400/70 font-body">
+                {event.shareCount} fan{event.shareCount === 1 ? ' has' : 's have'} shared
+              </span>
+            )}
+          </div>
+          <ShareButton
+            eventId={event.id}
+            artistName={event.artistName}
+            eventTitle={event.title}
+          />
+        </div>
 
         {/* Unified Payment Section with Tabs */}
         {user && event.status === 'PUBLISHED' && (

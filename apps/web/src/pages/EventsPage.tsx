@@ -481,17 +481,15 @@ export default function EventsPage() {
                     </p>
                   </div>
 
-                  {/* Share icon for AWAITING_ARTIST events */}
-                  {event.status === 'AWAITING_ARTIST' && (
-                    <div className="flex-shrink-0 pr-1">
-                      <ShareButton
-                        eventId={event.id}
-                        artistName={event.artistName}
-                        eventTitle={event.title}
-                        variant="icon"
-                      />
-                    </div>
-                  )}
+                  {/* Share icon on every card */}
+                  <div className="flex-shrink-0 pr-1">
+                    <ShareButton
+                      eventId={event.id}
+                      artistName={event.artistName}
+                      eventTitle={event.title}
+                      variant="icon"
+                    />
+                  </div>
 
                   {/* Progress bar — compact, hidden on small screens */}
                   <div className="hidden sm:flex items-center gap-2 flex-shrink-0 w-28 pr-2">
