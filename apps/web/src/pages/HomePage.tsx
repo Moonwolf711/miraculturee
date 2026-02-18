@@ -885,7 +885,7 @@ export default function HomePage() {
 
           <div className="text-center">
             <Link
-              to="/artist/register"
+              to="/artist/verify"
               className="btn-amber px-8 py-3.5 text-base inline-flex items-center gap-2 group"
             >
               <span>LIST YOUR EVENT</span>

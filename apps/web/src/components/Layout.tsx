@@ -139,18 +139,15 @@ export default function Layout({ children }: { children: ReactNode }) {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-body" aria-label="Main navigation">
-            <Link to="/events" className="nav-link">
-              Shows
-            </Link>
-            <Link to="/events?type=FESTIVAL" className="nav-link">
-              Festivals
+            <Link to="/events" className={`nav-link ${location.pathname === '/events' ? 'nav-link-active' : ''}`}>
+              Events
             </Link>
             <a href="/#how-it-works" className={`nav-link ${activeSection === 'how-it-works' ? 'nav-link-active' : ''}`}>
               How It Works
             </a>
-            <a href="/#for-artists" className={`nav-link ${activeSection === 'for-artists' ? 'nav-link-active' : ''}`}>
+            <Link to="/artist/verify" className={`nav-link ${location.pathname === '/artist/verify' ? 'nav-link-active' : ''}`}>
               For Artists
-            </a>
+            </Link>
             {user && (
               <Link to="/dashboard" className="nav-link">
                 My Dashboard
@@ -217,14 +214,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               onClick={closeMobile}
               className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
             >
-              Shows
-            </Link>
-            <Link
-              to="/events?type=FESTIVAL"
-              onClick={closeMobile}
-              className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
-            >
-              Festivals
+              Events
             </Link>
             <a
               href="/#how-it-works"
@@ -233,13 +223,13 @@ export default function Layout({ children }: { children: ReactNode }) {
             >
               How It Works
             </a>
-            <a
-              href="/#for-artists"
+            <Link
+              to="/artist/verify"
               onClick={closeMobile}
               className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
             >
               For Artists
-            </a>
+            </Link>
             {user && (
               <Link
                 to="/dashboard"
@@ -326,12 +316,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <ul className="space-y-2">
                 <li>
                   <Link to="/events" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
-                    Browse Shows
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/events?type=FESTIVAL" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
-                    Festivals
+                    Events
                   </Link>
                 </li>
                 <li>
@@ -340,9 +325,9 @@ export default function Layout({ children }: { children: ReactNode }) {
                   </a>
                 </li>
                 <li>
-                  <a href="/#for-artists" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
+                  <Link to="/artist/verify" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
                     For Artists
-                  </a>
+                  </Link>
                 </li>
                 <li>
                   <Link to="/register" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
