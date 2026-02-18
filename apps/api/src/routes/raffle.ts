@@ -24,6 +24,29 @@ export async function raffleRoutes(app: FastifyInstance) {
     const { poolId, lat, lng, captchaToken } = body;
     const ip = req.ip;
 
+    // 0. Validate campaign goal + event timing before processing payment
+    const pool = await app.prisma.rafflePool.findUnique({
+      where: { id: poolId },
+      include: { event: { include: { campaigns: { where: { status: 'ACTIVE' }, take: 1 } } } },
+    });
+    if (!pool) {
+      throw Object.assign(new Error('Raffle pool not found.'), { statusCode: 404 });
+    }
+    const campaign = pool.event.campaigns[0];
+    if (campaign && campaign.fundedCents < campaign.goalCents) {
+      throw Object.assign(
+        new Error('Campaign goal has not been reached yet. Raffle entries are not open.'),
+        { statusCode: 403 },
+      );
+    }
+    const msUntilShow = new Date(pool.event.date).getTime() - Date.now();
+    if (msUntilShow < 24 * 60 * 60 * 1000) {
+      throw Object.assign(
+        new Error('Raffle entries are closed — the show is less than 24 hours away.'),
+        { statusCode: 403 },
+      );
+    }
+
     // 1. Verify CAPTCHA
     const captchaValid = await app.captcha.verify(captchaToken, ip);
     if (!captchaValid) {
