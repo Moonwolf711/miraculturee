@@ -7,10 +7,12 @@ import {
 } from '@miraculturee/shared';
 import { ArtistService } from '../services/artist.service.js';
 import { ArtistVerificationService } from '../services/artistVerification.js';
+import { ArtistMatchingService } from '../services/artist-matching.service.js';
 
 export async function artistRoutes(app: FastifyInstance) {
   const artistService = new ArtistService(app.prisma);
   const verificationService = new ArtistVerificationService(app.prisma);
+  const matchingService = new ArtistMatchingService(app.prisma);
 
   /** Helper: get or auto-create artist profile for the authenticated user */
   async function getOrCreateArtist(userId: string) {
@@ -193,5 +195,97 @@ export async function artistRoutes(app: FastifyInstance) {
     if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
     await verificationService.disconnectSocialAccount(artist.id, upper as any);
     return { success: true };
+  });
+
+  // --- Campaign-Gated: Matched Events & Claim ---
+
+  /** GET /artist/matched-events — events matching this artist's name (via placeholder lookup) */
+  app.get('/matched-events', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
+    if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+
+    const matches = await matchingService.findMatchingEvents(artist.stageName, artist.id);
+    return { matches };
+  });
+
+  /** POST /artist/claim/:eventId — artist claims an event and activates a campaign */
+  app.post('/claim/:eventId', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { eventId } = req.params as { eventId: string };
+    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
+    if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+
+    // Enforce 2 campaigns per month limit
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const campaignsThisMonth = await app.prisma.campaign.count({
+      where: {
+        artistId: artist.id,
+        createdAt: { gte: startOfMonth },
+      },
+    });
+    if (campaignsThisMonth >= 2) {
+      return reply.code(429).send({
+        error: 'You can only activate 2 campaigns per month. Try again next month.',
+        campaignsUsed: campaignsThisMonth,
+        limit: 2,
+      });
+    }
+
+    // Verify event exists and is AWAITING_ARTIST
+    const event = await app.prisma.event.findUnique({
+      where: { id: eventId },
+      include: { artist: true },
+    });
+    if (!event) return reply.code(404).send({ error: 'Event not found' });
+    if (event.status !== 'AWAITING_ARTIST') {
+      return reply.code(400).send({ error: 'Event is not awaiting an artist' });
+    }
+
+    // Verify name match (placeholder artist stageName vs real artist stageName)
+    const placeholderName = event.artist.stageName.toLowerCase().trim();
+    const realName = artist.stageName.toLowerCase().trim();
+    if (placeholderName !== realName && !placeholderName.includes(realName) && !realName.includes(placeholderName)) {
+      return reply.code(403).send({ error: 'Your artist name does not match this event' });
+    }
+
+    // All in one transaction: transfer event, create campaign, publish
+    const goalCents = event.ticketPriceCents * 10;
+    const result = await app.prisma.$transaction(async (tx) => {
+      // Transfer event ownership to real artist
+      const updatedEvent = await tx.event.update({
+        where: { id: eventId },
+        data: {
+          artistId: artist.id,
+          status: 'PUBLISHED',
+        },
+      });
+
+      // Auto-create an ACTIVE campaign
+      const campaign = await tx.campaign.create({
+        data: {
+          artistId: artist.id,
+          eventId,
+          headline: `${artist.stageName} is on MiraCulture!`,
+          message: `Support ${artist.stageName} and get a chance at discounted tickets.`,
+          status: 'ACTIVE',
+          startAt: new Date(),
+          endAt: event.date,
+          goalCents,
+          discountCents: 500,
+        },
+      });
+
+      return { event: updatedEvent, campaign };
+    });
+
+    return reply.code(200).send({
+      success: true,
+      eventId: result.event.id,
+      campaignId: result.campaign.id,
+      status: result.event.status,
+      campaignsUsedThisMonth: campaignsThisMonth + 1,
+      campaignsRemaining: 2 - (campaignsThisMonth + 1),
+    });
   });
 }

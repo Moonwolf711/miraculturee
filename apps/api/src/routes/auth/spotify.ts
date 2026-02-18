@@ -1,11 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { getSpotifyAuthorizeUrl, exchangeSpotifyCode, getSpotifyProfile } from '../../lib/oauth/spotify-client.js';
 import { ArtistVerificationService } from '../../services/artistVerification.js';
+import { ArtistMatchingService } from '../../services/artist-matching.service.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://mira-culture.com';
 
 export async function spotifyOAuthRoutes(app: FastifyInstance) {
   const verificationService = new ArtistVerificationService(app.prisma);
+  const matchingService = new ArtistMatchingService(app.prisma);
 
   function isConfigured() {
     return !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET && process.env.SPOTIFY_REDIRECT_URI);
@@ -73,7 +75,19 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
         rawProfile: profile,
       });
 
-      return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=spotify`);
+      // Store Spotify artist ID for dedup
+      await app.prisma.artist.update({
+        where: { id: payload.artistId },
+        data: { spotifyArtistId: profile.id },
+      }).catch(() => { /* ignore if already set or unique constraint */ });
+
+      // Run artist matching to find shows
+      const displayName = profile.display_name || '';
+      const artist = await app.prisma.artist.findUnique({ where: { id: payload.artistId } });
+      const matchName = artist?.stageName || displayName;
+      const matches = await matchingService.findMatchingEvents(matchName, payload.artistId);
+
+      return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=spotify&matches=${matches.length}`);
     } catch (err) {
       app.log.error(err, 'Spotify OAuth callback failed');
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=spotify_failed`);

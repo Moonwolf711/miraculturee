@@ -16,6 +16,7 @@ enum Role {
 
 enum EventStatus {
   DRAFT
+  AWAITING_ARTIST
   PUBLISHED
   SOLD_OUT
   COMPLETED
@@ -110,6 +111,8 @@ model Artist {
   isVerified         Boolean   @default(false)
   verifiedAt         DateTime?
   verificationStatus String    @default("UNVERIFIED") // UNVERIFIED | VERIFIED
+  isPlaceholder      Boolean   @default(false)
+  spotifyArtistId    String?   @unique
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -208,11 +211,26 @@ model Event {
   ticketAcquisitions TicketAcquisition[]
   campaigns          Campaign[]
   donorConnections   DonorConnection[]
+  shareInvites       ShareInvite[]
 
   @@index([artistId])
   @@index([status, date])
   @@index([venueCity, date])
   @@index([venueLat, venueLng])
+}
+
+model ShareInvite {
+  id         String   @id @default(uuid())
+  eventId    String
+  fanUserId  String?
+  shareToken String   @unique @default(uuid())
+  platform   String?
+  clickCount Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
 }
 
 model SupportTicket {

@@ -265,6 +265,7 @@ export class EventIngestionService {
                 userId: placeholderUser.id,
                 stageName: ext.artistName,
                 genre: ext.genre || null,
+                isPlaceholder: true,
               },
             });
             artistId = newArtist.id;
@@ -309,7 +310,7 @@ export class EventIngestionService {
             totalTickets: isFestival ? 500 : 200,
             localRadiusKm: 50,
             type: isFestival ? 'FESTIVAL' : 'SHOW',
-            status: 'PUBLISHED',
+            status: 'AWAITING_ARTIST',
           },
         });
 

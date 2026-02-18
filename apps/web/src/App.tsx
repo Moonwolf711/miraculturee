@@ -41,6 +41,7 @@ const StorefrontPage = lazyRetry(() => import('./pages/StorefrontPage.js'));
 const AdminPage = lazyRetry(() => import('./pages/AdminPage.js'));
 const ArtistRegisterPage = lazyRetry(() => import('./pages/ArtistRegisterPage.js'));
 const ArtistVerifyPage = lazyRetry(() => import('./pages/ArtistVerifyPage.js'));
+const InviteRedirectPage = lazyRetry(() => import('./pages/InviteRedirectPage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -112,6 +113,7 @@ export default function App() {
             />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/events/:id" element={<EventDetailPage />} />
+            <Route path="/invite/:token" element={<InviteRedirectPage />} />
             <Route
               path="/dashboard"
               element={

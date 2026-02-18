@@ -13,15 +13,16 @@ export async function eventRoutes(app: FastifyInstance) {
 
   // Public: distinct filter options (cities + genres)
   app.get('/filters', async () => {
+    const statusFilter = { in: ['PUBLISHED', 'AWAITING_ARTIST'] as ('PUBLISHED' | 'AWAITING_ARTIST')[] };
     const [cities, genres] = await Promise.all([
       app.prisma.event.findMany({
-        where: { status: 'PUBLISHED', date: { gte: new Date() } },
+        where: { status: statusFilter, date: { gte: new Date() } },
         select: { venueCity: true },
         distinct: ['venueCity'],
         orderBy: { venueCity: 'asc' },
       }),
       app.prisma.artist.findMany({
-        where: { genre: { not: null }, events: { some: { status: 'PUBLISHED', date: { gte: new Date() } } } },
+        where: { genre: { not: null }, events: { some: { status: statusFilter, date: { gte: new Date() } } } },
         select: { genre: true },
         distinct: ['genre'],
         orderBy: { genre: 'asc' },

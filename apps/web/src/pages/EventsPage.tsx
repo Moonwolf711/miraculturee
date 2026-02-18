@@ -5,6 +5,7 @@ import { useWebSocket, usePollingFallback } from '../hooks/useWebSocket.js';
 import type { WSMessage } from '../lib/ws.js';
 import SEO, { getBreadcrumbSchema } from '../components/SEO.js';
 import { CardSkeleton, InlineError } from '../components/LoadingStates.js';
+import ShareButton from '../components/ShareButton.js';
 
 type EventTypeFilter = 'SHOW' | 'FESTIVAL';
 type SortKey = 'distance' | 'popular' | 'date';
@@ -20,6 +21,7 @@ interface EventSummary {
   totalTickets: number;
   supportedTickets: number;
   type: EventTypeFilter;
+  status: string;
   genre?: string | null;
 }
 
@@ -447,47 +449,54 @@ export default function EventsPage() {
             )}
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-2">
             {events.data.map((event, index) => (
               <Link
                 key={event.id}
                 to={`/events/${event.id}`}
-                className="group block animate-fade-in-up"
-                style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
+                className="group block animate-fade-in-up overflow-hidden"
+                style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
               >
-                <div className="bg-noir-800 border border-noir-700 rounded-xl overflow-hidden transition-all duration-300 group-hover:border-amber-500/30 group-hover:shadow-lg group-hover:shadow-amber-500/5">
-                  {/* Top row: date + price */}
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-noir-900 border-b border-noir-700">
-                    <div className="flex items-center gap-2">
-                      <span className="font-display text-xs tracking-widest text-amber-400">{getMonth(event.date)}</span>
-                      <span className="font-display text-xl text-amber-500 leading-none">{getDay(event.date)}</span>
-                    </div>
-                    <span className="font-display text-xl text-amber-400 leading-none whitespace-nowrap">{formatPrice(event.ticketPriceCents)}</span>
+                <div className="bg-noir-800 border border-noir-700 rounded-lg transition-all duration-300 group-hover:border-amber-500/30 group-hover:shadow-lg group-hover:shadow-amber-500/5 flex items-center overflow-hidden">
+                  {/* Date block */}
+                  <div className="flex-shrink-0 w-14 sm:w-16 py-2.5 bg-noir-900 border-r border-noir-700 text-center">
+                    <span className="block font-display text-[10px] tracking-widest text-amber-400 leading-none">{getMonth(event.date)}</span>
+                    <span className="block font-display text-lg sm:text-xl text-amber-500 leading-tight">{getDay(event.date)}</span>
                   </div>
 
-                  {/* Card body */}
-                  <div className="px-4 py-3">
-                    <h2 className="font-body font-semibold text-warm-50 text-base truncate group-hover:text-amber-50 transition-colors duration-300">
-                      {event.title}
-                    </h2>
-                    <p className="font-body text-gray-400 text-sm mt-1 truncate">
+                  {/* Title + artist — truncates with ellipsis */}
+                  <div style={{ minWidth: 0, overflow: 'hidden' }} className="flex-1 px-3 sm:px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <h2 style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="font-body font-semibold text-warm-50 text-sm group-hover:text-amber-50 transition-colors duration-300">
+                        {event.title}
+                      </h2>
+                      {event.status === 'AWAITING_ARTIST' && (
+                        <span className="flex-shrink-0 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/25 rounded">
+                          Invite Artist
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="font-body text-gray-500 text-xs">
                       {event.artistName} &middot; {event.venueName}, {event.venueCity}
                     </p>
-                    <div className="flex items-center justify-between mt-2.5">
-                      <div className="flex items-center gap-2">
-                        <p className="font-body text-gray-400 text-xs">{formatDate(event.date)}</p>
-                        {event.genre && (
-                          <span className="px-2 py-0.5 rounded-full bg-noir-700 text-gray-400 font-body text-[10px] uppercase tracking-wider">
-                            {event.genre}
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-body text-gray-400 text-[10px] sm:text-xs whitespace-nowrap">
-                        {event.supportedTickets}/{event.totalTickets} supported
-                      </span>
+                  </div>
+
+                  {/* Share icon for AWAITING_ARTIST events */}
+                  {event.status === 'AWAITING_ARTIST' && (
+                    <div className="flex-shrink-0 pr-1">
+                      <ShareButton
+                        eventId={event.id}
+                        artistName={event.artistName}
+                        eventTitle={event.title}
+                        variant="icon"
+                      />
                     </div>
+                  )}
+
+                  {/* Progress bar — compact, hidden on small screens */}
+                  <div className="hidden sm:flex items-center gap-2 flex-shrink-0 w-28 pr-2">
                     <div
-                      className="mt-2 w-full h-1.5 bg-noir-700 rounded-full overflow-hidden"
+                      className="flex-1 h-1 bg-noir-700 rounded-full overflow-hidden"
                       role="progressbar"
                       aria-valuenow={Math.round(Math.min(100, (event.supportedTickets / event.totalTickets) * 100))}
                       aria-valuemin={0}
@@ -499,6 +508,14 @@ export default function EventsPage() {
                         style={{ width: `${Math.min(100, (event.supportedTickets / event.totalTickets) * 100)}%` }}
                       />
                     </div>
+                    <span className="font-body text-gray-500 text-[10px] whitespace-nowrap">
+                      {event.supportedTickets}/{event.totalTickets}
+                    </span>
+                  </div>
+
+                  {/* Price — always visible, never cut off */}
+                  <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 text-right border-l border-noir-700">
+                    <span className="font-display text-lg text-amber-400 leading-none">{formatPrice(event.ticketPriceCents)}</span>
                   </div>
                 </div>
               </Link>

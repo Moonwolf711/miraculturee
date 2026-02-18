@@ -49,6 +49,7 @@ export interface EventDetail extends EventSummary {
   sourceUrl: string | null;
   rafflePools: RafflePoolSummary[];
   campaigns?: { id: string; headline: string; message: string }[];
+  shareCount?: number;
 }
 
 /** Raffle pool data included in event detail responses. */

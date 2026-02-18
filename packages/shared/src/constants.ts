@@ -21,6 +21,7 @@ export type EventType = (typeof EVENT_TYPE)[keyof typeof EVENT_TYPE];
 /** Event lifecycle status constants. */
 export const EVENT_STATUS = {
   DRAFT: 'DRAFT',
+  AWAITING_ARTIST: 'AWAITING_ARTIST',
   PUBLISHED: 'PUBLISHED',
   SOLD_OUT: 'SOLD_OUT',
   COMPLETED: 'COMPLETED',

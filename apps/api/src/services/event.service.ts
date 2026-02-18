@@ -100,7 +100,7 @@ export class EventService {
     if (params.dateTo) dateFilter.lte = new Date(params.dateTo);
 
     const where: Prisma.EventWhereInput = {
-      status: 'PUBLISHED',
+      status: { in: ['PUBLISHED', 'AWAITING_ARTIST'] },
       date: dateFilter,
     };
 
@@ -214,7 +214,7 @@ export class EventService {
 
     const events = await this.prisma.event.findMany({
       where: {
-        status: 'PUBLISHED',
+        status: { in: ['PUBLISHED', 'AWAITING_ARTIST'] },
         date: { gte: new Date() },
         venueLat: { gte: params.lat - latDelta, lte: params.lat + latDelta },
         venueLng: { gte: params.lng - lngDelta, lte: params.lng + lngDelta },
@@ -254,7 +254,7 @@ export class EventService {
     if (!event) return null;
 
     const supportedTickets = event.supportTickets.reduce((sum, s) => sum + s.ticketCount, 0);
-    const [availableTickets, externalEvent, activeCampaigns] = await Promise.all([
+    const [availableTickets, externalEvent, activeCampaigns, shareCount] = await Promise.all([
       this.prisma.poolTicket.count({ where: { eventId: id, status: 'AVAILABLE' } }),
       this.prisma.externalEvent.findFirst({
         where: { importedEventId: id },
@@ -270,6 +270,7 @@ export class EventService {
         orderBy: { createdAt: 'desc' },
         take: 3,
       }),
+      this.prisma.shareInvite.count({ where: { eventId: id } }),
     ]);
     const currentProcessingFeeCents = await calculateDynamicFee(this.prisma, id, event.totalTickets);
 
@@ -302,6 +303,7 @@ export class EventService {
         drawTime: p.scheduledDrawTime?.toISOString() ?? null,
       })),
       campaigns: activeCampaigns,
+      shareCount,
     };
   }
 

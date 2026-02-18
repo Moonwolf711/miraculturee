@@ -22,6 +22,7 @@ import { applePayRoutes } from './routes/applepay.js';
 import { connectRoutes } from './routes/connect.js';
 import { connectWebhookRoutes } from './routes/connect-webhooks.js';
 import { donorConnectionRoutes } from './routes/donor-connections.js';
+import { shareRoutes } from './routes/share.js';
 import { spotifyOAuthRoutes } from './routes/auth/spotify.js';
 import { soundcloudOAuthRoutes } from './routes/auth/soundcloud.js';
 import externalEventsRoutes from './routes/admin/external-events.js';
@@ -79,6 +80,7 @@ async function start() {
   await app.register(applePayRoutes, { prefix: '/apple-pay' });
   await app.register(connectRoutes, { prefix: '/connect' });
   await app.register(donorConnectionRoutes, { prefix: '/donor-connections' });
+  await app.register(shareRoutes, { prefix: '/share' });
   // Webhook routes — use their own raw body parsers for Stripe signature verification
   await app.register(webhookRoutes, { prefix: '/webhook' });
   await app.register(connectWebhookRoutes, { prefix: '/connect-webhooks' });

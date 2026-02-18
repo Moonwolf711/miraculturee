@@ -8,6 +8,7 @@ import SEO, { getEventSchema, getBreadcrumbSchema } from '../components/SEO.js';
 import ErrorBoundary from '../components/ErrorBoundary.js';
 import { PageLoading, PageError, InlineError } from '../components/LoadingStates.js';
 import { isDirectSalesOpen, SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
+import ShareButton from '../components/ShareButton.js';
 
 /* Lazy-load Stripe checkout — the Stripe SDK is heavy (~40 kB) and
    only needed when a user actually initiates a payment */
@@ -51,6 +52,7 @@ interface EventDetail {
     discountCents: number;
     maxLocalTickets: number;
   }[];
+  shareCount?: number;
 }
 
 interface SupportPurchaseResponse {
@@ -505,6 +507,36 @@ export default function EventDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* AWAITING_ARTIST: Share CTA instead of payment tabs */}
+        {event.status === 'AWAITING_ARTIST' && (
+          <div className="bg-noir-800 border border-amber-500/30 rounded-xl p-6 mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <h2 className="font-display text-sm tracking-wider text-amber-400 uppercase">
+                Artist Hasn't Joined Yet
+              </h2>
+            </div>
+            <p className="text-gray-300 text-sm font-body mb-2">
+              <strong className="text-warm-50">{event.artistName}</strong> hasn't activated a campaign on MiraCulture yet.
+              Tickets are locked until they do.
+            </p>
+            <p className="text-gray-400 text-sm font-body mb-5">
+              Share this event with <strong className="text-warm-50">{event.artistName}</strong> to let them know fans want
+              fair-price tickets through MiraCulture. When they join and activate a campaign, tickets unlock!
+            </p>
+            {(event.shareCount ?? 0) > 0 && (
+              <p className="text-xs text-amber-400/70 font-body mb-4">
+                {event.shareCount} fan{event.shareCount === 1 ? ' has' : 's have'} shared this event
+              </p>
+            )}
+            <ShareButton
+              eventId={event.id}
+              artistName={event.artistName}
+              eventTitle={event.title}
+            />
+          </div>
+        )}
 
         {/* Unified Payment Section with Tabs */}
         {user && event.status === 'PUBLISHED' && (

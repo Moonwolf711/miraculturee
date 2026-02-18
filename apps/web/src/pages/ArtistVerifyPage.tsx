@@ -33,11 +33,25 @@ interface UpcomingEvent {
   totalTickets: number;
 }
 
+interface MatchedEvent {
+  eventId: string;
+  title: string;
+  venueName: string;
+  venueCity: string;
+  date: string;
+  ticketPriceCents: number;
+  totalTickets: number;
+  confidence: number;
+}
+
 export default function ArtistVerifyPage() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [data, setData] = useState<SocialAccountsResponse | null>(null);
   const [events, setEvents] = useState<UpcomingEvent[]>([]);
+  const [matchedEvents, setMatchedEvents] = useState<MatchedEvent[]>([]);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [campaignsRemaining, setCampaignsRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -47,12 +61,14 @@ export default function ArtistVerifyPage() {
 
   const fetchAccounts = useCallback(async () => {
     try {
-      const [res, dash] = await Promise.all([
+      const [res, dash, matched] = await Promise.all([
         api.get<SocialAccountsResponse>('/artist/me/social-accounts'),
         api.get<{ upcomingEvents: UpcomingEvent[] }>('/artist/dashboard').catch(() => ({ upcomingEvents: [] })),
+        api.get<{ matches: MatchedEvent[] }>('/artist/matched-events').catch(() => ({ matches: [] })),
       ]);
       setData(res);
       setEvents(dash.upcomingEvents);
+      setMatchedEvents(matched.matches);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load accounts');
     } finally {
@@ -66,7 +82,11 @@ export default function ArtistVerifyPage() {
 
   useEffect(() => {
     if (verified) {
-      setSuccessMsg(`Successfully connected ${verified.charAt(0).toUpperCase() + verified.slice(1)}!`);
+      const matchCount = searchParams.get('matches');
+      const matchStr = matchCount && parseInt(matchCount, 10) > 0
+        ? ` We found ${matchCount} show${parseInt(matchCount, 10) === 1 ? '' : 's'} matching your name!`
+        : '';
+      setSuccessMsg(`Successfully connected ${verified.charAt(0).toUpperCase() + verified.slice(1)}!${matchStr}`);
     }
     if (errorParam) {
       const messages: Record<string, string> = {
@@ -87,6 +107,27 @@ export default function ArtistVerifyPage() {
       setSuccessMsg(`Disconnected ${provider.charAt(0).toUpperCase() + provider.slice(1).toLowerCase()}`);
     } catch {
       setError('Failed to disconnect account');
+    }
+  };
+
+  const handleClaimEvent = async (eventId: string) => {
+    setClaimingId(eventId);
+    setError('');
+    try {
+      const res = await api.post<{
+        success: boolean;
+        campaignId: string;
+        campaignsRemaining: number;
+      }>(`/artist/claim/${eventId}`);
+      setSuccessMsg('Campaign activated! Tickets are now available for fans.');
+      setCampaignsRemaining(res.campaignsRemaining);
+      // Remove from matched list and refresh
+      setMatchedEvents((prev) => prev.filter((e) => e.eventId !== eventId));
+      await fetchAccounts();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to activate campaign');
+    } finally {
+      setClaimingId(null);
     }
   };
 
@@ -171,6 +212,54 @@ export default function ArtistVerifyPage() {
             )}
           </div>
         </div>
+
+        {/* Matched Events — Activate Campaign */}
+        {matchedEvents.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-body text-xs tracking-widest uppercase text-amber-400 font-semibold">
+                Your Shows on MiraCulture
+              </h2>
+              {campaignsRemaining != null && (
+                <span className="text-xs text-gray-500 font-body">
+                  {campaignsRemaining} campaign{campaignsRemaining === 1 ? '' : 's'} remaining this month
+                </span>
+              )}
+            </div>
+            <p className="text-gray-400 text-sm font-body mb-4">
+              Fans are waiting! Activate a campaign to unlock ticket sales. You can activate up to 2 shows per month.
+            </p>
+            <div className="space-y-3">
+              {matchedEvents.map((match) => (
+                <div
+                  key={match.eventId}
+                  className="bg-noir-900 border border-amber-500/20 rounded-xl p-4"
+                >
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-warm-50 font-medium text-sm truncate">{match.title}</h3>
+                      <p className="text-xs text-gray-400 mt-1 font-body">
+                        {match.venueName}, {match.venueCity}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5 font-body">
+                        {new Date(match.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                        {' '}&middot;{' '}
+                        Ticket price: ${(match.ticketPriceCents / 100).toFixed(0)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleClaimEvent(match.eventId)}
+                      disabled={claimingId === match.eventId || (campaignsRemaining != null && campaignsRemaining <= 0)}
+                      className="flex-shrink-0 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg text-xs uppercase tracking-wide transition-colors disabled:opacity-50"
+                    >
+                      {claimingId === match.eventId ? 'Activating...' : 'Activate Campaign'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Upcoming Shows */}
         {events.length > 0 && (
