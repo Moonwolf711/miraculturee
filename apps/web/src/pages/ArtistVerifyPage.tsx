@@ -23,10 +23,21 @@ interface SocialAccountsResponse {
   verificationStatus: string;
 }
 
+interface UpcomingEvent {
+  id: string;
+  title: string;
+  venueName: string;
+  venueCity: string;
+  date: string;
+  supportedTickets: number;
+  totalTickets: number;
+}
+
 export default function ArtistVerifyPage() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [data, setData] = useState<SocialAccountsResponse | null>(null);
+  const [events, setEvents] = useState<UpcomingEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -36,8 +47,12 @@ export default function ArtistVerifyPage() {
 
   const fetchAccounts = useCallback(async () => {
     try {
-      const res = await api.get<SocialAccountsResponse>('/artist/me/social-accounts');
+      const [res, dash] = await Promise.all([
+        api.get<SocialAccountsResponse>('/artist/me/social-accounts'),
+        api.get<{ upcomingEvents: UpcomingEvent[] }>('/artist/dashboard').catch(() => ({ upcomingEvents: [] })),
+      ]);
       setData(res);
+      setEvents(dash.upcomingEvents);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load accounts');
     } finally {
@@ -157,20 +172,52 @@ export default function ArtistVerifyPage() {
           </div>
         </div>
 
-        {/* Next steps */}
-        {data?.isVerified && (
-          <div className="mt-8 text-center">
-            <Link
-              to="/artist/dashboard"
-              className="btn-amber inline-flex items-center justify-center px-8 py-3 text-sm rounded-sm group"
-            >
-              <span>Go to Artist Dashboard</span>
-              <svg className="w-4 h-4 ml-2 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </Link>
+        {/* Upcoming Shows */}
+        {events.length > 0 && (
+          <div className="mt-8">
+            <h2 className="font-body text-xs tracking-widest uppercase text-gray-500 font-semibold mb-3">
+              Your Upcoming Shows
+            </h2>
+            <div className="space-y-3">
+              {events.map((event) => (
+                <Link
+                  key={event.id}
+                  to={`/events/${event.id}`}
+                  className="block bg-noir-900 border border-noir-800 rounded-xl p-4 hover:border-amber-500/30 transition-colors"
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-warm-50 font-medium text-sm">{event.title}</h3>
+                      <p className="text-xs text-gray-400 mt-1 font-body">
+                        {event.venueName}, {event.venueCity} &middot;{' '}
+                        {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-warm-50 font-display text-lg">
+                        {event.supportedTickets}/{event.totalTickets}
+                      </div>
+                      <div className="text-[10px] uppercase tracking-wider text-gray-500">supported</div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
+
+        {/* Next steps */}
+        <div className="mt-8 text-center">
+          <Link
+            to="/artist/dashboard"
+            className="btn-amber inline-flex items-center justify-center px-8 py-3 text-sm rounded-sm group"
+          >
+            <span>Go to Artist Dashboard</span>
+            <svg className="w-4 h-4 ml-2 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </Link>
+        </div>
 
         {loading && (
           <div className="flex justify-center py-12">
