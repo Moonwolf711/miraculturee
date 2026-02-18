@@ -73,22 +73,22 @@ enum AcquisitionStatus {
 }
 
 model User {
-  id                   String             @id @default(uuid())
-  email                String             @unique
-  passwordHash         String
-  name                 String
-  role                 Role               @default(FAN)
-  lat                  Float?
-  lng                  Float?
-  city                 String?
-  refreshToken         String?
-  emailVerified        Boolean            @default(false)
-  emailVerifyToken     String?            @unique
-  emailVerifyExpiry    DateTime?
-  passwordResetToken   String?            @unique
-  passwordResetExpiry  DateTime?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  passwordHash        String
+  name                String
+  role                Role      @default(FAN)
+  lat                 Float?
+  lng                 Float?
+  city                String?
+  refreshToken        String?
+  emailVerified       Boolean   @default(false)
+  emailVerifyToken    String?   @unique
+  emailVerifyExpiry   DateTime?
+  passwordResetToken  String?   @unique
+  passwordResetExpiry DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   artist               Artist?
   connectedAccount     ConnectedAccount?
@@ -101,18 +101,52 @@ model User {
 }
 
 model Artist {
-  id              String   @id @default(uuid())
-  userId          String   @unique
-  stageName       String
-  genre           String?
-  bio             String?
-  stripeAccountId String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  stageName          String
+  genre              String?
+  bio                String?
+  stripeAccountId    String?
+  isVerified         Boolean   @default(false)
+  verifiedAt         DateTime?
+  verificationStatus String    @default("UNVERIFIED") // UNVERIFIED | VERIFIED
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events    Event[]
-  campaigns Campaign[]
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events         Event[]
+  campaigns      Campaign[]
+  socialAccounts ArtistSocialAccount[]
+}
+
+model ArtistSocialAccount {
+  id               String         @id @default(uuid())
+  artistId         String
+  provider         SocialProvider
+  providerUserId   String
+  providerUsername String?
+  profileUrl       String?
+  followerCount    Int?
+  accessToken      String? // encrypted
+  refreshToken     String? // encrypted
+  tokenExpiresAt   DateTime?
+  scopes           String?
+  rawProfile       Json?
+  connectedAt      DateTime       @default(now())
+  lastVerifiedAt   DateTime?
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, provider])
+  @@unique([provider, providerUserId])
+  @@index([artistId])
+}
+
+enum SocialProvider {
+  SPOTIFY
+  SOUNDCLOUD
+  INSTAGRAM
+  FACEBOOK
 }
 
 enum CampaignStatus {
@@ -182,15 +216,15 @@ model Event {
 }
 
 model SupportTicket {
-  id              String   @id @default(uuid())
-  eventId         String
-  userId          String
-  ticketCount     Int
+  id               String   @id @default(uuid())
+  eventId          String
+  userId           String
+  ticketCount      Int
   totalAmountCents Int
-  message         String?
-  stripePaymentId String?
-  confirmed       Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  message          String?
+  stripePaymentId  String?
+  confirmed        Boolean  @default(false)
+  createdAt        DateTime @default(now())
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -217,17 +251,17 @@ model PoolTicket {
 }
 
 model RafflePool {
-  id               String       @id @default(uuid())
-  eventId          String
-  tierCents        Int
-  status           RaffleStatus @default(OPEN)
+  id                String       @id @default(uuid())
+  eventId           String
+  tierCents         Int
+  status            RaffleStatus @default(OPEN)
   scheduledDrawTime DateTime?
-  drawnAt          DateTime?
-  seedHash         String?
-  revealedSeed     String?
-  algorithm        String       @default("SHA-256 + Fisher-Yates + Seedrandom")
-  verificationUrl  String?
-  createdAt        DateTime     @default(now())
+  drawnAt           DateTime?
+  seedHash          String?
+  revealedSeed      String?
+  algorithm         String       @default("SHA-256 + Fisher-Yates + Seedrandom")
+  verificationUrl   String?
+  createdAt         DateTime     @default(now())
 
   event   Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   entries RaffleEntry[]
@@ -304,50 +338,50 @@ model DirectTicket {
 }
 
 model ExternalEvent {
-  id                String              @id @default(uuid())
-  externalId        String
-  source            String
-  sourceUrl         String
+  id         String @id @default(uuid())
+  externalId String
+  source     String
+  sourceUrl  String
 
   // Event details
-  title             String
-  description       String?
-  artistName        String
-  artistId          String?
+  title       String
+  description String?
+  artistName  String
+  artistId    String?
 
   // Venue details
-  venueName         String
-  venueAddress      String
-  venueCity         String
-  venueState        String?
-  venueCountry      String
-  venueLat          Float?
-  venueLng          Float?
-  venueId           String?
+  venueName    String
+  venueAddress String
+  venueCity    String
+  venueState   String?
+  venueCountry String
+  venueLat     Float?
+  venueLng     Float?
+  venueId      String?
 
   // Timing
-  eventDate         DateTime
-  onSaleDate        DateTime?
-  offSaleDate       DateTime?
+  eventDate   DateTime
+  onSaleDate  DateTime?
+  offSaleDate DateTime?
 
   // Pricing
-  minPriceCents     Int?
-  maxPriceCents     Int?
-  currency          String              @default("USD")
+  minPriceCents Int?
+  maxPriceCents Int?
+  currency      String @default("USD")
 
   // Classification
-  genre             String?
-  category          String?
+  genre    String?
+  category String?
 
   // Status
-  status            ExternalEventStatus @default(DISCOVERED)
-  importedEventId   String?
+  status          ExternalEventStatus @default(DISCOVERED)
+  importedEventId String?
 
   // Metadata
-  rawData           Json
-  lastSyncedAt      DateTime            @default(now())
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  rawData      Json
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([externalId, source])
   @@index([eventDate])
@@ -396,16 +430,16 @@ model TicketAcquisition {
 // stripeClient.v2.core.accounts.create(). We track onboarding status here so we
 // know when the account is ready to accept payments.
 model ConnectedAccount {
-  id                String   @id @default(uuid())
-  userId            String   @unique
-  stripeAccountId   String   @unique   // The Stripe account ID (acct_...)
-  displayName       String              // Business/artist display name
-  onboardingComplete Boolean @default(false)
-  paymentsEnabled   Boolean @default(false) // card_payments capability is active
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  stripeAccountId    String   @unique // The Stripe account ID (acct_...)
+  displayName        String // Business/artist display name
+  onboardingComplete Boolean  @default(false)
+  paymentsEnabled    Boolean  @default(false) // card_payments capability is active
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   subscriptions ConnectSubscription[]
 
   @@index([stripeAccountId])
@@ -415,15 +449,15 @@ model ConnectedAccount {
 // Updated via Stripe webhooks (customer.subscription.updated/deleted).
 // The stripeSubscriptionId is the sub_... ID from Stripe.
 model ConnectSubscription {
-  id                    String   @id @default(uuid())
-  connectedAccountId    String
-  stripeSubscriptionId  String   @unique  // sub_...
-  status                String   @default("incomplete") // active, past_due, canceled, etc.
-  priceId               String?           // The Stripe price ID
-  currentPeriodEnd      DateTime?         // When the current billing period ends
-  cancelAtPeriodEnd     Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String    @id @default(uuid())
+  connectedAccountId   String
+  stripeSubscriptionId String    @unique // sub_...
+  status               String    @default("incomplete") // active, past_due, canceled, etc.
+  priceId              String? // The Stripe price ID
+  currentPeriodEnd     DateTime? // When the current billing period ends
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   connectedAccount ConnectedAccount @relation(fields: [connectedAccountId], references: [id], onDelete: Cascade)
 

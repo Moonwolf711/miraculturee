@@ -39,6 +39,8 @@ const CreateCampaignPage = lazyRetry(() => import('./pages/CreateCampaignPage.js
 const ConnectDashboardPage = lazyRetry(() => import('./pages/ConnectDashboardPage.js'));
 const StorefrontPage = lazyRetry(() => import('./pages/StorefrontPage.js'));
 const AdminPage = lazyRetry(() => import('./pages/AdminPage.js'));
+const ArtistRegisterPage = lazyRetry(() => import('./pages/ArtistRegisterPage.js'));
+const ArtistVerifyPage = lazyRetry(() => import('./pages/ArtistVerifyPage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -98,6 +100,15 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/artist/register" element={<ArtistRegisterPage />} />
+            <Route
+              path="/artist/verify"
+              element={
+                <ProtectedRoute>
+                  <ArtistVerifyPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/events/:id" element={<EventDetailPage />} />
             <Route

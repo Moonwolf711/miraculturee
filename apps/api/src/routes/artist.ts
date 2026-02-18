@@ -6,9 +6,11 @@ import {
   UuidParamSchema,
 } from '@miraculturee/shared';
 import { ArtistService } from '../services/artist.service.js';
+import { ArtistVerificationService } from '../services/artistVerification.js';
 
 export async function artistRoutes(app: FastifyInstance) {
   const artistService = new ArtistService(app.prisma);
+  const verificationService = new ArtistVerificationService(app.prisma);
 
   /** Helper: get or auto-create artist profile for the authenticated user */
   async function getOrCreateArtist(userId: string) {
@@ -163,6 +165,33 @@ export async function artistRoutes(app: FastifyInstance) {
     }
 
     await app.prisma.campaign.delete({ where: { id } });
+    return { success: true };
+  });
+
+  // --- Social Account Verification ---
+
+  /** GET /artist/me/social-accounts — list connected social accounts */
+  app.get('/me/social-accounts', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
+    if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+    const accounts = await verificationService.getSocialAccounts(artist.id);
+    return {
+      accounts,
+      isVerified: artist.isVerified,
+      verificationStatus: artist.verificationStatus,
+    };
+  });
+
+  /** DELETE /artist/me/social-accounts/:provider — disconnect a social account */
+  app.delete('/me/social-accounts/:provider', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { provider } = req.params as { provider: string };
+    const upper = provider.toUpperCase();
+    if (!['SPOTIFY', 'SOUNDCLOUD', 'INSTAGRAM', 'FACEBOOK'].includes(upper)) {
+      return reply.code(400).send({ error: 'Invalid provider' });
+    }
+    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
+    if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+    await verificationService.disconnectSocialAccount(artist.id, upper as any);
     return { success: true };
   });
 }

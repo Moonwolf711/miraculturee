@@ -22,6 +22,8 @@ import { applePayRoutes } from './routes/applepay.js';
 import { connectRoutes } from './routes/connect.js';
 import { connectWebhookRoutes } from './routes/connect-webhooks.js';
 import { donorConnectionRoutes } from './routes/donor-connections.js';
+import { spotifyOAuthRoutes } from './routes/auth/spotify.js';
+import { soundcloudOAuthRoutes } from './routes/auth/soundcloud.js';
 import externalEventsRoutes from './routes/admin/external-events.js';
 import issuingRoutes from './routes/admin/issuing.js';
 import vendorTicketRoutes from './routes/admin/vendor-tickets.js';
@@ -64,6 +66,8 @@ async function start() {
 
   // Routes
   await app.register(authRoutes, { prefix: '/auth' });
+  await app.register(spotifyOAuthRoutes, { prefix: '/auth/spotify' });
+  await app.register(soundcloudOAuthRoutes, { prefix: '/auth/soundcloud' });
   await app.register(eventRoutes, { prefix: '/events' });
   await app.register(supportRoutes, { prefix: '/support' });
   await app.register(raffleRoutes, { prefix: '/raffle' });

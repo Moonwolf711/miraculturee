@@ -346,13 +346,11 @@ export default function HomePage() {
               MIRACULTUREE
             </p>
 
-            {/* Main tagline */}
+            {/* Main tagline — 3D extruded text with glow pulse */}
             <h1
-              className="font-display text-4xl sm:text-5xl md:text-7xl lg:text-8xl tracking-[0.08em] sm:tracking-[0.12em] md:tracking-[0.2em] text-warm-50 mb-6 animate-fade-in-up"
+              className="font-display text-4xl sm:text-5xl md:text-7xl lg:text-8xl tracking-[0.08em] sm:tracking-[0.12em] md:tracking-[0.2em] text-warm-50 mb-6 animate-fade-in-up text-3d animate-pulse-glow"
               style={{
                 animationDelay: '150ms',
-                textShadow:
-                  '0 0 40px rgba(245, 158, 11, 0.15), 0 0 80px rgba(245, 158, 11, 0.05)',
               }}
             >
               WHERE FANS POWER THE SHOW
@@ -425,7 +423,7 @@ export default function HomePage() {
             <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
               WHY WE EXIST
             </p>
-            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 text-3d">
               OUR MISSION
             </h2>
             <div className="mt-6 flex items-center justify-center gap-3" aria-hidden="true">
@@ -507,9 +505,9 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* Pull quote */}
-            <div className="relative border-l-2 border-amber-500/40 pl-6 py-2 mt-6">
-              <p className="font-display text-xl sm:text-2xl tracking-wide text-warm-50 leading-relaxed">
+            {/* Pull quote — glass card */}
+            <div className="relative glass-card rounded-lg border-l-2 border-amber-500/40 pl-6 pr-6 py-6 mt-6">
+              <p className="font-display text-xl sm:text-2xl tracking-wide text-warm-50 leading-relaxed relative z-10">
                 To ensure that live music remains what it was always meant to be — a shared
                 human experience, accessible to everyone, powered by the generosity of the
                 community that believes in it.
@@ -529,7 +527,7 @@ export default function HomePage() {
             <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
               THE PROCESS
             </p>
-            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 text-3d">
               HOW IT WORKS
             </h2>
             <div className="mt-6 flex items-center justify-center gap-3" aria-hidden="true">
@@ -540,7 +538,7 @@ export default function HomePage() {
           </div>
 
           {/* Steps */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 relative">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 relative perspective-container">
             {/* Dotted connector with dots at junctions (desktop) */}
             <div
               className="hidden lg:block absolute top-[3.5rem] left-[12.5%] right-[12.5%] h-px border-t-2 border-dashed border-noir-700"
@@ -563,7 +561,7 @@ export default function HomePage() {
             {STEPS.map((step, i) => (
               <div
                 key={step.num}
-                className="card-hover relative bg-noir-900 border border-noir-800 rounded-xl p-6 group animate-fade-in-up"
+                className="card-3d glass-card glass-shimmer fresnel-border ambient-glow relative rounded-xl p-6 group animate-fade-in-up"
                 style={{ animationDelay: `${i * 120}ms` }}
               >
                 {/* Numbered circle */}
@@ -598,7 +596,7 @@ export default function HomePage() {
           <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
             LIVE EVENTS
           </p>
-          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 mb-6">
+          <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 mb-6 text-3d">
             SEE WHO&rsquo;S PLAYING
           </h2>
           <p className="font-body text-gray-400 text-base max-w-xl mx-auto leading-relaxed mb-10">
@@ -629,7 +627,7 @@ export default function HomePage() {
               <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
                 OUR PROMISE
               </p>
-              <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 mb-6">
+              <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 mb-6 text-3d">
                 PROVABLY FAIR
               </h2>
               <p className="font-body text-gray-400 text-base leading-relaxed mb-8">
@@ -670,8 +668,8 @@ export default function HomePage() {
               </ul>
             </div>
 
-            {/* Verification receipt */}
-            <div className="card-hover bg-noir-950 border border-noir-800 rounded-lg overflow-hidden">
+            {/* Verification receipt — glass refraction */}
+            <div className="glass-refract card-3d rounded-lg overflow-hidden">
               {/* Terminal header */}
               <div className="flex items-center gap-2 px-5 py-3 border-b border-noir-800/60 bg-noir-950" aria-hidden="true">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
@@ -740,16 +738,16 @@ export default function HomePage() {
             <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
               THE COMMUNITY
             </p>
-            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 text-3d">
               WHAT FANS SAY
             </h2>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 perspective-container">
             {TESTIMONIALS.map((t, i) => (
               <div
                 key={t.name}
-                className="card-hover bg-noir-900 border border-noir-800 rounded-lg p-6 flex flex-col animate-fade-in-up"
+                className="glass-card glass-shimmer fresnel-border card-3d ambient-glow rounded-lg p-6 flex flex-col animate-fade-in-up"
                 style={{ animationDelay: `${i * 150}ms` }}
               >
                 {/* Quote mark */}
@@ -811,7 +809,7 @@ export default function HomePage() {
             <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
               FOR ARTISTS
             </p>
-            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 mb-4">
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 mb-4 text-3d">
               YOUR FANS ARE EVERYWHERE
             </h2>
             <p className="font-body text-gray-400 text-base max-w-2xl mx-auto leading-relaxed">
@@ -821,7 +819,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12 perspective-container">
             {[
               {
                 title: 'DIRECT REVENUE',
@@ -859,7 +857,7 @@ export default function HomePage() {
             ].map((card, i) => (
               <div
                 key={card.title}
-                className="card-hover bg-noir-950 border border-noir-800 rounded-lg p-6 group animate-fade-in-up"
+                className="glass-card glass-shimmer fresnel-border card-3d light-sweep ambient-glow rounded-lg p-6 group animate-fade-in-up"
                 style={{ animationDelay: `${i * 120}ms` }}
               >
                 <div className="flex items-start justify-between mb-4">
@@ -887,7 +885,7 @@ export default function HomePage() {
 
           <div className="text-center">
             <Link
-              to="/register?role=artist"
+              to="/artist/register"
               className="btn-amber px-8 py-3.5 text-base inline-flex items-center gap-2 group"
             >
               <span>LIST YOUR EVENT</span>
@@ -937,8 +935,8 @@ export default function HomePage() {
                 ),
               },
             ].map((badge) => (
-              <div key={badge.label} className="flex flex-col items-center gap-2.5 group cursor-default">
-                <div className="text-gray-500 group-hover:text-amber-500/70 transition-all duration-300 group-hover:-translate-y-1">
+              <div key={badge.label} className="depth-pop flex flex-col items-center gap-2.5 group cursor-default">
+                <div className="text-gray-500 group-hover:text-amber-500/70 transition-all duration-300">
                   {badge.icon}
                 </div>
                 <span className="font-body text-xs tracking-widest uppercase text-gray-500 group-hover:text-gray-400 transition-colors duration-300">
@@ -982,7 +980,7 @@ export default function HomePage() {
             JOIN THE MOVEMENT
           </p>
           <h2
-            className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl tracking-wider text-warm-50 mb-6 glow-text"
+            className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl tracking-wider text-warm-50 mb-6 text-3d"
           >
             THE NEXT SHOW IS WAITING
           </h2>
