@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const PROVIDER_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
@@ -19,14 +21,38 @@ interface SocialConnectButtonProps {
   onDisconnect?: () => void;
 }
 
+/** Parse a Spotify artist ID from a URL or raw ID string. */
+function parseSpotifyArtistId(input: string): string | null {
+  const trimmed = input.trim();
+  // Already a bare ID (alphanumeric, 22 chars)
+  if (/^[a-zA-Z0-9]{22}$/.test(trimmed)) return trimmed;
+  // URL like open.spotify.com/artist/XXXX or spotify:artist:XXXX
+  const urlMatch = trimmed.match(/artist[/:]([a-zA-Z0-9]{22})/);
+  return urlMatch?.[1] || null;
+}
+
 export default function SocialConnectButton({ provider, connected, onDisconnect }: SocialConnectButtonProps) {
   const config = PROVIDER_CONFIG[provider];
+  const [artistUrl, setArtistUrl] = useState('');
+  const [urlError, setUrlError] = useState('');
 
   const handleConnect = () => {
-    // Navigate to backend OAuth initiate endpoint (needs auth cookie/header)
-    // We pass the JWT in the URL as a fallback since this is a redirect flow
     const token = localStorage.getItem('accessToken');
-    window.location.href = `${API_URL}/auth/${provider}/connect${token ? `?token=${token}` : ''}`;
+    let connectUrl = `${API_URL}/auth/${provider}/connect${token ? `?token=${token}` : ''}`;
+
+    // For Spotify, parse and include the artist ID if provided
+    if (provider === 'spotify' && artistUrl.trim()) {
+      const artistId = parseSpotifyArtistId(artistUrl);
+      if (!artistId) {
+        setUrlError('Invalid Spotify artist URL. Paste your artist page link.');
+        return;
+      }
+      setUrlError('');
+      const sep = connectUrl.includes('?') ? '&' : '?';
+      connectUrl += `${sep}spotifyArtistId=${encodeURIComponent(artistId)}`;
+    }
+
+    window.location.href = connectUrl;
   };
 
   if (connected) {
@@ -44,14 +70,28 @@ export default function SocialConnectButton({ provider, connected, onDisconnect 
   }
 
   return (
-    <button
-      onClick={handleConnect}
-      className={`w-full flex items-center justify-center gap-3 px-6 py-3 rounded-lg text-white font-semibold transition-all duration-200 ${config.color}`}
-    >
-      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-        <path d={config.icon} />
-      </svg>
-      <span className="font-body text-sm tracking-wide">Connect {config.label}</span>
-    </button>
+    <div className="space-y-2">
+      {provider === 'spotify' && (
+        <div>
+          <input
+            type="text"
+            value={artistUrl}
+            onChange={(e) => { setArtistUrl(e.target.value); setUrlError(''); }}
+            placeholder="Paste your Spotify artist URL"
+            className="w-full px-4 py-2.5 rounded-lg bg-noir-800 border border-noir-700 text-warm-50 text-sm font-body placeholder:text-gray-600 focus:outline-none focus:border-[#1DB954]/50 transition-colors"
+          />
+          {urlError && <p className="text-red-400 text-xs mt-1 font-body">{urlError}</p>}
+        </div>
+      )}
+      <button
+        onClick={handleConnect}
+        className={`w-full flex items-center justify-center gap-3 px-6 py-3 rounded-lg text-white font-semibold transition-all duration-200 ${config.color}`}
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d={config.icon} />
+        </svg>
+        <span className="font-body text-sm tracking-wide">Connect {config.label}</span>
+      </button>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { getSpotifyAuthorizeUrl, exchangeSpotifyCode, getSpotifyProfile } from '../../lib/oauth/spotify-client.js';
+import { getSpotifyAuthorizeUrl, exchangeSpotifyCode, getSpotifyProfile, getSpotifyArtistById } from '../../lib/oauth/spotify-client.js';
 import { ArtistVerificationService } from '../../services/artistVerification.js';
 import { ArtistMatchingService } from '../../services/artist-matching.service.js';
 
@@ -18,7 +18,6 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
     if (!isConfigured()) {
       return reply.code(503).send({ error: 'Spotify integration is not configured yet' });
     }
-    // Support JWT from Authorization header or ?token= query param (for redirect flows)
     const queryToken = (req.query as { token?: string }).token;
     if (queryToken && !req.headers.authorization) {
       req.headers.authorization = `Bearer ${queryToken}`;
@@ -40,7 +39,13 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
       ]);
     }
 
-    const state = app.jwt.sign({ userId: req.user.id, artistId: artist.id, provider: 'spotify' } as any, { expiresIn: '10m' });
+    // Accept optional Spotify artist ID from query param (parsed from artist URL on frontend)
+    const spotifyArtistId = (req.query as { spotifyArtistId?: string }).spotifyArtistId || '';
+
+    const state = app.jwt.sign(
+      { userId: req.user.id, artistId: artist.id, provider: 'spotify', spotifyArtistId } as any,
+      { expiresIn: '10m' },
+    );
     const url = getSpotifyAuthorizeUrl(state);
     return reply.redirect(url);
   });
@@ -53,9 +58,9 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=spotify_denied`);
     }
 
-    let payload: { userId: string; artistId: string; provider: string };
+    let payload: { userId: string; artistId: string; provider: string; spotifyArtistId?: string };
     try {
-      payload = app.jwt.verify<{ userId: string; artistId: string; provider: string }>(state);
+      payload = app.jwt.verify<typeof payload>(state);
     } catch {
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=invalid_state`);
     }
@@ -66,30 +71,44 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
 
     try {
       const tokens = await exchangeSpotifyCode(code);
-      const profile = await getSpotifyProfile(tokens.access_token);
+      const userProfile = await getSpotifyProfile(tokens.access_token);
 
-      // Use the authenticated Spotify account directly — no name-based artist search.
-      // The OAuth connection itself proves the user owns this Spotify account.
+      // If the user provided their Spotify artist ID, fetch that specific artist profile
+      let artistProfile: { id: string; name: string; external_urls: { spotify: string }; followers: { total: number }; images: { url: string }[]; genres: string[] } | null = null;
+      if (payload.spotifyArtistId) {
+        artistProfile = await getSpotifyArtistById(tokens.access_token, payload.spotifyArtistId);
+      }
+
+      // Use artist profile if available, otherwise fall back to personal profile
+      const providerUserId = artistProfile?.id || userProfile.id;
+      const providerUsername = artistProfile?.name || userProfile.display_name;
+      const profileUrl = artistProfile?.external_urls?.spotify || userProfile?.external_urls?.spotify || '';
+      const followerCount = artistProfile?.followers?.total ?? userProfile?.followers?.total ?? 0;
+
       await verificationService.connectSocialAccount(payload.artistId, {
         provider: 'SPOTIFY',
-        providerUserId: profile.id,
-        providerUsername: profile.display_name,
-        profileUrl: profile?.external_urls?.spotify || '',
-        followerCount: profile?.followers?.total ?? 0,
+        providerUserId,
+        providerUsername,
+        profileUrl,
+        followerCount,
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
         scopes: tokens.scope,
-        rawProfile: profile,
+        rawProfile: artistProfile ?? userProfile,
       });
 
-      // Store the Spotify user ID on the artist record (don't overwrite stageName)
+      // Update artist record with Spotify artist ID and name
+      const verifiedName = artistProfile?.name || '';
       await app.prisma.artist.update({
         where: { id: payload.artistId },
-        data: { spotifyArtistId: profile.id },
+        data: {
+          spotifyArtistId: providerUserId,
+          ...(verifiedName ? { stageName: verifiedName } : {}),
+        },
       }).catch(() => {});
 
-      // Match events using the artist's existing stageName
+      // Match events using verified artist name or existing stageName
       const artist = await app.prisma.artist.findUnique({ where: { id: payload.artistId } });
       const matchName = artist?.stageName || '';
       const matches = matchName

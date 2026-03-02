@@ -98,3 +98,19 @@ export async function searchSpotifyArtist(accessToken: string, artistName: strin
   );
   return exactMatch ?? artists[0];
 }
+
+/** Fetch a specific Spotify artist by ID. */
+export async function getSpotifyArtistById(accessToken: string, artistId: string): Promise<{
+  id: string;
+  name: string;
+  external_urls: { spotify: string };
+  followers: { total: number };
+  images: { url: string }[];
+  genres: string[];
+} | null> {
+  const res = await fetch(`${SPOTIFY_API_URL}/artists/${encodeURIComponent(artistId)}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
