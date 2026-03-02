@@ -118,6 +118,29 @@ export default async function adminDashboardRoutes(app: FastifyInstance) {
   });
 
   /**
+   * PUT /admin/users/:id/role
+   * Update a user's role
+   */
+  app.put('/users/:id/role', async (req) => {
+    const { id } = req.params as { id: string };
+    const { role } = req.body as { role: string };
+    const validRoles = ['FAN', 'LOCAL_FAN', 'ARTIST', 'ADMIN'];
+    if (!role || !validRoles.includes(role)) {
+      throw Object.assign(new Error(`Invalid role. Must be one of: ${validRoles.join(', ')}`), { statusCode: 400 });
+    }
+    const user = await app.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw Object.assign(new Error('User not found'), { statusCode: 404 });
+    }
+    const updated = await app.prisma.user.update({
+      where: { id },
+      data: { role: role as any },
+      select: { id: true, email: true, name: true, role: true },
+    });
+    return updated;
+  });
+
+  /**
    * PUT /admin/artists/:id/verify
    * Admin-verify an artist
    */
