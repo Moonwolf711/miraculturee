@@ -94,7 +94,22 @@ async function start() {
   }, { prefix: '/admin' });
 
   // Health check
-  app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+  app.get('/health', async () => ({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    oauth: {
+      spotify: {
+        clientId: !!process.env.SPOTIFY_CLIENT_ID,
+        clientSecret: !!process.env.SPOTIFY_CLIENT_SECRET,
+        redirectUri: !!process.env.SPOTIFY_REDIRECT_URI,
+      },
+      soundcloud: {
+        clientId: !!process.env.SOUNDCLOUD_CLIENT_ID,
+        clientSecret: !!process.env.SOUNDCLOUD_CLIENT_SECRET,
+        redirectUri: !!process.env.SOUNDCLOUD_REDIRECT_URI,
+      },
+    },
+  }));
 
   // Start BullMQ workers
   await initWorkers();
