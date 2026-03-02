@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import { hash } from 'bcrypt';
 import {
   RegisterSchema,
   LoginSchema,
@@ -71,21 +70,4 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send({ message: 'Verification email sent.' });
   });
 
-  // --- Temporary admin setup (remove after use) ---
-  app.post('/admin-setup', async (req, reply) => {
-    const { secret, email, password } = req.body as { secret: string; email: string; password: string };
-    if (secret !== 'mc-setup-2026-xK9v') {
-      return reply.code(404).send({ error: 'Not found' });
-    }
-    const user = await app.prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return reply.code(404).send({ error: 'User not found' });
-    }
-    const passwordHash = await hash(password, 10);
-    await app.prisma.user.update({
-      where: { email },
-      data: { role: 'ADMIN', passwordHash, emailVerified: true, isBanned: false },
-    });
-    return reply.send({ success: true, role: 'ADMIN' });
-  });
 }

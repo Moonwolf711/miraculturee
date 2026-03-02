@@ -21,4 +21,4 @@ RUN cd apps/api && npx tsc
 WORKDIR /app/apps/api
 EXPOSE ${PORT:-3000}
 
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && npx tsx prisma/setup-admin.ts && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/server.js"]
