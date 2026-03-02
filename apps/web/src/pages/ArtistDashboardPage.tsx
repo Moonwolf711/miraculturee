@@ -32,12 +32,41 @@ interface CampaignItem {
   createdAt: string;
 }
 
+const PROMO_TEMPLATES = [
+  {
+    platform: 'Instagram / TikTok',
+    btnClass: 'bg-gradient-to-r from-[#833AB4]/15 via-[#E1306C]/15 to-[#F77737]/15 hover:from-[#833AB4]/25 hover:via-[#E1306C]/25 hover:to-[#F77737]/25 text-[#E1306C] border-[#E1306C]/20',
+    template: (venue: string, _url: string) =>
+      `I just launched a campaign on @miraculturee for my show at ${venue}. Fans worldwide can donate to unlock $5\u2013$10 tickets for locals who might not be able to afford face value. 100% of donations come to me. Link in bio.\n\n#MiraCulture #LiveMusic #FanPowered`,
+  },
+  {
+    platform: 'X / Twitter',
+    btnClass: 'bg-noir-700 hover:bg-noir-600 text-warm-50 border-noir-600',
+    template: (venue: string, url: string) =>
+      `Just launched my @miraculturee campaign. Fans can donate to unlock affordable tickets for my ${venue} show \u2014 100% comes to me, 0% to scalpers.\n\nSupport the music: ${url}\n\n#MiraCulture`,
+  },
+  {
+    platform: 'Facebook',
+    btnClass: 'bg-[#1877F2]/10 hover:bg-[#1877F2]/20 text-[#1877F2] border-[#1877F2]/20',
+    template: (venue: string, url: string) =>
+      `Excited to launch my MiraCulture campaign for my upcoming show at ${venue}!\n\nHere\u2019s how it works: fans donate to hit a goal, then 10 tickets unlock at just $5\u2013$10 for verified local fans. Every dollar donated goes directly to me. No middlemen.\n\nSupport here: ${url}`,
+  },
+  {
+    platform: 'General',
+    btnClass: 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20',
+    template: (venue: string, url: string) =>
+      `I\u2019m running a fan-powered campaign on MiraCulture for my show at ${venue}. Donate to help unlock affordable tickets for local fans \u2014 100% goes to me. ${url}`,
+  },
+];
+
 export default function ArtistDashboardPage() {
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [promotingCampaign, setPromotingCampaign] = useState<CampaignItem | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState(-1);
 
   const fetchDashboard = useCallback(() => {
     setLoading(true);
@@ -252,13 +281,23 @@ export default function ArtistDashboardPage() {
                           {c.eventTitle} &middot; {formatDate(c.eventDate)}
                         </p>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold ${
-                        c.status === 'ACTIVE' ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                          : c.status === 'DRAFT' ? 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
-                            : 'bg-noir-700 text-gray-500 border border-noir-600'
-                      }`}>
-                        {c.status}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {c.status === 'ACTIVE' && (
+                          <button
+                            onClick={() => setPromotingCampaign(c)}
+                            className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs uppercase tracking-wide font-semibold transition-colors"
+                          >
+                            Promote
+                          </button>
+                        )}
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold ${
+                          c.status === 'ACTIVE' ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                            : c.status === 'DRAFT' ? 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                              : 'bg-noir-700 text-gray-500 border border-noir-600'
+                        }`}>
+                          {c.status}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -267,6 +306,79 @@ export default function ArtistDashboardPage() {
           </>
         )}
       </div>
+
+      {/* Promotion modal */}
+      {promotingCampaign && (() => {
+        const shareUrl = `${window.location.origin}/events/${promotingCampaign.eventId}`;
+        return (
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => { setPromotingCampaign(null); setCopiedIdx(-1); }}
+          >
+            <div
+              className="bg-noir-900 border border-noir-800 rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-display text-xl tracking-wider text-warm-50">
+                  PROMOTE CAMPAIGN
+                </h2>
+                <button
+                  onClick={() => { setPromotingCampaign(null); setCopiedIdx(-1); }}
+                  className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors"
+                  aria-label="Close"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Share link */}
+              <div className="bg-noir-950 border border-noir-800 rounded-lg p-4 mb-5">
+                <p className="text-gray-500 text-xs uppercase tracking-wider font-medium mb-2">Share link</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-300 text-sm font-body truncate flex-1">{shareUrl}</span>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(shareUrl); setCopiedIdx(-2); setTimeout(() => setCopiedIdx(-1), 2000); }}
+                    className="flex-shrink-0 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold transition-colors"
+                  >
+                    {copiedIdx === -2 ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Templates */}
+              <p className="text-gray-500 text-xs uppercase tracking-wider font-medium mb-3">
+                Ready-to-post templates
+              </p>
+              <div className="space-y-3">
+                {PROMO_TEMPLATES.map((tmpl, i) => {
+                  const text = tmpl.template(promotingCampaign.venueName, shareUrl);
+                  return (
+                    <div key={tmpl.platform} className="bg-noir-800 border border-noir-700 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="font-body text-xs uppercase tracking-wider text-gray-400 font-semibold">
+                          {tmpl.platform}
+                        </span>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(text); setCopiedIdx(i); setTimeout(() => setCopiedIdx(-1), 2000); }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${tmpl.btnClass}`}
+                        >
+                          {copiedIdx === i ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                      <p className="font-body text-gray-300 text-sm leading-relaxed whitespace-pre-line">
+                        {text}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

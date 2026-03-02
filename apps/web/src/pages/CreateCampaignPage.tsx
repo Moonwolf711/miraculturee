@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import SEO from '../components/SEO.js';
 
@@ -10,6 +10,40 @@ interface ArtistEvent {
   date: string;
   ticketPriceCents: number;
 }
+
+interface CreatedCampaign {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  venueName: string;
+}
+
+const PROMO_TEMPLATES = [
+  {
+    platform: 'Instagram / TikTok',
+    btnClass: 'bg-gradient-to-r from-[#833AB4]/15 via-[#E1306C]/15 to-[#F77737]/15 hover:from-[#833AB4]/25 hover:via-[#E1306C]/25 hover:to-[#F77737]/25 text-[#E1306C] border-[#E1306C]/20',
+    template: (venue: string, _url: string) =>
+      `I just launched a campaign on @miraculturee for my show at ${venue}. Fans worldwide can donate to unlock $5\u2013$10 tickets for locals who might not be able to afford face value. 100% of donations come to me. Link in bio.\n\n#MiraCulture #LiveMusic #FanPowered`,
+  },
+  {
+    platform: 'X / Twitter',
+    btnClass: 'bg-noir-700 hover:bg-noir-600 text-warm-50 border-noir-600',
+    template: (venue: string, url: string) =>
+      `Just launched my @miraculturee campaign. Fans can donate to unlock affordable tickets for my ${venue} show \u2014 100% comes to me, 0% to scalpers.\n\nSupport the music: ${url}\n\n#MiraCulture`,
+  },
+  {
+    platform: 'Facebook',
+    btnClass: 'bg-[#1877F2]/10 hover:bg-[#1877F2]/20 text-[#1877F2] border-[#1877F2]/20',
+    template: (venue: string, url: string) =>
+      `Excited to launch my MiraCulture campaign for my upcoming show at ${venue}!\n\nHere\u2019s how it works: fans donate to hit a goal, then 10 tickets unlock at just $5\u2013$10 for verified local fans. Every dollar donated goes directly to me. No middlemen.\n\nSupport here: ${url}`,
+  },
+  {
+    platform: 'General',
+    btnClass: 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20',
+    template: (venue: string, url: string) =>
+      `I\u2019m running a fan-powered campaign on MiraCulture for my show at ${venue}. Donate to help unlock affordable tickets for local fans \u2014 100% goes to me. ${url}`,
+  },
+];
 
 export default function CreateCampaignPage() {
   const navigate = useNavigate();
@@ -22,6 +56,8 @@ export default function CreateCampaignPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [createdCampaign, setCreatedCampaign] = useState<CreatedCampaign | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState(-1);
 
   useEffect(() => {
     api
@@ -50,7 +86,17 @@ export default function CreateCampaignPage() {
       if (status === 'ACTIVE') {
         await api.put(`/artist/campaigns/${campaign.id}`, { status: 'ACTIVE' });
       }
-      navigate('/artist/dashboard');
+      const selectedEvent = events.find((e) => e.id === eventId);
+      if (status === 'ACTIVE' && selectedEvent) {
+        setCreatedCampaign({
+          id: campaign.id,
+          eventId,
+          eventTitle: selectedEvent.title,
+          venueName: selectedEvent.venueName,
+        });
+      } else {
+        navigate('/artist/dashboard');
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create campaign.');
     } finally {
@@ -63,6 +109,86 @@ export default function CreateCampaignPage() {
 
   const inputClass =
     'w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600';
+
+  /* ---------- Success screen with social promotion templates ---------- */
+  if (createdCampaign) {
+    const shareUrl = `${window.location.origin}/events/${createdCampaign.eventId}`;
+    return (
+      <div className="min-h-screen bg-noir-950 flex items-center justify-center px-4 py-16">
+        <SEO title="Campaign Live" description="Your campaign is live. Promote it on social media." noindex />
+        <div className="w-full max-w-lg">
+          <div className="bg-noir-900 border border-noir-800 rounded-2xl p-8 shadow-2xl">
+            {/* Success header */}
+            <div className="text-center mb-8">
+              <div className="w-14 h-14 rounded-full border-2 border-green-500/40 bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-7 h-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+              <h1 className="font-display text-3xl tracking-wider text-warm-50 mb-2">
+                CAMPAIGN LIVE
+              </h1>
+              <p className="text-gray-400 text-sm font-body">
+                Now promote it on your socials to start driving donations.
+              </p>
+            </div>
+
+            {/* Share link */}
+            <div className="bg-noir-950 border border-noir-800 rounded-lg p-4 mb-6">
+              <p className="text-gray-500 text-xs uppercase tracking-wider font-medium mb-2">Share this link</p>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-300 text-sm font-body truncate flex-1">{shareUrl}</span>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(shareUrl); setCopiedIdx(-2); setTimeout(() => setCopiedIdx(-1), 2000); }}
+                  className="flex-shrink-0 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold transition-colors"
+                >
+                  {copiedIdx === -2 ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            {/* Social media templates */}
+            <p className="text-gray-500 text-xs uppercase tracking-wider font-medium mb-3">
+              Ready-to-post templates
+            </p>
+            <div className="space-y-3 mb-8">
+              {PROMO_TEMPLATES.map((tmpl, i) => {
+                const text = tmpl.template(createdCampaign.venueName, shareUrl);
+                return (
+                  <div key={tmpl.platform} className="bg-noir-800 border border-noir-700 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-body text-xs uppercase tracking-wider text-gray-400 font-semibold">
+                        {tmpl.platform}
+                      </span>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(text); setCopiedIdx(i); setTimeout(() => setCopiedIdx(-1), 2000); }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${tmpl.btnClass}`}
+                      >
+                        {copiedIdx === i ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <p className="font-body text-gray-300 text-sm leading-relaxed whitespace-pre-line">
+                      {text}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Dashboard link */}
+            <div className="text-center">
+              <Link
+                to="/artist/dashboard"
+                className="px-5 py-2.5 border border-noir-700 text-gray-300 hover:border-amber-500/50 hover:text-amber-500 font-medium text-sm tracking-wide uppercase rounded-sm transition-all duration-300 inline-block"
+              >
+                Go to Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-noir-950 flex items-center justify-center px-4 py-16">

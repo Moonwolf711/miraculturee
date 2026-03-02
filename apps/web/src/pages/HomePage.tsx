@@ -71,7 +71,39 @@ const STEPS = [
 
 
 
+const CAMPAIGN_STEPS = [
+  {
+    num: 1,
+    title: 'LAUNCH A CAMPAIGN',
+    desc: 'Pick an upcoming show and set a goal. The goal is simple: 10 tickets \u00d7 the face value. That\u2019s the donation target your fans need to hit.',
+  },
+  {
+    num: 2,
+    title: 'FANS DONATE',
+    desc: 'Fans from anywhere in the world donate to your campaign \u2014 even fans who can\u2019t attend. 100% of donations go directly to you. Share your campaign link on social media to build momentum.',
+  },
+  {
+    num: 3,
+    title: 'TICKETS UNLOCK',
+    desc: 'When donations hit your goal, 10 tickets unlock at just $5\u2013$10 each. Only fans verified as local to your venue can purchase them. No bots, no scalpers, no VPNs.',
+  },
+  {
+    num: 4,
+    title: 'SURPLUS GROWS',
+    desc: 'Donations don\u2019t stop at the goal. Every extra dollar keeps coming in until the day before the show. If it\u2019s not sold out, surplus buys more raffle tickets. If it is \u2014 the surplus is your bonus.',
+  },
+  {
+    num: 5,
+    title: 'SHOW DAY',
+    desc: 'If the goal wasn\u2019t fully reached in time, whatever was funded gets raffled to subscribers. Either way, you earned every dollar directly. No middlemen. No 40% cuts.',
+  },
+];
+
 const FAQ_ITEMS = [
+  {
+    q: 'How do artist campaigns work?',
+    a: 'Artists launch a campaign tied to an upcoming show. The goal equals 10 tickets multiplied by the face value. Fans from anywhere donate to reach that goal \u2014 and 100% goes to the artist. Once the goal is hit, 10 tickets unlock at $5\u2013$10 for verified local fans only. Any surplus beyond the goal either buys extra raffle tickets or becomes a direct artist bonus if the show is sold out.',
+  },
   {
     q: 'How does the $5 raffle work?',
     a: 'Local fans enter a $5 raffle for tickets purchased by supporters worldwide. Winners are selected by a cryptographically fair algorithm that anyone can verify. If you don\'t win, your $5 is refunded — you never lose money.',
@@ -737,75 +769,68 @@ export default function HomePage() {
               FOR ARTISTS
             </p>
             <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 mb-4 text-3d">
-              YOUR FANS ARE EVERYWHERE
+              HOW CAMPAIGNS WORK
             </h2>
             <p className="font-body text-gray-400 text-base max-w-2xl mx-auto leading-relaxed">
-              List your events on MiraCulture and let fans across the world
-              support your music directly — while ensuring local fans get in
-              fairly.
+              Launch a campaign for your upcoming show. Fans worldwide donate to
+              unlock affordable tickets for local fans &mdash; and every dollar
+              goes directly to you.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12 perspective-container">
-            {[
-              {
-                title: 'DIRECT REVENUE',
-                desc: 'Every support ticket purchase goes straight to you. No middlemen taking 40% cuts.',
-                stat: '100%',
-                statLabel: 'to artist',
-                icon: (
-                  <svg className="w-7 h-7" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ),
-              },
-              {
-                title: 'GLOBAL FANBASE',
-                desc: 'Fans from 40+ countries can support your show — even from the other side of the planet.',
-                stat: '40+',
-                statLabel: 'countries',
-                icon: (
-                  <svg className="w-7 h-7" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
-                  </svg>
-                ),
-              },
-              {
-                title: 'FAIR DISTRIBUTION',
-                desc: 'Your real fans get in — not resellers, not bots. Every seat goes to someone who wants to be there.',
-                stat: '0%',
-                statLabel: 'scalper rate',
-                icon: (
-                  <svg className="w-7 h-7" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                  </svg>
-                ),
-              },
-            ].map((card, i) => (
+          {/* Campaign lifecycle steps */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10 perspective-container">
+            {CAMPAIGN_STEPS.slice(0, 3).map((step, i) => (
               <div
-                key={card.title}
-                className="glass-card glass-shimmer fresnel-border card-3d light-sweep ambient-glow rounded-lg p-6 group animate-fade-in-up"
+                key={step.num}
+                className="glass-card glass-shimmer fresnel-border card-3d ambient-glow relative rounded-xl p-6 group animate-fade-in-up"
                 style={{ animationDelay: `${i * 120}ms` }}
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="text-amber-500/60 group-hover:text-amber-500 transition-colors duration-300">
-                    {card.icon}
-                  </div>
-                  <div className="text-right">
-                    <div className="font-display text-2xl text-amber-500/40 group-hover:text-amber-500/60 transition-colors duration-300">
-                      {card.stat}
-                    </div>
-                    <div className="font-body text-[10px] tracking-widest uppercase text-gray-400">
-                      {card.statLabel}
-                    </div>
-                  </div>
+                <div className="w-12 h-12 rounded-full border-2 border-amber-500/40 flex items-center justify-center mb-5 relative z-10 bg-noir-900 group-hover:border-amber-500 group-hover:bg-amber-500/10 transition-all duration-300">
+                  <span className="font-display text-lg text-amber-500">{step.num}</span>
                 </div>
                 <h3 className="font-body font-semibold text-warm-50 text-base mb-2">
-                  {card.title}
+                  {step.title}
                 </h3>
                 <p className="font-body text-gray-400 text-sm leading-relaxed">
-                  {card.desc}
+                  {step.desc}
                 </p>
+              </div>
+            ))}
+          </div>
+          <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto mb-10">
+            {CAMPAIGN_STEPS.slice(3).map((step, i) => (
+              <div
+                key={step.num}
+                className="glass-card glass-shimmer fresnel-border card-3d ambient-glow relative rounded-xl p-6 group animate-fade-in-up"
+                style={{ animationDelay: `${(i + 3) * 120}ms` }}
+              >
+                <div className="w-12 h-12 rounded-full border-2 border-amber-500/40 flex items-center justify-center mb-5 relative z-10 bg-noir-900 group-hover:border-amber-500 group-hover:bg-amber-500/10 transition-all duration-300">
+                  <span className="font-display text-lg text-amber-500">{step.num}</span>
+                </div>
+                <h3 className="font-body font-semibold text-warm-50 text-base mb-2">
+                  {step.title}
+                </h3>
+                <p className="font-body text-gray-400 text-sm leading-relaxed">
+                  {step.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Compact stat badges */}
+          <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+            {[
+              { stat: '100%', label: 'to artist' },
+              { stat: '40+', label: 'countries' },
+              { stat: '0%', label: 'scalper rate' },
+            ].map((b) => (
+              <div
+                key={b.label}
+                className="flex items-center gap-2 px-4 py-2 rounded-full border border-noir-700 bg-noir-800/50"
+              >
+                <span className="font-display text-lg text-amber-500">{b.stat}</span>
+                <span className="font-body text-xs tracking-wider uppercase text-gray-400">{b.label}</span>
               </div>
             ))}
           </div>

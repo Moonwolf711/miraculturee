@@ -242,8 +242,28 @@ export default function ArtistVerifyPage() {
                 </span>
               )}
             </div>
+            {/* Campaign explainer */}
+            <div className="bg-noir-950 border border-amber-500/10 rounded-xl p-5 mb-4">
+              <h3 className="font-body font-semibold text-warm-50 text-sm mb-3">
+                What happens when you activate a campaign?
+              </h3>
+              <ol className="space-y-2 text-gray-400 text-sm font-body">
+                <li className="flex gap-2">
+                  <span className="text-amber-500 font-semibold shrink-0">1.</span>
+                  <span>A donation goal is set (10 tickets &times; face value). Fans worldwide donate to reach it.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-amber-500 font-semibold shrink-0">2.</span>
+                  <span>When the goal is hit, 10 tickets unlock at $5&ndash;$10 for verified local fans only.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-amber-500 font-semibold shrink-0">3.</span>
+                  <span>100% of donations go directly to you. Surplus becomes your bonus if the show sells out.</span>
+                </li>
+              </ol>
+            </div>
             <p className="text-gray-400 text-sm font-body mb-4">
-              Fans are waiting! Activate a campaign to unlock ticket sales. You can activate up to 2 shows per month.
+              Ready to go? Activate a campaign for any of your shows below. You can activate up to 2 per month.
             </p>
             <div className="space-y-3">
               {matchedEvents.map((match) => (
