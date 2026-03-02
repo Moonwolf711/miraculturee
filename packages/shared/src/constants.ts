@@ -112,28 +112,6 @@ export const DEFAULT_LOCAL_RADIUS_KM = 50;
 /** Mean radius of the Earth in kilometers (used in Haversine calculations). */
 export const EARTH_RADIUS_KM = 6371;
 
-/** Base discount price for artist campaigns (in cents). */
-export const ARTIST_BASE_DISCOUNT_CENTS = 500;
-/** Per-tier discount increment (in cents). */
-export const ARTIST_DISCOUNT_INCREMENT_CENTS = 100;
-/** Maximum discount price cap (in cents). */
-export const ARTIST_MAX_DISCOUNT_CENTS = 1000;
-/** Maximum achievement tier (5 successful campaigns). */
-export const ARTIST_MAX_TIER = 5;
-
-/**
- * Computes the discount ticket price for an artist based on their
- * number of successful campaigns.
- *
- * Formula: min($5 + (successfulCampaigns * $1), $10)
- */
-export function computeArtistDiscountCents(successfulCampaigns: number): number {
-  return Math.min(
-    ARTIST_BASE_DISCOUNT_CENTS + successfulCampaigns * ARTIST_DISCOUNT_INCREMENT_CENTS,
-    ARTIST_MAX_DISCOUNT_CENTS,
-  );
-}
-
 /** EDMTrain sync runs every 6 hours */
 export const EDMTRAIN_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 /** Past-event cleanup runs every 1 hour */
