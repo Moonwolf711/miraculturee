@@ -4,6 +4,7 @@ import {
   UpdateCampaignSchema,
   CampaignListSchema,
   UuidParamSchema,
+  RequestPayoutSchema,
   computeArtistProgression,
   computeMaxTicketsForLevel,
 } from '@miraculturee/shared';
@@ -12,7 +13,7 @@ import { ArtistVerificationService } from '../services/artistVerification.js';
 import { ArtistMatchingService } from '../services/artist-matching.service.js';
 
 export async function artistRoutes(app: FastifyInstance) {
-  const artistService = new ArtistService(app.prisma);
+  const artistService = new ArtistService(app.prisma, app.pos);
   const verificationService = new ArtistVerificationService(app.prisma);
   const matchingService = new ArtistMatchingService(app.prisma);
 
@@ -36,6 +37,20 @@ export async function artistRoutes(app: FastifyInstance) {
 
   app.get('/earnings', { preHandler: [app.authenticate] }, async (req) => {
     return artistService.getEarnings(req.user.id);
+  });
+
+  // --- Payouts ---
+
+  /** GET /artist/payouts — full payout summary with per-campaign breakdown */
+  app.get('/payouts', { preHandler: [app.authenticate] }, async (req) => {
+    return artistService.getPayoutSummary(req.user.id);
+  });
+
+  /** POST /artist/payouts/request — request payout for a specific campaign */
+  app.post('/payouts/request', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const body = RequestPayoutSchema.parse(req.body);
+    const result = await artistService.requestPayout(req.user.id, body.campaignId);
+    return reply.code(200).send(result);
   });
 
   // --- Campaigns ---

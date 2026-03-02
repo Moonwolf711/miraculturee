@@ -121,6 +121,13 @@ export class SupportService {
             ...(justReachedGoal && { goalReached: true, goalReachedAt: new Date() }),
           },
         });
+
+        if (justReachedGoal) {
+          await this.prisma.artist.update({
+            where: { id: campaign.artistId },
+            data: { successfulCampaigns: { increment: 1 } },
+          });
+        }
       }
     }
   }

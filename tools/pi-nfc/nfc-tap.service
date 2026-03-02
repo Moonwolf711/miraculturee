@@ -1,0 +1,14 @@
+[Unit]
+Description=MiraCulture NFC Tap
+After=network.target
+
+[Service]
+Type=simple
+User=moonwolf
+WorkingDirectory=/home/moonwolf/pi-nfc
+ExecStart=/home/moonwolf/pi-nfc/.venv/bin/python3 /home/moonwolf/pi-nfc/nfc_tap.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -154,16 +154,22 @@ export default function ArtistDashboardPage() {
           <h1 className="font-display text-3xl tracking-wider text-warm-50">
             ARTIST DASHBOARD
           </h1>
-          {user?.role === 'ADMIN' && (
-            <div className="flex gap-3">
+          <div className="flex gap-3">
+            <Link
+              to="/artist/earnings"
+              className="px-5 py-2.5 border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-semibold rounded-lg text-sm transition-colors"
+            >
+              Earnings
+            </Link>
+            {user?.role === 'ADMIN' && (
               <Link
                 to="/artist/campaigns/new"
                 className="px-5 py-2.5 border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-semibold rounded-lg text-sm transition-colors"
               >
                 New Campaign
               </Link>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Stats Grid */}

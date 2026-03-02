@@ -42,6 +42,7 @@ const AdminPage = lazyRetry(() => import('./pages/AdminPage.js'));
 const ArtistRegisterPage = lazyRetry(() => import('./pages/ArtistRegisterPage.js'));
 const ArtistVerifyPage = lazyRetry(() => import('./pages/ArtistVerifyPage.js'));
 const InviteRedirectPage = lazyRetry(() => import('./pages/InviteRedirectPage.js'));
+const ArtistEarningsPage = lazyRetry(() => import('./pages/ArtistEarningsPage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -130,6 +131,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <ArtistDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/artist/earnings"
+              element={
+                <ProtectedRoute>
+                  <ArtistEarningsPage />
                 </ProtectedRoute>
               }
             />

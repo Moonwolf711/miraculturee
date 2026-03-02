@@ -146,6 +146,41 @@ export interface DirectTicketSummary {
 
 export type CampaignStatus = 'DRAFT' | 'ACTIVE' | 'ENDED';
 
+/** Per-campaign earnings breakdown for the artist payout page. */
+export interface CampaignEarnings {
+  campaignId: string;
+  eventTitle: string;
+  eventDate: string;
+  campaignStatus: CampaignStatus;
+  fundedCents: number;
+  platformFeeCents: number;
+  artistEarningsCents: number;
+  paidOutCents: number;
+  availableCents: number;
+  eligible: boolean;
+  eligibilityReason?: string;
+}
+
+/** Single payout record in payout history. */
+export interface PayoutRecord {
+  id: string;
+  campaignId: string | null;
+  eventTitle: string;
+  amountCents: number;
+  status: string;
+  createdAt: string;
+}
+
+/** Full payout summary returned by GET /artist/payouts. */
+export interface PayoutSummary {
+  totalEarningsCents: number;
+  totalPaidOutCents: number;
+  totalAvailableCents: number;
+  connectAccountStatus: 'none' | 'pending' | 'ready';
+  campaigns: CampaignEarnings[];
+  payoutHistory: PayoutRecord[];
+}
+
 export interface CampaignSummary {
   id: string;
   eventId: string;

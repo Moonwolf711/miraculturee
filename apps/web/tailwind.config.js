@@ -37,6 +37,8 @@ export default {
         'shimmer': 'shimmer 2.5s ease-in-out infinite',
         'blink': 'blink 1s step-end infinite',
         'float': 'float 6s ease-in-out infinite',
+        'glow-pulse': 'glowPulse 3s ease-in-out infinite',
+        'fresnel-shift': 'fresnelShift 4s ease-in-out infinite',
       },
       keyframes: {
         fadeInUp: {
@@ -94,6 +96,14 @@ export default {
         float: {
           '0%, 100%': { transform: 'translateY(0) scale(1)' },
           '50%': { transform: 'translateY(-20px) scale(1.05)' },
+        },
+        glowPulse: {
+          '0%, 100%': { boxShadow: '0 0 20px rgba(245, 158, 11, 0.08), inset 0 0 20px rgba(245, 158, 11, 0.03)' },
+          '50%': { boxShadow: '0 0 40px rgba(245, 158, 11, 0.15), inset 0 0 30px rgba(245, 158, 11, 0.06)' },
+        },
+        fresnelShift: {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
         },
       },
       transitionTimingFunction: {

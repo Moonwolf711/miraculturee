@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MiraCulture NFC Writer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;color:#f5f0eb;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+h1{font-size:1.5rem;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px}
+.subtitle{color:#9ca3af;font-size:0.8rem;margin-bottom:40px}
+.url-display{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:16px 24px;margin-bottom:32px;font-size:1rem;color:#f59e0b;letter-spacing:0.05em;text-align:center;width:100%;max-width:360px}
+.btn{width:100%;max-width:360px;padding:16px;border:none;border-radius:12px;font-size:1.1rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:all 0.2s}
+.btn-write{background:#f59e0b;color:#0a0a0a;margin-bottom:12px}
+.btn-write:active{background:#d97706;transform:scale(0.98)}
+.btn-write:disabled{background:#444;color:#666;cursor:not-allowed}
+.btn-read{background:#1a1a1a;border:1px solid #333;color:#9ca3af;margin-bottom:32px}
+.status{text-align:center;padding:20px;border-radius:12px;margin-top:16px;width:100%;max-width:360px;font-size:0.9rem;min-height:60px;display:flex;align-items:center;justify-content:center}
+.status.idle{background:#1a1a1a;color:#9ca3af}
+.status.waiting{background:#422006;color:#f59e0b;animation:pulse 1.5s infinite}
+.status.success{background:#052e16;color:#4ade80}
+.status.error{background:#2d0a0a;color:#f87171}
+.count{color:#6b7280;font-size:0.75rem;margin-top:24px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+</style>
+</head>
+<body>
+<h1>MiraCulture</h1>
+<p class="subtitle">NFC Tag Writer</p>
+
+<div class="url-display" id="urlDisplay">https://mira-culture.com</div>
+
+<button class="btn btn-write" id="writeBtn" onclick="writeTag()">Write to NFC Tag</button>
+<button class="btn btn-read" onclick="readTag()">Read Tag</button>
+
+<div class="status idle" id="status">Tap "Write" then hold a tag to the device</div>
+<div class="count" id="count"></div>
+
+<script>
+const URL_TO_WRITE = 'https://mira-culture.com';
+let writeCount = 0;
+
+async function writeTag() {
+  const status = document.getElementById('status');
+  const btn = document.getElementById('writeBtn');
+
+  if (!('NDEFReader' in window)) {
+    status.className = 'status error';
+    status.textContent = 'Web NFC not supported in this browser. Use Chrome.';
+    return;
+  }
+
+  try {
+    btn.disabled = true;
+    status.className = 'status waiting';
+    status.textContent = 'Hold an NFC tag to the back of the device...';
+
+    const ndef = new NDEFReader();
+    await ndef.write({
+      records: [{ recordType: 'url', data: URL_TO_WRITE }]
+    });
+
+    writeCount++;
+    status.className = 'status success';
+    status.textContent = 'Tag written successfully!';
+    document.getElementById('count').textContent = writeCount + ' tag' + (writeCount === 1 ? '' : 's') + ' written this session';
+
+    setTimeout(() => {
+      status.className = 'status idle';
+      status.textContent = 'Ready to write another tag';
+      btn.disabled = false;
+    }, 2000);
+
+  } catch (err) {
+    status.className = 'status error';
+    status.textContent = err.message || 'Write failed';
+    btn.disabled = false;
+  }
+}
+
+async function readTag() {
+  const status = document.getElementById('status');
+
+  if (!('NDEFReader' in window)) {
+    status.className = 'status error';
+    status.textContent = 'Web NFC not supported in this browser. Use Chrome.';
+    return;
+  }
+
+  try {
+    status.className = 'status waiting';
+    status.textContent = 'Hold a tag to read...';
+
+    const ndef = new NDEFReader();
+    await ndef.scan();
+
+    ndef.onreading = (event) => {
+      const decoder = new TextDecoder();
+      let content = '';
+      for (const record of event.message.records) {
+        if (record.recordType === 'url') {
+          content = decoder.decode(record.data);
+        } else if (record.recordType === 'text') {
+          content = decoder.decode(record.data);
+        } else {
+          content = 'Type: ' + record.recordType;
+        }
+      }
+      status.className = 'status success';
+      status.textContent = 'Read: ' + (content || 'Empty tag');
+    };
+
+    ndef.onreadingerror = () => {
+      status.className = 'status error';
+      status.textContent = 'Cannot read tag';
+    };
+
+  } catch (err) {
+    status.className = 'status error';
+    status.textContent = err.message || 'Read failed';
+  }
+}
+</script>
+</body>
+</html>

@@ -197,7 +197,7 @@ export const SyncLogsQuerySchema = z.object({
 
 // --- Artist Campaigns ---
 
-/** Validates campaign creation input. */
+/** Validates campaign creation input. discountCents is now server-computed from artist tier. */
 export const CreateCampaignSchema = z.object({
   eventId: z.string().uuid(),
   headline: z.string().min(1).max(200),
@@ -222,6 +222,13 @@ export const CampaignListSchema = z.object({
   status: z.enum(['DRAFT', 'ACTIVE', 'ENDED']).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),
+});
+
+// --- Artist Payouts ---
+
+/** Validates payout request input. */
+export const RequestPayoutSchema = z.object({
+  campaignId: z.string().uuid(),
 });
 
 // --- Shared param schemas ---
