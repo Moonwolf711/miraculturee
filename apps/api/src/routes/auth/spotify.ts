@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { getSpotifyAuthorizeUrl, exchangeSpotifyCode, getSpotifyProfile } from '../../lib/oauth/spotify-client.js';
+import { getSpotifyAuthorizeUrl, exchangeSpotifyCode, getSpotifyProfile, searchSpotifyArtist } from '../../lib/oauth/spotify-client.js';
 import { ArtistVerificationService } from '../../services/artistVerification.js';
 import { ArtistMatchingService } from '../../services/artist-matching.service.js';
 
@@ -60,33 +60,54 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
 
     try {
       const tokens = await exchangeSpotifyCode(code);
-      const profile = await getSpotifyProfile(tokens.access_token);
+      const userProfile = await getSpotifyProfile(tokens.access_token);
+
+      // Look up the artist's existing stage name to search Spotify for the artist profile
+      const existingArtist = await app.prisma.artist.findUnique({ where: { id: payload.artistId } });
+      const searchName = existingArtist?.stageName || userProfile.display_name || '';
+
+      // Search Spotify for the actual artist profile (not the personal user profile)
+      const artistProfile = await searchSpotifyArtist(tokens.access_token, searchName);
+
+      // Use artist profile data if found, fall back to user profile
+      const providerUserId = artistProfile?.id || userProfile.id;
+      const providerUsername = artistProfile?.name || userProfile.display_name;
+      const profileUrl = artistProfile?.external_urls.spotify || userProfile.external_urls.spotify;
+      const followerCount = artistProfile?.followers.total ?? userProfile.followers.total;
 
       await verificationService.connectSocialAccount(payload.artistId, {
         provider: 'SPOTIFY',
-        providerUserId: profile.id,
-        providerUsername: profile.display_name,
-        profileUrl: profile.external_urls.spotify,
-        followerCount: profile.followers.total,
+        providerUserId,
+        providerUsername,
+        profileUrl,
+        followerCount,
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
         scopes: tokens.scope,
-        rawProfile: profile,
+        rawProfile: artistProfile ?? userProfile,
       });
 
-      // Update stageName to Spotify display_name (authoritative identity) + store Spotify ID
-      const displayName = profile.display_name || '';
-      await app.prisma.artist.update({
-        where: { id: payload.artistId },
-        data: {
-          spotifyArtistId: profile.id,
-          ...(displayName ? { stageName: displayName } : {}),
-        },
-      }).catch(() => {});
+      // Update stageName to the Spotify artist name (authoritative identity)
+      const verifiedName = artistProfile?.name || '';
+      if (verifiedName) {
+        await app.prisma.artist.update({
+          where: { id: payload.artistId },
+          data: {
+            spotifyArtistId: providerUserId,
+            stageName: verifiedName,
+          },
+        }).catch(() => {});
+      } else {
+        // No artist profile found — still store the Spotify user ID but don't overwrite stageName
+        await app.prisma.artist.update({
+          where: { id: payload.artistId },
+          data: { spotifyArtistId: userProfile.id },
+        }).catch(() => {});
+      }
 
-      // Match events using Spotify-verified name (not self-entered)
-      const matchName = displayName || (await app.prisma.artist.findUnique({ where: { id: payload.artistId } }))?.stageName || '';
+      // Match events using Spotify-verified artist name (not self-entered, not personal account name)
+      const matchName = verifiedName || searchName;
       const matches = await matchingService.findMatchingEvents(matchName, payload.artistId);
 
       return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=spotify&matches=${matches.length}`);

@@ -67,3 +67,34 @@ export async function getSpotifyProfile(accessToken: string): Promise<{
   }
   return res.json();
 }
+
+/** Search Spotify for an artist by name and return the best match. */
+export async function searchSpotifyArtist(accessToken: string, artistName: string): Promise<{
+  id: string;
+  name: string;
+  external_urls: { spotify: string };
+  followers: { total: number };
+  images: { url: string }[];
+  genres: string[];
+} | null> {
+  const params = new URLSearchParams({
+    q: artistName,
+    type: 'artist',
+    limit: '5',
+  });
+  const res = await fetch(`${SPOTIFY_API_URL}/search?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const artists = data?.artists?.items;
+  if (!artists || artists.length === 0) return null;
+
+  // Find best match: exact name match (case-insensitive) preferred
+  const needle = artistName.toLowerCase().trim();
+  const exactMatch = artists.find(
+    (a: { name: string }) => a.name.toLowerCase().trim() === needle,
+  );
+  return exactMatch ?? artists[0];
+}
