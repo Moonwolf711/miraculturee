@@ -78,8 +78,8 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
       // Use artist profile data if found, fall back to user profile
       const providerUserId = artistProfile?.id || userProfile.id;
       const providerUsername = artistProfile?.name || userProfile.display_name;
-      const profileUrl = artistProfile?.external_urls.spotify || userProfile.external_urls.spotify;
-      const followerCount = artistProfile?.followers.total ?? userProfile.followers.total;
+      const profileUrl = artistProfile?.external_urls?.spotify || userProfile?.external_urls?.spotify || '';
+      const followerCount = artistProfile?.followers?.total ?? userProfile?.followers?.total ?? 0;
 
       await verificationService.connectSocialAccount(payload.artistId, {
         provider: 'SPOTIFY',
