@@ -204,7 +204,8 @@ export const CreateCampaignSchema = z.object({
   message: z.string().min(1).max(2000),
   startAt: z.string().datetime().optional(),
   endAt: z.string().datetime().optional(),
-  discountCents: z.number().int().min(500).max(1000).optional(),
+  /** Artist can choose to run at a lower level (fewer tickets). Defaults to their current level. */
+  campaignLevel: z.number().int().min(1).max(10).optional(),
 });
 
 /** Validates campaign update input. */

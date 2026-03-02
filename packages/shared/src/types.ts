@@ -93,6 +93,24 @@ export interface ArtistDashboard {
   totalSupportAmountCents: number;
   totalRaffleEntries: number;
   upcomingEvents: EventSummary[];
+  /** Current achievement level (1-10). */
+  currentLevel: number;
+  /** Tier within the current level (0-5), maps to $5-$10 ticket price. */
+  tierWithinLevel: number;
+  /** Max local tickets available at the current level (level × 10). */
+  maxTicketsForLevel: number;
+  /** Max local tickets at the next level. */
+  nextLevelTickets: number;
+  /** Whether the artist can still level up. */
+  canLevelUp: boolean;
+  /** True when artist has completed all 60 tiers (level 10, tier 5). */
+  isMaxed: boolean;
+  /** Total successful campaigns completed (out of 60 max). */
+  totalTiersCompleted: number;
+  /** Total tiers needed to max out (60). */
+  totalTiersRequired: number;
+  /** Current discount price in cents based on tier. */
+  discountCents: number;
 }
 
 /** Single financial transaction record. */

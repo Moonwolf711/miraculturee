@@ -11,6 +11,13 @@ interface ArtistEvent {
   ticketPriceCents: number;
 }
 
+interface DashboardLevel {
+  currentLevel: number;
+  tierWithinLevel: number;
+  maxTicketsForLevel: number;
+  discountCents: number;
+}
+
 interface CreatedCampaign {
   id: string;
   eventId: string;
@@ -52,7 +59,8 @@ export default function CreateCampaignPage() {
   const [headline, setHeadline] = useState('');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'DRAFT' | 'ACTIVE'>('ACTIVE');
-  const [discountCents, setDiscountCents] = useState(500);
+  const [campaignLevel, setCampaignLevel] = useState(1);
+  const [levelInfo, setLevelInfo] = useState<DashboardLevel | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [eventsLoading, setEventsLoading] = useState(true);
@@ -61,10 +69,18 @@ export default function CreateCampaignPage() {
 
   useEffect(() => {
     api
-      .get<{ upcomingEvents: ArtistEvent[] }>('/artist/dashboard')
+      .get<{ upcomingEvents: ArtistEvent[]; currentLevel: number; tierWithinLevel: number; maxTicketsForLevel: number; discountCents: number }>('/artist/dashboard')
       .then((d) => {
         setEvents(d.upcomingEvents);
         if (d.upcomingEvents.length > 0) setEventId(d.upcomingEvents[0].id);
+        const info: DashboardLevel = {
+          currentLevel: d.currentLevel,
+          tierWithinLevel: d.tierWithinLevel,
+          maxTicketsForLevel: d.maxTicketsForLevel,
+          discountCents: d.discountCents,
+        };
+        setLevelInfo(info);
+        setCampaignLevel(info.currentLevel);
       })
       .catch(() => {})
       .finally(() => setEventsLoading(false));
@@ -80,7 +96,7 @@ export default function CreateCampaignPage() {
         eventId,
         headline,
         message,
-        discountCents,
+        campaignLevel,
       });
       // If they want it active immediately, update status
       if (status === 'ACTIVE') {
@@ -233,43 +249,56 @@ export default function CreateCampaignPage() {
               )}
             </div>
 
-            {/* Campaign Goal Display */}
-            {eventId && events.length > 0 && (() => {
+            {/* Campaign Summary — level-aware */}
+            {eventId && events.length > 0 && levelInfo && (() => {
               const selectedEvent = events.find((e) => e.id === eventId);
               if (!selectedEvent) return null;
-              const goalCents = selectedEvent.ticketPriceCents * 10;
+              const ticketCount = campaignLevel * 10;
+              const goalCents = selectedEvent.ticketPriceCents * ticketCount;
               return (
                 <div className="bg-noir-950 border border-noir-800 rounded-lg p-4">
-                  <p className="text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">Campaign Goal</p>
-                  <p className="text-warm-50 text-lg font-semibold">
-                    ${(goalCents / 100).toFixed(0)}
-                    <span className="text-gray-500 text-sm font-normal ml-2">
-                      (10 tickets x ${(selectedEvent.ticketPriceCents / 100).toFixed(0)} face value)
-                    </span>
-                  </p>
-                  <p className="text-gray-500 text-xs mt-1 font-body">
-                    When fans donate this amount, 10 discounted tickets unlock for local fans.
-                  </p>
+                  <p className="text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">Campaign Summary</p>
 
-                  <div className="mt-4">
-                    <label htmlFor="discount-price" className="text-gray-400 text-xs uppercase tracking-wider font-medium">
-                      Local Ticket Price: ${(discountCents / 100).toFixed(0)}
-                    </label>
-                    <input
-                      id="discount-price"
-                      type="range"
-                      min={500}
-                      max={1000}
-                      step={100}
-                      value={discountCents}
-                      onChange={(e) => setDiscountCents(Number(e.target.value))}
-                      className="w-full mt-2 accent-amber-500"
-                    />
-                    <div className="flex justify-between text-gray-600 text-[10px] mt-1">
-                      <span>$5</span>
-                      <span>$10</span>
+                  {/* Level selector — only shown if artist is level 2+ */}
+                  {levelInfo.currentLevel > 1 && (
+                    <div className="mb-3">
+                      <label htmlFor="campaign-level" className="text-gray-400 text-xs uppercase tracking-wider font-medium">
+                        Campaign Level
+                      </label>
+                      <select
+                        id="campaign-level"
+                        value={campaignLevel}
+                        onChange={(e) => setCampaignLevel(Number(e.target.value))}
+                        className={inputClass + ' mt-1'}
+                      >
+                        {Array.from({ length: levelInfo.currentLevel }, (_, i) => i + 1).map((lvl) => (
+                          <option key={lvl} value={lvl}>
+                            Level {lvl} — {lvl * 10} tickets
+                            {lvl === levelInfo.currentLevel ? ' (current)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="bg-noir-800 rounded-lg p-2 text-center">
+                      <div className="text-warm-50 font-semibold">${(levelInfo.discountCents / 100).toFixed(0)}</div>
+                      <div className="text-[10px] text-gray-500 uppercase">Ticket Price</div>
+                    </div>
+                    <div className="bg-noir-800 rounded-lg p-2 text-center">
+                      <div className="text-warm-50 font-semibold">{ticketCount}</div>
+                      <div className="text-[10px] text-gray-500 uppercase">Tickets</div>
+                    </div>
+                    <div className="bg-noir-800 rounded-lg p-2 text-center">
+                      <div className="text-amber-400 font-semibold">${(goalCents / 100).toFixed(0)}</div>
+                      <div className="text-[10px] text-gray-500 uppercase">Goal</div>
                     </div>
                   </div>
+
+                  <p className="text-gray-500 text-xs font-body">
+                    When fans donate ${(goalCents / 100).toFixed(0)}, {ticketCount} discounted tickets unlock for local fans at ${(levelInfo.discountCents / 100).toFixed(0)} each.
+                  </p>
                 </div>
               );
             })()}

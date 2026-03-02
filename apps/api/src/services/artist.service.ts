@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { ArtistDashboard } from '@miraculturee/shared';
+import { computeArtistProgression } from '@miraculturee/shared';
 
 export class ArtistService {
   constructor(private prisma: PrismaClient) {}
@@ -55,12 +56,27 @@ export class ArtistService {
         genre: artist.genre ?? null,
       }));
 
+    // Count campaigns that reached their goal for progression
+    const successfulCampaigns = await this.prisma.campaign.count({
+      where: { artistId: artist.id, goalReached: true },
+    });
+    const prog = computeArtistProgression(successfulCampaigns);
+
     return {
       totalEvents: artist.events.length,
       totalSupport,
       totalSupportAmountCents,
       totalRaffleEntries,
       upcomingEvents,
+      currentLevel: prog.currentLevel,
+      tierWithinLevel: prog.tierWithinLevel,
+      maxTicketsForLevel: prog.maxTicketsForLevel,
+      nextLevelTickets: prog.nextLevelTickets,
+      canLevelUp: prog.canLevelUp,
+      isMaxed: prog.isMaxed,
+      totalTiersCompleted: prog.totalTiersCompleted,
+      totalTiersRequired: prog.totalTiersRequired,
+      discountCents: prog.discountCents,
     };
   }
 

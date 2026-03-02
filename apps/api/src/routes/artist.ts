@@ -4,6 +4,8 @@ import {
   UpdateCampaignSchema,
   CampaignListSchema,
   UuidParamSchema,
+  computeArtistProgression,
+  computeMaxTicketsForLevel,
 } from '@miraculturee/shared';
 import { ArtistService } from '../services/artist.service.js';
 import { ArtistVerificationService } from '../services/artistVerification.js';
@@ -92,8 +94,22 @@ export async function artistRoutes(app: FastifyInstance) {
     });
     if (!event) return reply.code(404).send({ error: 'Event not found or not owned by you' });
 
-    const goalCents = event.ticketPriceCents * 10;
-    const discountCents = body.discountCents ?? 500;
+    // Compute progression from successful campaigns count
+    const successfulCampaigns = await app.prisma.campaign.count({
+      where: { artistId: artist.id, goalReached: true },
+    });
+    const prog = computeArtistProgression(successfulCampaigns);
+
+    // Artist can optionally choose a lower level (fewer tickets)
+    const chosenLevel = body.campaignLevel ?? prog.level;
+    if (chosenLevel > prog.level) {
+      return reply.code(400).send({
+        error: `You are level ${prog.level}. You cannot create a campaign at level ${chosenLevel}.`,
+      });
+    }
+
+    const maxLocalTickets = computeMaxTicketsForLevel(chosenLevel);
+    const goalCents = event.ticketPriceCents * maxLocalTickets;
 
     const campaign = await app.prisma.campaign.create({
       data: {
@@ -104,7 +120,8 @@ export async function artistRoutes(app: FastifyInstance) {
         startAt: body.startAt ? new Date(body.startAt) : null,
         endAt: body.endAt ? new Date(body.endAt) : null,
         goalCents,
-        discountCents,
+        discountCents: prog.discountCents,
+        maxLocalTickets,
       },
     });
 
@@ -267,8 +284,15 @@ export async function artistRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'Your artist name does not match this event' });
     }
 
+    // Compute progression from successful campaigns count
+    const successfulCampaigns = await app.prisma.campaign.count({
+      where: { artistId: artist.id, goalReached: true },
+    });
+    const prog = computeArtistProgression(successfulCampaigns);
+    const maxLocalTickets = prog.maxTicketsForLevel;
+    const goalCents = event.ticketPriceCents * maxLocalTickets;
+
     // All in one transaction: transfer event, create campaign, publish
-    const goalCents = event.ticketPriceCents * 10;
     const result = await app.prisma.$transaction(async (tx) => {
       // Transfer event ownership to real artist
       const updatedEvent = await tx.event.update({
@@ -290,7 +314,8 @@ export async function artistRoutes(app: FastifyInstance) {
           startAt: new Date(),
           endAt: event.date,
           goalCents,
-          discountCents: 500,
+          discountCents: prog.discountCents,
+          maxLocalTickets,
         },
       });
 

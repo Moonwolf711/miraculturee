@@ -116,3 +116,68 @@ export const EARTH_RADIUS_KM = 6371;
 export const EDMTRAIN_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 /** Past-event cleanup runs every 1 hour */
 export const EVENT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
+// --- Artist Achievement Progression ---
+
+/** Number of successful campaigns needed to advance one tier within a level. */
+export const ARTIST_CAMPAIGNS_PER_LEVEL = 6;
+/** Maximum achievement level an artist can reach. */
+export const ARTIST_MAX_LEVEL = 10;
+/** Base number of local tickets at level 1. Each level multiplies this by level number. */
+export const ARTIST_BASE_TICKETS = 10;
+
+/** Full progression state for an artist based on their successful campaign count. */
+export interface ArtistProgression {
+  level: number;
+  tierWithinLevel: number;
+  discountCents: number;
+  maxTicketsForLevel: number;
+  currentLevel: number;
+  nextLevelTickets: number;
+  canLevelUp: boolean;
+  isMaxed: boolean;
+  totalTiersCompleted: number;
+  totalTiersRequired: number;
+}
+
+/**
+ * Computes the full artist progression state from their successful campaign count.
+ *
+ * level           = floor(min(campaigns, 59) / 6) + 1    → 1-10
+ * tierWithinLevel = min(campaigns, 59) % 6               → 0-5
+ * discountCents   = 500 + (tierWithinLevel × 100)        → $5-$10
+ * maxTickets      = level × 10                           → 10-100
+ * isMaxed         = campaigns >= 60
+ */
+export function computeArtistProgression(successfulCampaigns: number): ArtistProgression {
+  const clamped = Math.min(Math.max(successfulCampaigns, 0), 59);
+  const level = Math.floor(clamped / ARTIST_CAMPAIGNS_PER_LEVEL) + 1;
+  const tierWithinLevel = clamped % ARTIST_CAMPAIGNS_PER_LEVEL;
+  const discountCents = 500 + tierWithinLevel * 100;
+  const maxTicketsForLevel = level * ARTIST_BASE_TICKETS;
+  const isMaxed = successfulCampaigns >= ARTIST_MAX_LEVEL * ARTIST_CAMPAIGNS_PER_LEVEL;
+  const nextLevel = Math.min(level + 1, ARTIST_MAX_LEVEL);
+
+  return {
+    level,
+    tierWithinLevel,
+    discountCents,
+    maxTicketsForLevel,
+    currentLevel: level,
+    nextLevelTickets: nextLevel * ARTIST_BASE_TICKETS,
+    canLevelUp: !isMaxed && level < ARTIST_MAX_LEVEL,
+    isMaxed,
+    totalTiersCompleted: Math.min(successfulCampaigns, 60),
+    totalTiersRequired: ARTIST_MAX_LEVEL * ARTIST_CAMPAIGNS_PER_LEVEL,
+  };
+}
+
+/** Backward-compatible wrapper that returns just the discount in cents. */
+export function computeArtistDiscountCents(successfulCampaigns: number): number {
+  return computeArtistProgression(successfulCampaigns).discountCents;
+}
+
+/** Returns the max local tickets for a given level (for validation when artist picks a lower level). */
+export function computeMaxTicketsForLevel(level: number): number {
+  return Math.max(1, Math.min(level, ARTIST_MAX_LEVEL)) * ARTIST_BASE_TICKETS;
+}

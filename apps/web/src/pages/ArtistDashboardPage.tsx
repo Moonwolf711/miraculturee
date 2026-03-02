@@ -19,6 +19,15 @@ interface Dashboard {
     supportedTickets: number;
     totalTickets: number;
   }[];
+  currentLevel: number;
+  tierWithinLevel: number;
+  maxTicketsForLevel: number;
+  nextLevelTickets: number;
+  canLevelUp: boolean;
+  isMaxed: boolean;
+  totalTiersCompleted: number;
+  totalTiersRequired: number;
+  discountCents: number;
 }
 
 interface CampaignItem {
@@ -178,6 +187,87 @@ export default function ArtistDashboardPage() {
             <div className="text-xs uppercase tracking-wider text-gray-400 mt-1">Raffle Entries</div>
           </div>
         </div>
+
+        {/* Achievement Progression — only render when API returns level data */}
+        {dashboard.currentLevel != null && (
+          <div className="bg-noir-800 border border-noir-700 rounded-xl p-6 mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-xl tracking-wider text-warm-50">
+                ARTIST LEVEL
+              </h2>
+              <span className="font-display text-2xl text-amber-400">
+                {dashboard.currentLevel} / 10
+              </span>
+            </div>
+
+            {dashboard.isMaxed && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3 mb-4 text-center">
+                <span className="text-amber-400 font-semibold text-sm uppercase tracking-wider">
+                  Maximum Level Achieved
+                </span>
+              </div>
+            )}
+
+            {/* Overall progress bar (X/60) */}
+            <div className="mb-4">
+              <div className="flex justify-between text-xs text-gray-400 mb-1">
+                <span>{dashboard.totalTiersCompleted} / {dashboard.totalTiersRequired} campaigns</span>
+                <span>{dashboard.totalTiersRequired > 0 ? Math.round((dashboard.totalTiersCompleted / dashboard.totalTiersRequired) * 100) : 0}%</span>
+              </div>
+              <div className="w-full h-2 bg-noir-950 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                  style={{ width: `${dashboard.totalTiersRequired > 0 ? (dashboard.totalTiersCompleted / dashboard.totalTiersRequired) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Tier progress within current level (6 segments) */}
+            {!dashboard.isMaxed && (
+              <div className="mb-5">
+                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">
+                  Level {dashboard.currentLevel} Progress
+                </p>
+                <div className="flex gap-1">
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <div
+                        className={`w-full h-3 rounded-sm transition-colors ${
+                          i < dashboard.tierWithinLevel
+                            ? 'bg-amber-500'
+                            : i === dashboard.tierWithinLevel
+                              ? 'bg-amber-500/40'
+                              : 'bg-noir-950'
+                        }`}
+                      />
+                      <span className="text-[10px] text-gray-500">${5 + i}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Stat boxes */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-noir-950 rounded-lg p-3 text-center">
+                <div className="font-display text-xl text-warm-50">${(dashboard.discountCents / 100).toFixed(0)}</div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">Ticket Price</div>
+              </div>
+              <div className="bg-noir-950 rounded-lg p-3 text-center">
+                <div className="font-display text-xl text-warm-50">{dashboard.maxTicketsForLevel}</div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">Max Tickets</div>
+              </div>
+              <div className="bg-noir-950 rounded-lg p-3 text-center">
+                <div className="font-display text-xl text-warm-50">
+                  {dashboard.isMaxed ? '---' : dashboard.nextLevelTickets}
+                </div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">
+                  {dashboard.isMaxed ? 'Maxed Out' : 'Next Level'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Upcoming Events */}
         <h2 className="font-display text-xl tracking-wider text-warm-50 mb-4">
