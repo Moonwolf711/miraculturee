@@ -75,16 +75,18 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
         rawProfile: profile,
       });
 
-      // Store Spotify artist ID for dedup
+      // Update stageName to Spotify display_name (authoritative identity) + store Spotify ID
+      const displayName = profile.display_name || '';
       await app.prisma.artist.update({
         where: { id: payload.artistId },
-        data: { spotifyArtistId: profile.id },
-      }).catch(() => { /* ignore if already set or unique constraint */ });
+        data: {
+          spotifyArtistId: profile.id,
+          ...(displayName ? { stageName: displayName } : {}),
+        },
+      }).catch(() => {});
 
-      // Run artist matching to find shows
-      const displayName = profile.display_name || '';
-      const artist = await app.prisma.artist.findUnique({ where: { id: payload.artistId } });
-      const matchName = artist?.stageName || displayName;
+      // Match events using Spotify-verified name (not self-entered)
+      const matchName = displayName || (await app.prisma.artist.findUnique({ where: { id: payload.artistId } }))?.stageName || '';
       const matches = await matchingService.findMatchingEvents(matchName, payload.artistId);
 
       return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=spotify&matches=${matches.length}`);

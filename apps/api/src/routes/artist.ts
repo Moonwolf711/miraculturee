@@ -170,21 +170,6 @@ export async function artistRoutes(app: FastifyInstance) {
     return { success: true };
   });
 
-  // --- Test: Skip Spotify for verification ---
-
-  /** POST /artist/me/test-verify — temporarily verify artist without Spotify (for testing) */
-  app.post('/me/test-verify', { preHandler: [app.authenticate] }, async (req, reply) => {
-    const artist = await getOrCreateArtist(req.user.id);
-    if (!artist) return reply.code(404).send({ error: 'User not found' });
-    await app.prisma.artist.update({
-      where: { id: artist.id },
-      data: { isVerified: true, verificationStatus: 'VERIFIED', verifiedAt: new Date() },
-    });
-    // Run matching to find shows
-    const matches = await matchingService.findMatchingEvents(artist.stageName, artist.id);
-    return { success: true, matches: matches.length };
-  });
-
   // --- Social Account Verification ---
 
   /** GET /artist/me/social-accounts — list connected social accounts */
@@ -214,10 +199,18 @@ export async function artistRoutes(app: FastifyInstance) {
 
   // --- Campaign-Gated: Matched Events & Claim ---
 
-  /** GET /artist/matched-events — events matching this artist's name (via placeholder lookup) */
+  /** GET /artist/matched-events — events matching this artist's verified name */
   app.get('/matched-events', { preHandler: [app.authenticate] }, async (req, reply) => {
-    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
+    const artist = await app.prisma.artist.findUnique({
+      where: { userId: req.user.id },
+      include: { socialAccounts: { select: { provider: true } } },
+    });
     if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+
+    // Require at least one connected social account (Spotify/SoundCloud verification)
+    if (artist.socialAccounts.length === 0) {
+      return { matches: [] };
+    }
 
     const matches = await matchingService.findMatchingEvents(artist.stageName, artist.id);
     return { matches };
@@ -226,8 +219,16 @@ export async function artistRoutes(app: FastifyInstance) {
   /** POST /artist/claim/:eventId — artist claims an event and activates a campaign */
   app.post('/claim/:eventId', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { eventId } = req.params as { eventId: string };
-    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
+    const artist = await app.prisma.artist.findUnique({
+      where: { userId: req.user.id },
+      include: { socialAccounts: { select: { provider: true } } },
+    });
     if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+
+    // Require social account verification before claiming events
+    if (artist.socialAccounts.length === 0) {
+      return reply.code(403).send({ error: 'Connect Spotify or SoundCloud to verify your identity before claiming events.' });
+    }
 
     // Enforce 2 campaigns per month limit
     const startOfMonth = new Date();

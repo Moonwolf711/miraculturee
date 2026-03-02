@@ -31,6 +31,21 @@ async function main() {
   });
 
   console.log(`[setup-admin] ${email} → ADMIN, password reset, email verified.`);
+
+  // One-time cleanup: un-verify artists who were test-verified but have no social accounts
+  const { count } = await prisma.artist.updateMany({
+    where: {
+      isVerified: true,
+      isPlaceholder: false,
+      socialAccounts: { none: {} },
+    },
+    data: {
+      isVerified: false,
+      verificationStatus: 'UNVERIFIED',
+      verifiedAt: null,
+    },
+  });
+  if (count > 0) console.log(`[cleanup] Reverted ${count} incorrectly verified artist(s).`);
 }
 
 main()
