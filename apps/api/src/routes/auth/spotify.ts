@@ -29,9 +29,15 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
 
-    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
+    // Auto-create artist profile if one doesn't exist yet
+    let artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
     if (!artist) {
-      return reply.code(403).send({ error: 'Artist profile required' });
+      const user = await app.prisma.user.findUnique({ where: { id: req.user.id } });
+      if (!user) return reply.code(401).send({ error: 'User not found' });
+      [, artist] = await app.prisma.$transaction([
+        app.prisma.user.update({ where: { id: user.id }, data: { role: 'ARTIST' } }),
+        app.prisma.artist.create({ data: { userId: user.id, stageName: user.name || 'Artist' } }),
+      ]);
     }
 
     const state = app.jwt.sign({ userId: req.user.id, artistId: artist.id, provider: 'spotify' } as any, { expiresIn: '10m' });
