@@ -82,10 +82,12 @@ export class ArtistVerificationService {
     });
   }
 
-  /** Recalculate verification: verified if at least one social account is connected. */
+  /** Recalculate verification: verified only if Spotify is connected (proves artist identity). */
   private async updateVerificationStatus(artistId: string) {
-    const count = await this.prisma.artistSocialAccount.count({ where: { artistId } });
-    const isVerified = count > 0;
+    const spotifyCount = await this.prisma.artistSocialAccount.count({
+      where: { artistId, provider: 'SPOTIFY' },
+    });
+    const isVerified = spotifyCount > 0;
 
     await this.prisma.artist.update({
       where: { id: artistId },

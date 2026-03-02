@@ -32,12 +32,12 @@ async function main() {
 
   console.log(`[setup-admin] ${email} → ADMIN, password reset, email verified.`);
 
-  // One-time cleanup: un-verify artists who were test-verified but have no social accounts
+  // One-time cleanup: un-verify artists who have no Spotify account (only Spotify proves identity)
   const { count } = await prisma.artist.updateMany({
     where: {
       isVerified: true,
       isPlaceholder: false,
-      socialAccounts: { none: {} },
+      socialAccounts: { none: { provider: 'SPOTIFY' } },
     },
     data: {
       isVerified: false,
@@ -45,7 +45,7 @@ async function main() {
       verifiedAt: null,
     },
   });
-  if (count > 0) console.log(`[cleanup] Reverted ${count} incorrectly verified artist(s).`);
+  if (count > 0) console.log(`[cleanup] Reverted ${count} artist(s) without Spotify verification.`);
 }
 
 main()

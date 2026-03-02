@@ -207,8 +207,9 @@ export async function artistRoutes(app: FastifyInstance) {
     });
     if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
 
-    // Require at least one connected social account (Spotify/SoundCloud verification)
-    if (artist.socialAccounts.length === 0) {
+    // Require Spotify verification — only Spotify proves artist identity
+    const hasSpotify = artist.socialAccounts.some((a) => a.provider === 'SPOTIFY');
+    if (!hasSpotify) {
       return { matches: [] };
     }
 
@@ -225,9 +226,10 @@ export async function artistRoutes(app: FastifyInstance) {
     });
     if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
 
-    // Require social account verification before claiming events
-    if (artist.socialAccounts.length === 0) {
-      return reply.code(403).send({ error: 'Connect Spotify or SoundCloud to verify your identity before claiming events.' });
+    // Require Spotify verification — only Spotify proves artist identity
+    const hasSpotify = artist.socialAccounts.some((a) => a.provider === 'SPOTIFY');
+    if (!hasSpotify) {
+      return reply.code(403).send({ error: 'Connect your Spotify account to verify your identity before claiming events.' });
     }
 
     // Enforce 2 campaigns per month limit

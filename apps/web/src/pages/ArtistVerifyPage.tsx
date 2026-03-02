@@ -146,7 +146,7 @@ export default function ArtistVerifyPage() {
             VERIFY YOUR IDENTITY
           </h1>
           <p className="font-body text-gray-400 text-sm max-w-md mx-auto">
-            Connect at least one music platform to verify your artist identity.
+            Connect your Spotify account to verify your artist identity.
             This helps fans and venues trust your profile.
           </p>
         </div>
@@ -196,33 +196,30 @@ export default function ArtistVerifyPage() {
           </div>
         )}
 
-        {/* Verify via Social Account */}
+        {/* Verify via Spotify */}
         <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6">
           <h2 className="font-body text-xs tracking-widest uppercase text-gray-500 font-semibold mb-4">
-            {data?.isVerified ? 'Verified' : 'Connect a Music Platform'}
+            {connectedProviders.has('SPOTIFY') ? 'Spotify Verified' : 'Connect Spotify'}
           </h2>
           <div className="space-y-3">
             {!connectedProviders.has('SPOTIFY') && (
               <SocialConnectButton provider="spotify" />
             )}
-            {!connectedProviders.has('SOUNDCLOUD') && (
-              <SocialConnectButton provider="soundcloud" />
-            )}
-            {data?.isVerified && connectedProviders.size > 0 && (
+            {connectedProviders.has('SPOTIFY') && (
               <p className="font-body text-green-400 text-sm text-center py-2">
-                Your account is verified. You can claim shows below.
+                Your Spotify account is verified. You can claim shows below.
               </p>
             )}
-            {!data?.isVerified && connectedProviders.size === 0 && (
+            {!connectedProviders.has('SPOTIFY') && (
               <p className="font-body text-gray-500 text-xs text-center mt-2">
-                Connect your Spotify or SoundCloud to verify your identity and unlock event matching.
+                Connect your Spotify account to verify your artist identity and unlock event matching.
               </p>
             )}
           </div>
         </div>
 
-        {/* Matched Events — Activate Campaign (only shown when verified via social account) */}
-        {data?.isVerified && matchedEvents.length > 0 && (
+        {/* Matched Events — Activate Campaign (only shown when Spotify-verified) */}
+        {connectedProviders.has('SPOTIFY') && matchedEvents.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-body text-xs tracking-widest uppercase text-amber-400 font-semibold">

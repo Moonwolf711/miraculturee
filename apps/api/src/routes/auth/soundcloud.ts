@@ -1,13 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { getSoundCloudAuthorizeUrl, exchangeSoundCloudCode, getSoundCloudProfile } from '../../lib/oauth/soundcloud-client.js';
 import { ArtistVerificationService } from '../../services/artistVerification.js';
-import { ArtistMatchingService } from '../../services/artist-matching.service.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://mira-culture.com';
 
 export async function soundcloudOAuthRoutes(app: FastifyInstance) {
   const verificationService = new ArtistVerificationService(app.prisma);
-  const matchingService = new ArtistMatchingService(app.prisma);
 
   function isConfigured() {
     return !!(process.env.SOUNDCLOUD_CLIENT_ID && process.env.SOUNDCLOUD_CLIENT_SECRET && process.env.SOUNDCLOUD_REDIRECT_URI);
@@ -74,20 +72,9 @@ export async function soundcloudOAuthRoutes(app: FastifyInstance) {
         rawProfile: profile,
       });
 
-      // Update stageName to SoundCloud username (authoritative identity)
-      const scUsername = profile.username || '';
-      if (scUsername) {
-        await app.prisma.artist.update({
-          where: { id: payload.artistId },
-          data: { stageName: scUsername },
-        }).catch(() => {});
-      }
-
-      // Match events using SoundCloud-verified name
-      const matchName = scUsername || (await app.prisma.artist.findUnique({ where: { id: payload.artistId } }))?.stageName || '';
-      const matches = await matchingService.findMatchingEvents(matchName, payload.artistId);
-
-      return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=soundcloud&matches=${matches.length}`);
+      // SoundCloud connected but does NOT verify identity or trigger event matching
+      // Only Spotify verification unlocks campaigns
+      return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=soundcloud`);
     } catch (err) {
       app.log.error(err, 'SoundCloud OAuth callback failed');
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=soundcloud_failed`);
