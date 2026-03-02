@@ -343,9 +343,9 @@ export default function EventsPage() {
             })}
           </div>
 
-          <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 items-stretch sm:items-end">
             {/* Search */}
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-0 sm:min-w-[200px]">
               <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Search</label>
               <form onSubmit={handleSearch} className="flex gap-2">
                 <input
@@ -360,13 +360,12 @@ export default function EventsPage() {
             </div>
 
             {/* Location dropdown */}
-            <div className="min-w-[160px]">
+            <div className="w-full sm:w-auto sm:min-w-[160px]">
               <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Location</label>
               <select
                 value={cityFilter}
                 onChange={(e) => { setCityFilter(e.target.value); setSearch(''); setCurrentPage(1); }}
-                className={selectClass}
-                style={{ minWidth: '160px' }}
+                className={`${selectClass} w-full`}
               >
                 <option value="">All Cities</option>
                 {filterOptions.cities.map((c) => (
@@ -376,13 +375,12 @@ export default function EventsPage() {
             </div>
 
             {/* Date range dropdown */}
-            <div className="min-w-[150px]">
+            <div className="w-full sm:w-auto sm:min-w-[150px]">
               <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Date</label>
               <select
                 value={dateRange}
                 onChange={(e) => { setDateRange(e.target.value); setCurrentPage(1); }}
-                className={selectClass}
-                style={{ minWidth: '150px' }}
+                className={`${selectClass} w-full`}
               >
                 {DATE_RANGES.map((d) => (
                   <option key={d.value} value={d.value}>{d.label}</option>
@@ -392,13 +390,12 @@ export default function EventsPage() {
 
             {/* Genre dropdown */}
             {filterOptions.genres.length > 0 && (
-              <div className="min-w-[150px]">
+              <div className="w-full sm:w-auto sm:min-w-[150px]">
                 <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Genre</label>
                 <select
                   value={genreFilter}
                   onChange={(e) => { setGenreFilter(e.target.value); setCurrentPage(1); }}
-                  className={selectClass}
-                  style={{ minWidth: '150px' }}
+                  className={`${selectClass} w-full`}
                 >
                   <option value="">All Genres</option>
                   {filterOptions.genres.map((g) => (

@@ -195,6 +195,8 @@ function useMouseParallax(factor = 0.02) {
   useEffect(() => {
     // Respect reduced motion preference — disable parallax
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // No parallax on touch devices — mouse-based effect has no touch equivalent
+    if (window.matchMedia('(pointer: coarse)').matches) return;
 
     window.addEventListener('mousemove', onMove, { passive: true });
     return () => window.removeEventListener('mousemove', onMove);

@@ -187,7 +187,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           {/* Mobile hamburger */}
           <button
             ref={hamburgerRef}
-            className="md:hidden p-2 -mr-2"
+            className="md:hidden p-3 -mr-3"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
