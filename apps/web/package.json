@@ -24,7 +24,8 @@
     "react-helmet-async": "^2.0.5",
     "react-router-dom": "^7.1.0",
     "serve": "^14.2.0",
-    "socket.io-client": "^4.8.0"
+    "socket.io-client": "^4.8.0",
+    "@simplewebauthn/browser": "^11.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

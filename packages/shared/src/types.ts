@@ -13,6 +13,25 @@ export interface TokenPair {
   refreshToken: string;
 }
 
+/** Response when 2FA is required during login. */
+export interface TwoFactorRequired {
+  requiresTwoFactor: true;
+  tempToken: string;
+}
+
+/** Response when TOTP setup is initiated. */
+export interface TotpSetupResponse {
+  qrCodeDataUrl: string;
+  backupCodes: string[];
+}
+
+/** Passkey summary for listing in the UI. */
+export interface PasskeySummary {
+  id: string;
+  friendlyName: string;
+  createdAt: string;
+}
+
 /** Generic paginated API response wrapper. */
 export interface PaginatedResponse<T> {
   data: T[];

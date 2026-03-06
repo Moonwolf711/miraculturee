@@ -37,9 +37,15 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/me', { preHandler: [app.authenticate] }, async (req) => {
     const user = await app.prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, email: true, name: true, role: true, city: true, emailVerified: true, createdAt: true },
+      select: {
+        id: true, email: true, name: true, role: true, city: true,
+        emailVerified: true, createdAt: true, totpEnabled: true,
+        _count: { select: { passkeys: true, socialLogins: true } },
+      },
     });
-    return user;
+    if (!user) return null;
+    const { _count, ...rest } = user;
+    return { ...rest, passkeyCount: _count.passkeys, socialLoginCount: _count.socialLogins };
   });
 
   // --- Password Reset ---

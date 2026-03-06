@@ -2,11 +2,13 @@ import { hash, compare } from 'bcrypt';
 import { randomBytes } from 'crypto';
 import type { PrismaClient } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
-import type { TokenPair, UserPayload } from '@miraculturee/shared';
+import type { TokenPair, TwoFactorRequired, TotpSetupResponse, UserPayload } from '@miraculturee/shared';
+import { encrypt, decrypt } from '../lib/crypto.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://mira-culture.com';
 
 const SALT_ROUNDS = 10;
+const BACKUP_CODE_COUNT = 8;
 
 export class AuthService {
   constructor(
@@ -38,7 +40,7 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
-  async login(email: string, password: string): Promise<TokenPair> {
+  async login(email: string, password: string): Promise<TokenPair | TwoFactorRequired> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
       throw Object.assign(new Error('Invalid credentials'), { statusCode: 401 });
@@ -53,7 +55,150 @@ export class AuthService {
       throw Object.assign(new Error('Account suspended. Contact support.'), { statusCode: 403 });
     }
 
+    if (user.totpEnabled) {
+      const tempToken = this.app.jwt.sign(
+        { id: user.id, purpose: '2fa' },
+        { expiresIn: '5m' },
+      );
+      return { requiresTwoFactor: true, tempToken };
+    }
+
     return this.generateTokens(user);
+  }
+
+  async setupTotp(userId: string): Promise<TotpSetupResponse> {
+    const { authenticator } = await import('otplib');
+    const QRCode = await import('qrcode');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw Object.assign(new Error('User not found'), { statusCode: 404 });
+    }
+
+    if (user.totpEnabled) {
+      throw Object.assign(new Error('TOTP is already enabled'), { statusCode: 400 });
+    }
+
+    const secret = authenticator.generateSecret();
+    const otpauth = authenticator.keyuri(user.email, 'MiraCulture', secret);
+    const qrCodeUrl = await QRCode.toDataURL(otpauth);
+
+    // Generate backup codes
+    const backupCodes: string[] = [];
+    for (let i = 0; i < BACKUP_CODE_COUNT; i++) {
+      backupCodes.push(randomBytes(4).toString('hex'));
+    }
+
+    // Hash backup codes for storage
+    const hashedBackupCodes = await Promise.all(
+      backupCodes.map((code) => hash(code, SALT_ROUNDS)),
+    );
+
+    // Store encrypted secret and hashed backup codes (totpEnabled stays false until verified)
+    const encryptedSecret = encrypt(secret);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        totpSecret: encryptedSecret,
+        totpBackupCodes: hashedBackupCodes,
+      },
+    });
+
+    return { secret, qrCodeUrl, backupCodes };
+  }
+
+  async enableTotp(userId: string, code: string): Promise<void> {
+    const { authenticator } = await import('otplib');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.totpSecret) {
+      throw Object.assign(new Error('TOTP setup not initiated'), { statusCode: 400 });
+    }
+
+    if (user.totpEnabled) {
+      throw Object.assign(new Error('TOTP is already enabled'), { statusCode: 400 });
+    }
+
+    const secret = decrypt(user.totpSecret);
+    const isValid = authenticator.check(code, secret);
+    if (!isValid) {
+      throw Object.assign(new Error('Invalid TOTP code'), { statusCode: 401 });
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpEnabled: true },
+    });
+  }
+
+  async disableTotp(userId: string, code: string): Promise<void> {
+    const { authenticator } = await import('otplib');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.totpEnabled || !user.totpSecret) {
+      throw Object.assign(new Error('TOTP is not enabled'), { statusCode: 400 });
+    }
+
+    const secret = decrypt(user.totpSecret);
+    const isValid = authenticator.check(code, secret);
+    if (!isValid) {
+      throw Object.assign(new Error('Invalid TOTP code'), { statusCode: 401 });
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        totpEnabled: false,
+        totpSecret: null,
+        totpBackupCodes: [],
+      },
+    });
+  }
+
+  async verifyTwoFactor(tempToken: string, code: string): Promise<TokenPair> {
+    let decoded: { id: string; purpose: string };
+    try {
+      decoded = this.app.jwt.verify(tempToken) as { id: string; purpose: string };
+    } catch {
+      throw Object.assign(new Error('Invalid or expired 2FA token'), { statusCode: 401 });
+    }
+
+    if (decoded.purpose !== '2fa') {
+      throw Object.assign(new Error('Invalid token purpose'), { statusCode: 401 });
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: decoded.id } });
+    if (!user || !user.totpEnabled || !user.totpSecret) {
+      throw Object.assign(new Error('User not found or TOTP not enabled'), { statusCode: 401 });
+    }
+
+    // Try TOTP code first (6-digit numeric)
+    if (/^\d{6}$/.test(code)) {
+      const { authenticator } = await import('otplib');
+      const secret = decrypt(user.totpSecret);
+      const isValid = authenticator.check(code, secret);
+      if (isValid) {
+        return this.generateTokens(user);
+      }
+    }
+
+    // Try backup codes
+    const backupCodes = (user.totpBackupCodes as string[]) || [];
+    for (let i = 0; i < backupCodes.length; i++) {
+      const isMatch = await compare(code, backupCodes[i]);
+      if (isMatch) {
+        // Remove the used backup code
+        const updatedCodes = [...backupCodes];
+        updatedCodes.splice(i, 1);
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { totpBackupCodes: updatedCodes },
+        });
+        return this.generateTokens(user);
+      }
+    }
+
+    throw Object.assign(new Error('Invalid 2FA code'), { statusCode: 401 });
   }
 
   async refresh(refreshToken: string): Promise<TokenPair> {
