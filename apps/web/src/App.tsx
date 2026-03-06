@@ -43,6 +43,7 @@ const ArtistRegisterPage = lazyRetry(() => import('./pages/ArtistRegisterPage.js
 const ArtistVerifyPage = lazyRetry(() => import('./pages/ArtistVerifyPage.js'));
 const InviteRedirectPage = lazyRetry(() => import('./pages/InviteRedirectPage.js'));
 const ArtistEarningsPage = lazyRetry(() => import('./pages/ArtistEarningsPage.js'));
+const DevInviteAcceptPage = lazyRetry(() => import('./pages/DevInviteAcceptPage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -85,7 +86,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <PageFallback />;
   if (!user) return <Navigate to="/login" />;
-  if (user.role !== 'ADMIN') return <Navigate to="/dashboard" />;
+  if (user.role !== 'ADMIN' && user.role !== 'DEVELOPER') return <Navigate to="/dashboard" />;
   return <>{children}</>;
 }
 
@@ -115,6 +116,7 @@ export default function App() {
             <Route path="/events" element={<EventsPage />} />
             <Route path="/events/:id" element={<EventDetailPage />} />
             <Route path="/invite/:token" element={<InviteRedirectPage />} />
+            <Route path="/dev-invite/:token" element={<DevInviteAcceptPage />} />
             <Route
               path="/dashboard"
               element={
@@ -126,6 +128,7 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/auth/callback" element={<Navigate to="/events" />} />
             <Route
               path="/artist/dashboard"
               element={

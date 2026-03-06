@@ -25,10 +25,14 @@ import { donorConnectionRoutes } from './routes/donor-connections.js';
 import { shareRoutes } from './routes/share.js';
 import { spotifyOAuthRoutes } from './routes/auth/spotify.js';
 import { soundcloudOAuthRoutes } from './routes/auth/soundcloud.js';
+import { twoFactorRoutes } from './routes/two-factor.js';
+import { socialOAuthRoutes } from './routes/auth/social.js';
 import externalEventsRoutes from './routes/admin/external-events.js';
 import issuingRoutes from './routes/admin/issuing.js';
 import vendorTicketRoutes from './routes/admin/vendor-tickets.js';
 import adminDashboardRoutes from './routes/admin/dashboard.js';
+import developerRoutes from './routes/admin/developers.js';
+import { devInviteRoutes } from './routes/dev-invite.js';
 import { requireRole } from './middleware/authenticate.js';
 import { initWorkers } from './jobs/workers.js';
 
@@ -69,6 +73,8 @@ async function start() {
   await app.register(authRoutes, { prefix: '/auth' });
   await app.register(spotifyOAuthRoutes, { prefix: '/auth/spotify' });
   await app.register(soundcloudOAuthRoutes, { prefix: '/auth/soundcloud' });
+  await app.register(twoFactorRoutes, { prefix: '/auth' });
+  await app.register(socialOAuthRoutes, { prefix: '/auth' });
   await app.register(eventRoutes, { prefix: '/events' });
   await app.register(supportRoutes, { prefix: '/support' });
   await app.register(raffleRoutes, { prefix: '/raffle' });
@@ -91,7 +97,10 @@ async function start() {
     await admin.register(issuingRoutes, { prefix: '/issuing' });
     await admin.register(vendorTicketRoutes, { prefix: '/vendors' });
     await admin.register(adminDashboardRoutes, { prefix: '/dashboard' });
+    await admin.register(developerRoutes, { prefix: '/developers' });
   }, { prefix: '/admin' });
+  // Public developer invite routes (not behind admin scope)
+  await app.register(devInviteRoutes, { prefix: '/auth/dev-invite' });
 
   // Health check
   app.get('/health', async () => ({

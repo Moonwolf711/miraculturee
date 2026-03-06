@@ -47,6 +47,12 @@ export interface AdminEmailData {
   message: string;
 }
 
+export interface DeveloperInviteData {
+  inviteLink: string;
+  inviterName: string;
+  permission: string;
+}
+
 export interface TicketConfirmationData {
   userName: string;
   eventTitle: string;
@@ -370,6 +376,39 @@ export class EmailService {
       });
     } catch (error) {
       console.error('[EmailService] Failed to send email verification:', error);
+    }
+  }
+
+  /**
+   * Sends a developer invite email.
+   */
+  async sendDeveloperInvite(
+    to: string,
+    data: DeveloperInviteData,
+  ): Promise<void> {
+    const subject = 'You have been invited to join MiraCulture as a Developer';
+
+    const html = layout(`
+      ${heading('Developer Invitation')}
+      ${paragraph(`You have been invited by <strong style="color:#ffffff;">${data.inviterName}</strong> to join the MiraCulture platform as a developer.`)}
+      ${detailsTable(`
+        ${detailRow('Permission', data.permission)}
+        ${detailRow('Invited By', data.inviterName)}
+      `)}
+      ${paragraph('Click the button below to accept the invitation and get access to the admin panel.')}
+      ${ctaButton('Accept Invitation', data.inviteLink)}
+      ${paragraph('This invitation expires in 7 days. If you did not expect this, you can safely ignore this email.')}
+    `);
+
+    try {
+      await this.resend.emails.send({
+        from: FROM_ADDRESS,
+        to,
+        subject,
+        html,
+      });
+    } catch (error) {
+      console.error('[EmailService] Failed to send developer invite:', error);
     }
   }
 

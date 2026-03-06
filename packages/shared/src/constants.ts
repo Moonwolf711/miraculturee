@@ -4,6 +4,7 @@ export const ROLES = {
   LOCAL_FAN: 'LOCAL_FAN',
   ARTIST: 'ARTIST',
   ADMIN: 'ADMIN',
+  DEVELOPER: 'DEVELOPER',
 } as const;
 
 /** Union type of all user roles. */

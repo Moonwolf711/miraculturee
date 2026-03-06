@@ -39,6 +39,31 @@ export const VerifyEmailSchema = z.object({
   token: z.string(),
 });
 
+// --- Two-Factor Authentication ---
+
+/** Validates TOTP verification input (6-digit code). */
+export const TotpVerifySchema = z.object({
+  code: z.string().length(6).regex(/^\d{6}$/),
+});
+
+/** Validates 2FA login step (TOTP code or backup code). */
+export const TwoFactorLoginSchema = z.object({
+  tempToken: z.string(),
+  code: z.string().min(6).max(12),
+});
+
+// --- Passkeys ---
+
+/** Validates passkey registration name input. */
+export const PasskeyRegisterSchema = z.object({
+  friendlyName: z.string().min(1).max(100).default('My Passkey'),
+});
+
+/** Validates passkey deletion input. */
+export const PasskeyDeleteSchema = z.object({
+  passkeyId: z.string().uuid(),
+});
+
 // --- Events ---
 
 /** Validates event creation input. */
@@ -229,6 +254,14 @@ export const CampaignListSchema = z.object({
 /** Validates payout request input. */
 export const RequestPayoutSchema = z.object({
   campaignId: z.string().uuid(),
+});
+
+// --- Developer Invites ---
+
+/** Validates developer invite input. */
+export const DeveloperInviteSchema = z.object({
+  email: z.string().email(),
+  permission: z.enum(['FULL', 'LIMITED']).default('LIMITED'),
 });
 
 // --- Shared param schemas ---

@@ -124,7 +124,7 @@ export default async function adminDashboardRoutes(app: FastifyInstance) {
   app.put('/users/:id/role', async (req) => {
     const { id } = req.params as { id: string };
     const { role } = req.body as { role: string };
-    const validRoles = ['FAN', 'LOCAL_FAN', 'ARTIST', 'ADMIN'];
+    const validRoles = ['FAN', 'LOCAL_FAN', 'ARTIST', 'ADMIN', 'DEVELOPER'];
     if (!role || !validRoles.includes(role)) {
       throw Object.assign(new Error(`Invalid role. Must be one of: ${validRoles.join(', ')}`), { statusCode: 400 });
     }
