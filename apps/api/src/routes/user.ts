@@ -87,6 +87,135 @@ export async function userRoutes(app: FastifyInstance) {
     };
   });
 
+  // --- Fan Impact Score ---
+
+  app.get('/impact', async (req) => {
+    const userId = req.user.id;
+
+    const [
+      raffleEntryCount,
+      raffleWinCount,
+      directTicketCount,
+      supportTicketCount,
+      totalSupportedAgg,
+      uniqueArtistsSupported,
+      accountCreated,
+    ] = await Promise.all([
+      app.prisma.raffleEntry.count({ where: { userId } }),
+      app.prisma.raffleEntry.count({ where: { userId, won: true } }),
+      app.prisma.directTicket.count({ where: { ownerId: userId } }),
+      app.prisma.supportTicket.count({ where: { userId, confirmed: true } }),
+      app.prisma.supportTicket.aggregate({
+        where: { userId, confirmed: true },
+        _sum: { totalAmountCents: true },
+      }),
+      app.prisma.supportTicket.findMany({
+        where: { userId, confirmed: true },
+        select: { event: { select: { artistId: true } } },
+        distinct: ['eventId'],
+      }),
+      app.prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } }),
+    ]);
+
+    const uniqueArtists = new Set(uniqueArtistsSupported.map((s) => s.event.artistId)).size;
+    const totalSupportedCents = totalSupportedAgg._sum.totalAmountCents ?? 0;
+    const daysSinceJoin = accountCreated
+      ? Math.floor((Date.now() - new Date(accountCreated.createdAt).getTime()) / 86400000)
+      : 0;
+
+    // Score calculation
+    const score =
+      supportTicketCount * 20 +       // 20 pts per show supported
+      uniqueArtists * 20 +             // 20 pts per unique artist
+      raffleEntryCount * 3 +           // 3 pts per raffle entry
+      raffleWinCount * 100 +           // 100 pts per raffle win
+      directTicketCount * 30 +         // 30 pts per ticket purchased
+      Math.floor(totalSupportedCents / 100) + // 1 pt per dollar supported
+      Math.min(daysSinceJoin, 365);    // Up to 365 pts for account age
+
+    // Tier determination
+    type Tier = { name: string; min: number; label: string };
+    const tiers: Tier[] = [
+      { name: 'LEGEND', min: 2500, label: 'Legend' },
+      { name: 'HEADLINER', min: 1000, label: 'Headliner' },
+      { name: 'VIP', min: 500, label: 'VIP' },
+      { name: 'FRONT_ROW', min: 200, label: 'Front Row' },
+      { name: 'OPENING_ACT', min: 0, label: 'Opening Act' },
+    ];
+    const tier = tiers.find((t) => score >= t.min) ?? tiers[tiers.length - 1];
+    const nextTier = tiers[tiers.indexOf(tier) - 1] ?? null;
+
+    return {
+      score,
+      tier: tier.name,
+      tierLabel: tier.label,
+      nextTier: nextTier ? { name: nextTier.name, label: nextTier.label, min: nextTier.min } : null,
+      breakdown: {
+        showsSupported: supportTicketCount,
+        uniqueArtists,
+        raffleEntries: raffleEntryCount,
+        raffleWins: raffleWinCount,
+        ticketsPurchased: directTicketCount,
+        totalSupportedCents,
+        accountAgeDays: daysSinceJoin,
+      },
+    };
+  });
+
+  // --- Supported Campaigns ---
+
+  app.get('/supported-campaigns', async (req) => {
+    const userId = req.user.id;
+
+    // Find events the user has supported
+    const supportTickets = await app.prisma.supportTicket.findMany({
+      where: { userId, confirmed: true },
+      select: {
+        id: true,
+        totalAmountCents: true,
+        createdAt: true,
+        event: {
+          select: {
+            id: true,
+            title: true,
+            date: true,
+            venueName: true,
+            venueCity: true,
+            campaigns: {
+              where: { status: { not: 'DRAFT' } },
+              select: {
+                id: true,
+                headline: true,
+                status: true,
+                goalCents: true,
+                fundedCents: true,
+                goalReached: true,
+                bonusCents: true,
+              },
+              take: 1,
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    return supportTickets.map((st) => ({
+      supportId: st.id,
+      amountCents: st.totalAmountCents,
+      supportedAt: st.createdAt,
+      event: {
+        id: st.event.id,
+        title: st.event.title,
+        date: st.event.date,
+        venueName: st.event.venueName,
+        venueCity: st.event.venueCity,
+      },
+      campaign: st.event.campaigns[0] ?? null,
+    }));
+  });
+
   // --- Notifications ---
 
   app.get('/notifications', async (req) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import SEO from '../components/SEO.js';
@@ -28,6 +28,44 @@ interface UpcomingTicket {
 interface DashboardData {
   stats: DashboardStats;
   upcomingTickets: UpcomingTicket[];
+}
+
+interface ImpactData {
+  score: number;
+  tier: string;
+  tierLabel: string;
+  nextTier: { name: string; label: string; min: number } | null;
+  breakdown: {
+    showsSupported: number;
+    uniqueArtists: number;
+    raffleEntries: number;
+    raffleWins: number;
+    ticketsPurchased: number;
+    totalSupportedCents: number;
+    accountAgeDays: number;
+  };
+}
+
+interface SupportedCampaign {
+  supportId: string;
+  amountCents: number;
+  supportedAt: string;
+  event: {
+    id: string;
+    title: string;
+    date: string;
+    venueName: string;
+    venueCity: string;
+  };
+  campaign: {
+    id: string;
+    headline: string;
+    status: string;
+    goalCents: number;
+    fundedCents: number;
+    goalReached: boolean;
+    bonusCents: number;
+  } | null;
 }
 
 interface Notification {
@@ -103,6 +141,23 @@ function formatDateTime(iso: string): string {
   });
 }
 
+function getCountdown(iso: string): { days: number; hours: number; mins: number; past: boolean } {
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return { days: 0, hours: 0, mins: 0, past: true };
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  return { days, hours, mins, past: false };
+}
+
+const TIER_CONFIG: Record<string, { color: string; bg: string; border: string; glow: string }> = {
+  LEGEND: { color: 'text-amber-300', bg: 'bg-amber-500/15', border: 'border-amber-400/40', glow: 'shadow-amber-500/30' },
+  HEADLINER: { color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/30', glow: 'shadow-orange-500/20' },
+  VIP: { color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30', glow: 'shadow-purple-500/20' },
+  FRONT_ROW: { color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', glow: 'shadow-cyan-500/20' },
+  OPENING_ACT: { color: 'text-gray-400', bg: 'bg-noir-800', border: 'border-noir-700', glow: '' },
+};
+
 const TABS = ['overview', 'campaigns', 'raffles', 'tickets', 'notifications', 'transactions', 'security'] as const;
 type Tab = (typeof TABS)[number];
 
@@ -139,12 +194,27 @@ export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [dashLoading, setDashLoading] = useState(true);
 
+  // --- Impact Score ---
+  const [impact, setImpact] = useState<ImpactData | null>(null);
+  const [impactLoading, setImpactLoading] = useState(true);
+
+  // --- Supported Campaigns ---
+  const [supportedCampaigns, setSupportedCampaigns] = useState<SupportedCampaign[]>([]);
+  const [scLoading, setScLoading] = useState(true);
+
   useEffect(() => {
     setDashLoading(true);
-    api.get<DashboardData>('/user/dashboard')
-      .then(setDashboard)
-      .catch(() => {})
-      .finally(() => setDashLoading(false));
+    setImpactLoading(true);
+    setScLoading(true);
+    Promise.all([
+      api.get<DashboardData>('/user/dashboard').then(setDashboard).catch(() => {}),
+      api.get<ImpactData>('/user/impact').then(setImpact).catch(() => {}),
+      api.get<SupportedCampaign[]>('/user/supported-campaigns').then(setSupportedCampaigns).catch(() => {}),
+    ]).finally(() => {
+      setDashLoading(false);
+      setImpactLoading(false);
+      setScLoading(false);
+    });
   }, []);
 
   // --- Notifications ---
@@ -192,7 +262,7 @@ export default function DashboardPage() {
     if (activeTab === 'transactions') fetchTransactions();
   }, [activeTab, fetchTransactions]);
 
-  // --- Raffles data (uses dashboard) ---
+  // --- Raffles data ---
   const [raffles, setRaffles] = useState<Transaction[] | null>(null);
   const [rafflesLoading, setRafflesLoading] = useState(false);
 
@@ -272,53 +342,59 @@ export default function DashboardPage() {
         {/* Tab Content */}
 
         {activeTab === 'overview' && (
-          <div>
-            {dashLoading ? (
-              <LoadingGrid />
-            ) : dashboard ? (
-              <>
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                  <StatCard label="Raffle Entries" value={dashboard.stats.totalRaffleEntries} />
-                  <StatCard label="Raffle Wins" value={dashboard.stats.raffleWins} highlight />
-                  <StatCard label="Tickets Owned" value={dashboard.stats.ticketsOwned} />
-                  <StatCard label="Total Supported" value={formatCents(dashboard.stats.totalSupportedCents)} />
-                </div>
+          <div className="space-y-8">
+            {/* Quick Actions */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <QuickAction to="/events" icon={<SearchIcon />} label="Find Events" sublabel="Near Me" />
+              <QuickAction to="/events" icon={<HeartIcon />} label="Support" sublabel="Artists" />
+              <QuickAction to="/events" icon={<DiceIcon />} label="Enter" sublabel="Raffles" />
+              <QuickAction to="/dashboard?tab=tickets" icon={<TicketIcon />} label="My" sublabel="Tickets" onClick={() => setTab('tickets')} />
+            </div>
 
-                {/* Upcoming Tickets */}
-                <h2 className="text-lg font-semibold text-warm-50 mb-4">Upcoming Events</h2>
-                {dashboard.upcomingTickets.length === 0 ? (
-                  <EmptyState message="No upcoming tickets." ctaText="Browse Events" ctaLink="/events" />
-                ) : (
-                  <div className="space-y-3">
-                    {dashboard.upcomingTickets.map((t) => (
-                      <Link
-                        key={t.id}
-                        to={`/events/${t.eventId}`}
-                        className="block bg-noir-900 border border-noir-800 rounded-xl p-4 hover:border-noir-700 transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <p className="text-warm-50 font-medium">{t.eventTitle}</p>
-                            <p className="text-gray-500 text-sm">{t.venueName} &middot; {t.venueCity}</p>
-                            <p className="text-gray-500 text-xs mt-1">{formatDate(t.eventDate)}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                              t.type === 'raffle' ? 'bg-amber-500/10 text-amber-400' : 'bg-green-500/10 text-green-400'
-                            }`}>
-                              {t.type === 'raffle' ? 'Raffle Win' : 'Purchased'}
-                            </span>
-                            <span className="text-[10px] text-gray-500 uppercase">{t.status}</span>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </>
+            {/* Fan Impact Score + Stats Row */}
+            {impactLoading || dashLoading ? (
+              <LoadingGrid />
             ) : (
-              <EmptyState message="Could not load dashboard." />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Impact Score Ring */}
+                {impact && <ImpactScoreCard impact={impact} />}
+
+                {/* Stats */}
+                <div className="md:col-span-2 grid grid-cols-2 gap-3">
+                  <AnimatedStatCard label="Raffle Entries" value={dashboard?.stats.totalRaffleEntries ?? 0} />
+                  <AnimatedStatCard label="Raffle Wins" value={dashboard?.stats.raffleWins ?? 0} highlight />
+                  <AnimatedStatCard label="Tickets Owned" value={dashboard?.stats.ticketsOwned ?? 0} />
+                  <AnimatedStatCard label="Total Supported" value={formatCents(dashboard?.stats.totalSupportedCents ?? 0)} prefix="$" />
+                </div>
+              </div>
+            )}
+
+            {/* Upcoming Events with Countdowns */}
+            <div>
+              <h2 className="text-lg font-semibold text-warm-50 mb-4">Upcoming Events</h2>
+              {dashLoading ? (
+                <LoadingList />
+              ) : dashboard && dashboard.upcomingTickets.length > 0 ? (
+                <div className="space-y-3">
+                  {dashboard.upcomingTickets.map((t) => (
+                    <CountdownEventCard key={t.id} ticket={t} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState message="No upcoming tickets." ctaText="Browse Events" ctaLink="/events" />
+              )}
+            </div>
+
+            {/* Campaigns You've Backed */}
+            {!scLoading && supportedCampaigns.length > 0 && (
+              <div>
+                <h2 className="text-lg font-semibold text-warm-50 mb-4">Campaigns You've Backed</h2>
+                <div className="space-y-3">
+                  {supportedCampaigns.map((sc) => (
+                    <SupportedCampaignCard key={sc.supportId} data={sc} />
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -362,7 +438,6 @@ export default function DashboardPage() {
 
                     <p className="text-gray-400 text-sm mb-4 line-clamp-2">{c.message}</p>
 
-                    {/* Campaign Goal Progress */}
                     {c.goalCents > 0 && (
                       <div className="mb-4 p-3 bg-noir-950 rounded-lg border border-noir-800">
                         <div className="flex items-center justify-between text-xs mb-2">
@@ -389,23 +464,10 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* Social Share Buttons */}
                     <div className="flex items-center gap-2 pt-3 border-t border-noir-800">
                       <span className="text-gray-500 text-xs uppercase tracking-wider mr-1">Share:</span>
-                      <button
-                        onClick={() => shareToTwitter(c)}
-                        className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors"
-                        title="Share on X (Twitter)"
-                      >
-                        X
-                      </button>
-                      <button
-                        onClick={() => shareToFacebook(c)}
-                        className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors"
-                        title="Share on Facebook"
-                      >
-                        FB
-                      </button>
+                      <button onClick={() => shareToTwitter(c)} className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors" title="Share on X (Twitter)">X</button>
+                      <button onClick={() => shareToFacebook(c)} className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors" title="Share on Facebook">FB</button>
                       <button
                         onClick={() => {
                           const text = `${c.headline}\n\n${c.message.slice(0, 200)}\n\nGet tickets: ${getEventUrl(c.eventId)}`;
@@ -432,11 +494,7 @@ export default function DashboardPage() {
                       >
                         {copiedId === c.id + '-tt' ? 'Copied!' : 'TT'}
                       </button>
-                      <button
-                        onClick={() => copyShareText(c)}
-                        className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors"
-                        title="Copy campaign text to clipboard"
-                      >
+                      <button onClick={() => copyShareText(c)} className="px-3 py-1.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 rounded-lg text-xs text-gray-300 hover:text-white transition-colors" title="Copy campaign text to clipboard">
                         {copiedId === c.id ? 'Copied!' : 'Copy'}
                       </button>
                     </div>
@@ -460,10 +518,7 @@ export default function DashboardPage() {
             ) : raffles && raffles.length > 0 ? (
               <div className="space-y-3">
                 {raffles.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="bg-noir-900 border border-noir-800 rounded-xl p-4"
-                  >
+                  <div key={entry.id} className="bg-noir-900 border border-noir-800 rounded-xl p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-warm-50 font-medium text-sm">Raffle Entry</p>
@@ -487,27 +542,7 @@ export default function DashboardPage() {
             ) : dashboard && dashboard.upcomingTickets.length > 0 ? (
               <div className="space-y-3">
                 {dashboard.upcomingTickets.map((t) => (
-                  <Link
-                    key={t.id}
-                    to={`/events/${t.eventId}`}
-                    className="block bg-noir-900 border border-noir-800 rounded-xl p-4 hover:border-noir-700 transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-warm-50 font-medium">{t.eventTitle}</p>
-                        <p className="text-gray-500 text-sm">{t.venueName} &middot; {t.venueCity}</p>
-                        <p className="text-gray-500 text-xs mt-1">{formatDate(t.eventDate)}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          t.type === 'raffle' ? 'bg-amber-500/10 text-amber-400' : 'bg-green-500/10 text-green-400'
-                        }`}>
-                          {t.type === 'raffle' ? 'Raffle Win' : 'Purchased'}
-                        </span>
-                        <span className="text-[10px] text-gray-500 uppercase">{t.status}</span>
-                      </div>
-                    </div>
-                  </Link>
+                  <CountdownEventCard key={t.id} ticket={t} />
                 ))}
               </div>
             ) : (
@@ -518,7 +553,6 @@ export default function DashboardPage() {
 
         {activeTab === 'notifications' && (
           <div>
-            {/* Filter */}
             <div className="flex gap-3 mb-4">
               {(['all', 'unread'] as const).map((f) => (
                 <button
@@ -565,27 +599,11 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
-
-                {/* Pagination */}
                 {notifications.totalPages > 1 && (
                   <div className="flex items-center justify-center gap-4 mt-6">
-                    <button
-                      disabled={notifPage <= 1}
-                      onClick={() => setNotifPage((p) => p - 1)}
-                      className="text-sm text-gray-400 hover:text-amber-400 disabled:opacity-30 transition-colors"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-xs text-gray-500">
-                      {notifPage} / {notifications.totalPages}
-                    </span>
-                    <button
-                      disabled={notifPage >= notifications.totalPages}
-                      onClick={() => setNotifPage((p) => p + 1)}
-                      className="text-sm text-gray-400 hover:text-amber-400 disabled:opacity-30 transition-colors"
-                    >
-                      Next
-                    </button>
+                    <button disabled={notifPage <= 1} onClick={() => setNotifPage((p) => p - 1)} className="text-sm text-gray-400 hover:text-amber-400 disabled:opacity-30 transition-colors">Previous</button>
+                    <span className="text-xs text-gray-500">{notifPage} / {notifications.totalPages}</span>
+                    <button disabled={notifPage >= notifications.totalPages} onClick={() => setNotifPage((p) => p + 1)} className="text-sm text-gray-400 hover:text-amber-400 disabled:opacity-30 transition-colors">Next</button>
                   </div>
                 )}
               </>
@@ -624,26 +642,11 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
-
                 {transactions.totalPages > 1 && (
                   <div className="flex items-center justify-center gap-4 mt-6">
-                    <button
-                      disabled={txPage <= 1}
-                      onClick={() => setTxPage((p) => p - 1)}
-                      className="text-sm text-gray-400 hover:text-amber-400 disabled:opacity-30 transition-colors"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-xs text-gray-500">
-                      {txPage} / {transactions.totalPages}
-                    </span>
-                    <button
-                      disabled={txPage >= transactions.totalPages}
-                      onClick={() => setTxPage((p) => p + 1)}
-                      className="text-sm text-gray-400 hover:text-amber-400 disabled:opacity-30 transition-colors"
-                    >
-                      Next
-                    </button>
+                    <button disabled={txPage <= 1} onClick={() => setTxPage((p) => p - 1)} className="text-sm text-gray-400 hover:text-amber-400 disabled:opacity-30 transition-colors">Previous</button>
+                    <span className="text-xs text-gray-500">{txPage} / {transactions.totalPages}</span>
+                    <button disabled={txPage >= transactions.totalPages} onClick={() => setTxPage((p) => p + 1)} className="text-sm text-gray-400 hover:text-amber-400 disabled:opacity-30 transition-colors">Next</button>
                   </div>
                 )}
               </>
@@ -658,6 +661,270 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+// ========================================================
+// NEW COMPONENTS: Phase 1 Dashboard Enhancements
+// ========================================================
+
+// --- Impact Score Card with SVG Ring ---
+
+function ImpactScoreCard({ impact }: { impact: ImpactData }) {
+  const tier = TIER_CONFIG[impact.tier] ?? TIER_CONFIG.OPENING_ACT;
+  const nextMin = impact.nextTier?.min ?? impact.score;
+  const currentTierMin = impact.nextTier
+    ? [0, 200, 500, 1000, 2500].find((m) => m <= impact.score && impact.score < (impact.nextTier?.min ?? Infinity)) ?? 0
+    : 2500;
+  const progress = impact.nextTier
+    ? Math.min(1, (impact.score - currentTierMin) / (nextMin - currentTierMin))
+    : 1;
+
+  return (
+    <div className={`bg-noir-900 border ${tier.border} rounded-xl p-5 flex flex-col items-center justify-center relative overflow-hidden ${tier.glow ? `shadow-lg ${tier.glow}` : ''}`}>
+      {/* Ambient glow */}
+      <div className="absolute inset-0 opacity-5 bg-gradient-to-br from-amber-500 to-transparent pointer-events-none" />
+
+      {/* SVG Ring */}
+      <div className="relative w-28 h-28 mb-3">
+        <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" strokeWidth="6" className="text-noir-800" />
+          <circle
+            cx="60" cy="60" r="52" fill="none" strokeWidth="6"
+            strokeLinecap="round"
+            className="text-amber-500 transition-all duration-1000 ease-out"
+            strokeDasharray={`${progress * 326.73} 326.73`}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <CountUpNumber value={impact.score} className="text-2xl font-bold text-warm-50" />
+          <span className="text-[9px] text-gray-500 uppercase tracking-wider">Impact</span>
+        </div>
+      </div>
+
+      {/* Tier Badge */}
+      <span className={`px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold ${tier.bg} ${tier.color} border ${tier.border}`}>
+        {impact.tierLabel}
+      </span>
+
+      {/* Next tier progress */}
+      {impact.nextTier && (
+        <p className="text-gray-500 text-[10px] mt-2 text-center">
+          {impact.nextTier.min - impact.score} pts to {impact.nextTier.label}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// --- Animated Count-Up Number ---
+
+function CountUpNumber({ value, className }: { value: number; className?: string }) {
+  const [display, setDisplay] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const animated = useRef(false);
+
+  useEffect(() => {
+    if (animated.current) return;
+    animated.current = true;
+    const duration = 800;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      setDisplay(Math.round(eased * value));
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [value]);
+
+  return <span ref={ref} className={className}>{display.toLocaleString()}</span>;
+}
+
+// --- Animated Stat Card ---
+
+function AnimatedStatCard({ label, value, highlight, prefix }: { label: string; value: number | string; highlight?: boolean; prefix?: string }) {
+  const numericValue = typeof value === 'number' ? value : null;
+  return (
+    <div className="bg-noir-900 border border-noir-800 rounded-xl p-4 hover:border-noir-700 transition-all duration-200 group">
+      <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">{label}</p>
+      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-400' : 'text-warm-50'}`}>
+        {numericValue !== null ? (
+          <CountUpNumber value={numericValue} />
+        ) : (
+          value
+        )}
+      </p>
+    </div>
+  );
+}
+
+// --- Quick Action Button ---
+
+function QuickAction({ to, icon, label, sublabel, onClick }: { to: string; icon: React.ReactNode; label: string; sublabel: string; onClick?: () => void }) {
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className="flex flex-col items-center gap-1.5 py-4 px-3 bg-noir-900 border border-noir-800 rounded-xl hover:border-amber-500/30 hover:bg-noir-800 transition-all group"
+      >
+        <span className="text-amber-500 group-hover:text-amber-400 transition-colors">{icon}</span>
+        <span className="text-warm-50 text-sm font-medium leading-tight">{label}</span>
+        <span className="text-gray-500 text-[10px] uppercase tracking-wider">{sublabel}</span>
+      </button>
+    );
+  }
+  return (
+    <Link
+      to={to}
+      className="flex flex-col items-center gap-1.5 py-4 px-3 bg-noir-900 border border-noir-800 rounded-xl hover:border-amber-500/30 hover:bg-noir-800 transition-all group"
+    >
+      <span className="text-amber-500 group-hover:text-amber-400 transition-colors">{icon}</span>
+      <span className="text-warm-50 text-sm font-medium leading-tight">{label}</span>
+      <span className="text-gray-500 text-[10px] uppercase tracking-wider">{sublabel}</span>
+    </Link>
+  );
+}
+
+// --- Countdown Event Card ---
+
+function CountdownEventCard({ ticket }: { ticket: UpcomingTicket }) {
+  const [countdown, setCountdown] = useState(getCountdown(ticket.eventDate));
+
+  useEffect(() => {
+    const timer = setInterval(() => setCountdown(getCountdown(ticket.eventDate)), 60000);
+    return () => clearInterval(timer);
+  }, [ticket.eventDate]);
+
+  const urgency = countdown.days <= 1 && !countdown.past;
+
+  return (
+    <Link
+      to={`/events/${ticket.eventId}`}
+      className={`block bg-noir-900 border rounded-xl p-4 hover:border-noir-600 transition-all ${
+        urgency ? 'border-amber-500/40 shadow-lg shadow-amber-500/5' : 'border-noir-800'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-warm-50 font-medium truncate">{ticket.eventTitle}</p>
+          <p className="text-gray-500 text-sm">{ticket.venueName} &middot; {ticket.venueCity}</p>
+          <p className="text-gray-500 text-xs mt-1">{formatDate(ticket.eventDate)}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+            ticket.type === 'raffle' ? 'bg-amber-500/10 text-amber-400' : 'bg-green-500/10 text-green-400'
+          }`}>
+            {ticket.type === 'raffle' ? 'Raffle Win' : 'Purchased'}
+          </span>
+          {/* Countdown */}
+          {!countdown.past ? (
+            <div className={`text-right ${urgency ? 'animate-pulse' : ''}`}>
+              <span className={`text-xs font-mono font-medium ${urgency ? 'text-amber-400' : 'text-gray-400'}`}>
+                {countdown.days > 0 ? `${countdown.days}d ` : ''}{countdown.hours}h {countdown.mins}m
+              </span>
+              <span className="text-[9px] text-gray-600 block">until show</span>
+            </div>
+          ) : (
+            <span className="text-[10px] text-gray-500 uppercase">{ticket.status}</span>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// --- Supported Campaign Card ---
+
+function SupportedCampaignCard({ data }: { data: SupportedCampaign }) {
+  const c = data.campaign;
+  const pct = c && c.goalCents > 0 ? Math.min(100, Math.round((c.fundedCents / c.goalCents) * 100)) : 0;
+
+  return (
+    <Link
+      to={`/events/${data.event.id}`}
+      className="block bg-noir-900 border border-noir-800 rounded-xl p-4 hover:border-noir-700 transition-colors"
+    >
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0">
+          <p className="text-warm-50 font-medium text-sm truncate">{data.event.title}</p>
+          <p className="text-gray-500 text-xs">{data.event.venueName} &middot; {formatDate(data.event.date)}</p>
+        </div>
+        <span className="text-amber-400 text-sm font-medium flex-shrink-0">
+          {formatCents(data.amountCents)}
+        </span>
+      </div>
+
+      {c && c.goalCents > 0 && (
+        <div className="mt-2">
+          <div className="flex items-center justify-between text-[10px] mb-1">
+            <span className="text-gray-500">
+              ${(c.fundedCents / 100).toFixed(0)} / ${(c.goalCents / 100).toFixed(0)}
+            </span>
+            {c.goalReached ? (
+              <span className="text-green-400 font-semibold">Goal Reached</span>
+            ) : (
+              <span className="text-gray-500">{pct}%</span>
+            )}
+          </div>
+          <div className="w-full h-1.5 bg-noir-800 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${c.goalReached ? 'bg-green-500' : 'bg-amber-500'}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          {c.bonusCents > 0 && (
+            <p className="text-amber-400/70 text-[10px] mt-1">
+              Artist bonus: ${(c.bonusCents / 100).toFixed(2)}
+            </p>
+          )}
+        </div>
+      )}
+    </Link>
+  );
+}
+
+// --- Quick Action Icons (inline SVGs) ---
+
+function SearchIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  );
+}
+
+function HeartIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+    </svg>
+  );
+}
+
+function DiceIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <circle cx="8.5" cy="8.5" r="1" fill="currentColor" />
+      <circle cx="15.5" cy="8.5" r="1" fill="currentColor" />
+      <circle cx="8.5" cy="15.5" r="1" fill="currentColor" />
+      <circle cx="15.5" cy="15.5" r="1" fill="currentColor" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function TicketIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+    </svg>
+  );
+}
+
+// ========================================================
+// EXISTING COMPONENTS (preserved from original)
+// ========================================================
 
 // --- Security Tab ---
 
@@ -756,7 +1023,6 @@ function SecurityTab() {
         <div className="bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-lg text-sm">{success}</div>
       )}
 
-      {/* TOTP 2FA Section */}
       <div className="bg-noir-900 border border-noir-800 rounded-xl p-6">
         <h3 className="text-warm-50 font-semibold text-lg mb-1">Two-Factor Authentication</h3>
         <p className="text-gray-500 text-sm mb-4">Add an extra layer of security with an authenticator app.</p>
@@ -788,16 +1054,10 @@ function SecurityTab() {
               />
             </div>
             <div className="flex gap-3">
-              <button
-                onClick={handleEnable2FA} disabled={loading || verifyCode.length !== 6}
-                className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors"
-              >
+              <button onClick={handleEnable2FA} disabled={loading || verifyCode.length !== 6} className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors">
                 {loading ? 'Verifying...' : 'Enable 2FA'}
               </button>
-              <button
-                onClick={() => { setSetupData(null); setVerifyCode(''); }}
-                className="px-4 py-2.5 bg-noir-800 text-gray-400 rounded-lg hover:text-gray-200 transition-colors"
-              >
+              <button onClick={() => { setSetupData(null); setVerifyCode(''); }} className="px-4 py-2.5 bg-noir-800 text-gray-400 rounded-lg hover:text-gray-200 transition-colors">
                 Cancel
               </button>
             </div>
@@ -811,39 +1071,25 @@ function SecurityTab() {
             {showDisable ? (
               <div className="space-y-3">
                 <p className="text-gray-400 text-sm">Enter your current 2FA code to disable:</p>
-                <input
-                  type="text" inputMode="numeric" autoComplete="one-time-code"
-                  value={disableCode} onChange={(e) => setDisableCode(e.target.value)}
-                  placeholder="000000" maxLength={6}
-                  className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-center text-xl tracking-[0.3em] font-mono"
-                />
+                <input type="text" inputMode="numeric" autoComplete="one-time-code" value={disableCode} onChange={(e) => setDisableCode(e.target.value)} placeholder="000000" maxLength={6} className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-center text-xl tracking-[0.3em] font-mono" />
                 <div className="flex gap-3">
-                  <button onClick={handleDisable2FA} disabled={loading || disableCode.length !== 6}
-                    className="flex-1 py-2.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 disabled:opacity-50 transition-colors">
+                  <button onClick={handleDisable2FA} disabled={loading || disableCode.length !== 6} className="flex-1 py-2.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 disabled:opacity-50 transition-colors">
                     {loading ? 'Disabling...' : 'Disable 2FA'}
                   </button>
-                  <button onClick={() => { setShowDisable(false); setDisableCode(''); }}
-                    className="px-4 py-2.5 bg-noir-800 text-gray-400 rounded-lg hover:text-gray-200 transition-colors">
-                    Cancel
-                  </button>
+                  <button onClick={() => { setShowDisable(false); setDisableCode(''); }} className="px-4 py-2.5 bg-noir-800 text-gray-400 rounded-lg hover:text-gray-200 transition-colors">Cancel</button>
                 </div>
               </div>
             ) : (
-              <button onClick={() => setShowDisable(true)}
-                className="text-sm text-gray-500 hover:text-red-400 transition-colors">
-                Disable two-factor authentication
-              </button>
+              <button onClick={() => setShowDisable(true)} className="text-sm text-gray-500 hover:text-red-400 transition-colors">Disable two-factor authentication</button>
             )}
           </div>
         ) : (
-          <button onClick={handleSetup2FA} disabled={loading}
-            className="py-2.5 px-5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors">
+          <button onClick={handleSetup2FA} disabled={loading} className="py-2.5 px-5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors">
             {loading ? 'Setting up...' : 'Set Up 2FA'}
           </button>
         )}
       </div>
 
-      {/* Passkeys Section */}
       <div className="bg-noir-900 border border-noir-800 rounded-xl p-6">
         <h3 className="text-warm-50 font-semibold text-lg mb-1">Passkeys</h3>
         <p className="text-gray-500 text-sm mb-4">Sign in with your fingerprint, face, or security key instead of a password.</p>
@@ -856,10 +1102,7 @@ function SecurityTab() {
                   <p className="text-gray-200 text-sm font-medium">{pk.friendlyName}</p>
                   <p className="text-gray-500 text-xs">Added {new Date(pk.createdAt).toLocaleDateString()}</p>
                 </div>
-                <button onClick={() => handleDeletePasskey(pk.id)}
-                  className="text-xs text-gray-600 hover:text-red-400 transition-colors">
-                  Remove
-                </button>
+                <button onClick={() => handleDeletePasskey(pk.id)} className="text-xs text-gray-600 hover:text-red-400 transition-colors">Remove</button>
               </div>
             ))}
           </div>
@@ -868,14 +1111,9 @@ function SecurityTab() {
         <div className="flex gap-3 items-end">
           <div className="flex-1">
             <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">Passkey name</label>
-            <input
-              type="text" value={passkeyName} onChange={(e) => setPasskeyName(e.target.value)}
-              placeholder="e.g. MacBook Touch ID"
-              className="w-full px-4 py-2.5 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm placeholder-gray-600"
-            />
+            <input type="text" value={passkeyName} onChange={(e) => setPasskeyName(e.target.value)} placeholder="e.g. MacBook Touch ID" className="w-full px-4 py-2.5 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm placeholder-gray-600" />
           </div>
-          <button onClick={handleRegisterPasskey} disabled={loading}
-            className="py-2.5 px-5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors text-sm whitespace-nowrap">
+          <button onClick={handleRegisterPasskey} disabled={loading} className="py-2.5 px-5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors text-sm whitespace-nowrap">
             {loading ? 'Registering...' : 'Add Passkey'}
           </button>
         </div>
@@ -886,26 +1124,12 @@ function SecurityTab() {
 
 // --- Shared Sub-components ---
 
-function StatCard({ label, value, highlight }: { label: string; value: string | number; highlight?: boolean }) {
-  return (
-    <div className="bg-noir-900 border border-noir-800 rounded-xl p-4">
-      <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">{label}</p>
-      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-400' : 'text-warm-50'}`}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
 function EmptyState({ message, ctaText, ctaLink }: { message: string; ctaText?: string; ctaLink?: string }) {
   return (
     <div className="bg-noir-900 border border-noir-800 rounded-xl p-8 text-center">
       <p className="text-gray-500 text-sm">{message}</p>
       {ctaText && ctaLink && (
-        <Link
-          to={ctaLink}
-          className="inline-block mt-4 text-sm text-amber-400 hover:text-amber-300 transition-colors"
-        >
+        <Link to={ctaLink} className="inline-block mt-4 text-sm text-amber-400 hover:text-amber-300 transition-colors">
           {ctaText}
         </Link>
       )}
@@ -915,13 +1139,18 @@ function EmptyState({ message, ctaText, ctaLink }: { message: string; ctaText?: 
 
 function LoadingGrid() {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="bg-noir-900 border border-noir-800 rounded-xl p-4 animate-pulse">
-          <div className="h-3 bg-noir-700 rounded w-16 mb-3" />
-          <div className="h-7 bg-noir-700 rounded w-12" />
-        </div>
-      ))}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-noir-900 border border-noir-800 rounded-xl p-8 animate-pulse flex justify-center">
+        <div className="w-28 h-28 bg-noir-700 rounded-full" />
+      </div>
+      <div className="md:col-span-2 grid grid-cols-2 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="bg-noir-900 border border-noir-800 rounded-xl p-4 animate-pulse">
+            <div className="h-3 bg-noir-700 rounded w-16 mb-3" />
+            <div className="h-7 bg-noir-700 rounded w-12" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
