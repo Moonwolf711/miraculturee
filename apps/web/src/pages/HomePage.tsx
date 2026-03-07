@@ -3,21 +3,11 @@ import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { useInView } from '../hooks/useInView.js';
 import SEO, { getOrganizationSchema } from '../components/SEO.js';
 import { api } from '../lib/api.js';
+import type { EventSummary, PaginatedResponse } from '@miraculturee/shared';
 
 /* -------------------------------------------------------
-   Decorative Ticker Data
+   Ticker Status Config
    ------------------------------------------------------- */
-const TICKER_EVENTS = [
-  { text: 'Kendrick Lamar — Los Angeles, CA', status: 'sold-out' },
-  { text: 'Tame Impala — Brooklyn, NY — 12 spots left', status: 'active' },
-  { text: 'Billie Eilish — London, UK', status: 'open' },
-  { text: 'Tyler, the Creator — Chicago, IL — 3 days left', status: 'active' },
-  { text: 'SZA — Toronto, ON', status: 'new' },
-  { text: 'Bad Bunny — Miami, FL', status: 'sold-out' },
-  { text: 'Dua Lipa — Berlin, DE', status: 'open' },
-  { text: 'Frank Ocean — Tokyo, JP', status: 'upcoming' },
-] as const;
-
 const STATUS_CONFIG = {
   'sold-out': { color: 'bg-red-500', label: 'SOLD OUT' },
   open: { color: 'bg-emerald-500', label: 'RAFFLE OPEN' },
@@ -25,6 +15,61 @@ const STATUS_CONFIG = {
   new: { color: 'bg-sky-500', label: 'JUST ANNOUNCED' },
   upcoming: { color: 'bg-gray-500', label: 'COMING SOON' },
 } as const;
+
+type TickerStatus = keyof typeof STATUS_CONFIG;
+
+/** Derive a ticker status from an event's data */
+function deriveTickerStatus(ev: EventSummary): TickerStatus {
+  if (ev.supportedTickets >= ev.totalTickets) return 'sold-out';
+  const spotsLeft = ev.totalTickets - ev.supportedTickets;
+  if (spotsLeft <= 20 && spotsLeft > 0) return 'active';
+  const eventDate = new Date(ev.date);
+  const now = new Date();
+  const daysUntil = (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+  if (daysUntil <= 3) return 'open';
+  if (daysUntil <= 7) return 'new';
+  return 'upcoming';
+}
+
+/** Build ticker text from an event */
+function buildTickerText(ev: EventSummary): string {
+  const spotsLeft = ev.totalTickets - ev.supportedTickets;
+  const status = deriveTickerStatus(ev);
+  let text = `${ev.artistName} — ${ev.venueCity}`;
+  if (status === 'active' && spotsLeft > 0 && spotsLeft <= 20) {
+    text += ` — ${spotsLeft} spots left`;
+  }
+  return text;
+}
+
+/** Fetch live events for the ticker, refresh every 60s */
+function useTickerEvents() {
+  const [events, setEvents] = useState<{ text: string; status: TickerStatus }[]>([]);
+
+  const fetchEvents = useCallback(async () => {
+    try {
+      const res = await api.get<PaginatedResponse<EventSummary>>(
+        '/events?page=1&limit=12&sort=popular,date',
+      );
+      setEvents(
+        res.data.map((ev) => ({
+          text: buildTickerText(ev),
+          status: deriveTickerStatus(ev),
+        })),
+      );
+    } catch {
+      // Silently fail — ticker is decorative
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEvents();
+    const interval = setInterval(fetchEvents, 60_000);
+    return () => clearInterval(interval);
+  }, [fetchEvents]);
+
+  return events;
+}
 
 
 const STEPS = [
@@ -194,7 +239,7 @@ function Section({
 /* -------------------------------------------------------
    Ticker Item with status dot
    ------------------------------------------------------- */
-function TickerItem({ text, status }: { text: string; status: keyof typeof STATUS_CONFIG }) {
+function TickerItem({ text, status }: { text: string; status: TickerStatus }) {
   const cfg = STATUS_CONFIG[status];
   return (
     <span className="inline-flex items-center gap-2 px-5">
@@ -333,6 +378,7 @@ function NewsletterForm() {
    ------------------------------------------------------- */
 export default function HomePage() {
   const { offset } = useMouseParallax(0.015);
+  const tickerEvents = useTickerEvents();
 
   return (
     <div className="bg-noir-950 min-h-screen">
@@ -390,21 +436,21 @@ export default function HomePage() {
           }}
         />
 
-        {/* Event ticker — decorative, hidden from screen readers */}
-        <div className="relative z-10 border-b border-noir-800/30 bg-noir-950/50 backdrop-blur-sm" aria-hidden="true">
-          <div className="ticker-strip py-2.5 text-xs tracking-widest uppercase font-body text-gray-500">
-            <div className="ticker-strip-inner">
-              {/* First copy */}
-              {TICKER_EVENTS.map((ev, i) => (
-                <TickerItem key={i} text={ev.text} status={ev.status} />
-              ))}
-              {/* Duplicate for seamless loop */}
-              {TICKER_EVENTS.map((ev, i) => (
-                <TickerItem key={`dup-${i}`} text={ev.text} status={ev.status} />
-              ))}
+        {/* Event ticker — live events, auto-refreshes every 60s */}
+        {tickerEvents.length > 0 && (
+          <div className="relative z-10 border-b border-noir-800/30 bg-noir-950/50 backdrop-blur-sm" aria-hidden="true">
+            <div className="ticker-strip py-2.5 text-xs tracking-widest uppercase font-body text-gray-500">
+              <div className="ticker-strip-inner">
+                {tickerEvents.map((ev, i) => (
+                  <TickerItem key={i} text={ev.text} status={ev.status} />
+                ))}
+                {tickerEvents.map((ev, i) => (
+                  <TickerItem key={`dup-${i}`} text={ev.text} status={ev.status} />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Hero content */}
         <div className="relative z-10 flex-1 flex items-center justify-center px-6">
