@@ -277,7 +277,7 @@ export class EventService {
     return {
       id: event.id,
       title: event.title,
-      artistName: event.artist.stageName,
+      artistName: event.artist.isPlaceholder ? event.title : event.artist.stageName,
       venueName: event.venueName,
       venueCity: event.venueCity,
       date: event.date.toISOString(),
@@ -286,7 +286,7 @@ export class EventService {
       supportedTickets,
       type: event.type,
       status: event.status,
-      genre: event.artist.genre ?? null,
+      genre: event.artist.isPlaceholder ? null : (event.artist.genre ?? null),
       description: event.description,
       venueAddress: event.venueAddress,
       venueLat: event.venueLat,
@@ -368,10 +368,12 @@ export class EventService {
       (sum: number, s: any) => sum + s.ticketCount,
       0,
     );
+    // For placeholder artists (unclaimed external events), use the event title as artist name
+    const isPlaceholder = event.artist?.isPlaceholder === true;
     return {
       id: event.id,
       title: event.title,
-      artistName: event.artist?.stageName ?? '',
+      artistName: isPlaceholder ? event.title : (event.artist?.stageName ?? ''),
       venueName: event.venueName,
       venueCity: event.venueCity,
       date: event.date.toISOString(),

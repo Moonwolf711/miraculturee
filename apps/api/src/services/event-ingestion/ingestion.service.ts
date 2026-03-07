@@ -202,11 +202,9 @@ export class EventIngestionService {
 
   /**
    * Publish DISCOVERED external events into the main Event table.
-   * Only publishes events where a REAL verified artist exists (matched by stage name).
-   * Does NOT create placeholder users/artists — artists must register and verify via Spotify first.
-   * Unmatched events stay as DISCOVERED in ExternalEvent for artists to claim later.
+   * Uses a single platform artist for unclaimed events. Real artists can claim later.
    */
-  async publishExternalEvents(): Promise<{ published: number; skipped: number; awaitingArtist: number }> {
+  async publishExternalEvents(): Promise<{ published: number; skipped: number; claimed: number }> {
     const discovered = await this.prisma.externalEvent.findMany({
       where: { status: 'DISCOVERED', importedEventId: null },
       orderBy: { eventDate: 'asc' },
@@ -214,10 +212,13 @@ export class EventIngestionService {
 
     let published = 0;
     let skipped = 0;
-    let awaitingArtist = 0;
+    let claimed = 0;
 
     // Cache artist lookups by name
     const artistCache = new Map<string, string | null>();
+
+    // Get or create platform artist for unclaimed events
+    let platformArtistId: string | null = null;
 
     for (const ext of discovered) {
       try {
@@ -242,10 +243,14 @@ export class EventIngestionService {
           artistCache.set(artistKey, artistId);
         }
 
-        // No real artist registered yet — leave as DISCOVERED for later claiming
-        if (!artistId) {
-          awaitingArtist++;
-          continue;
+        if (artistId) {
+          claimed++;
+        } else {
+          // Use platform artist for unclaimed events
+          if (!platformArtistId) {
+            platformArtistId = await this.getOrCreatePlatformArtist();
+          }
+          artistId = platformArtistId;
         }
 
         // Check for duplicate event (same title + date + venue)
@@ -269,10 +274,9 @@ export class EventIngestionService {
         const ticketPriceCents = ext.minPriceCents || 2500;
         const isFestival = ext.category === 'Festival' || ext.title.toLowerCase().includes('festival');
 
-        // Create event linked to the real artist
         const event = await this.prisma.event.create({
           data: {
-            artistId,
+            artistId: artistId!,
             title: ext.title,
             description: null,
             venueName: ext.venueName,
@@ -309,8 +313,45 @@ export class EventIngestionService {
       }
     }
 
-    this.log.info({ published, skipped, awaitingArtist }, 'External event publishing complete');
-    return { published, skipped, awaitingArtist };
+    this.log.info({ published, skipped, claimed }, 'External event publishing complete');
+    return { published, skipped, claimed };
+  }
+
+  /**
+   * Get or create the single platform artist used for unclaimed external events.
+   * This is ONE account — not per-artist fakes. Real artists claim events later.
+   */
+  private async getOrCreatePlatformArtist(): Promise<string> {
+    const PLATFORM_EMAIL = 'platform@mira-culture.com';
+
+    const existing = await this.prisma.artist.findFirst({
+      where: { user: { email: PLATFORM_EMAIL } },
+    });
+    if (existing) return existing.id;
+
+    const user = await this.prisma.user.upsert({
+      where: { email: PLATFORM_EMAIL },
+      update: {},
+      create: {
+        email: PLATFORM_EMAIL,
+        passwordHash: 'NOLOGIN',
+        name: 'MiraCulture',
+        role: 'ADMIN',
+        emailVerified: true,
+      },
+    });
+
+    const artist = await this.prisma.artist.create({
+      data: {
+        userId: user.id,
+        stageName: 'MiraCulture',
+        isPlaceholder: true,
+        bio: 'Platform account for unclaimed external events',
+      },
+    });
+
+    this.log.info({ artistId: artist.id }, 'Created platform artist for external events');
+    return artist.id;
   }
 
   /**
