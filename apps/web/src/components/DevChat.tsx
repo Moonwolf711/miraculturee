@@ -272,7 +272,7 @@ export default function DevChat() {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/admin/chat`, {
+      const response = await fetch(`${API_URL}/admin/dev-assist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

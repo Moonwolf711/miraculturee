@@ -467,7 +467,7 @@ async function processStream(
 }
 
 export default async function chatRoutes(app: FastifyInstance) {
-  app.post('/chat', async (req, reply) => {
+  app.post('/dev-assist', async (req, reply) => {
     const { messages } = req.body as { messages: ChatMessage[] };
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
