@@ -9,6 +9,8 @@ import ErrorBoundary from '../components/ErrorBoundary.js';
 import { PageLoading, PageError, InlineError } from '../components/LoadingStates.js';
 import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
 import ShareButton from '../components/ShareButton.js';
+import CountdownTimer from '../components/CountdownTimer.js';
+import RaffleAutoWin from '../components/RaffleAutoWin.js';
 
 /* Lazy-load Stripe checkout — the Stripe SDK is heavy (~40 kB) and
    only needed when a user actually initiates a payment */
@@ -20,6 +22,7 @@ interface RafflePool {
   status: string;
   availableTickets: number;
   totalEntries: number;
+  uniqueEntrants: number;
   drawTime: string | null;
 }
 
@@ -99,6 +102,8 @@ export default function EventDetailPage() {
   const [receiverInstagram, setReceiverInstagram] = useState('');
   const [receiverTwitter, setReceiverTwitter] = useState('');
   const [thankYouMessage, setThankYouMessage] = useState('');
+  const [freeEntryAvailable, setFreeEntryAvailable] = useState(false);
+  const [claimingTicket, setClaimingTicket] = useState(false);
 
   const fetchEvent = useCallback(() => {
     if (!id) return;
@@ -116,6 +121,14 @@ export default function EventDetailPage() {
   useEffect(() => {
     fetchEvent();
   }, [fetchEvent]);
+
+  // Check if user has a free raffle entry available
+  useEffect(() => {
+    if (!user) return;
+    api.get<{ freeEntryAvailable: boolean }>('/raffle/free-entry')
+      .then((res) => setFreeEntryAvailable(res.freeEntryAvailable))
+      .catch(() => {}); // Silent fail
+  }, [user]);
 
   /* ---------- WebSocket real-time updates ---------- */
   const wsChannel = id ? `event:${id}` : null;
@@ -272,6 +285,48 @@ export default function EventDetailPage() {
     }
   };
 
+  // Handle free first raffle entry (no payment needed)
+  const handleFreeRaffleEntry = async (poolId: string) => {
+    if (!user) return;
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject),
+      );
+      await api.post('/raffle/enter', {
+        poolId,
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        useFreeEntry: true,
+      });
+      setFeedback({
+        type: 'success',
+        text: 'You\'re in! Your first raffle entry is free — on us. The artist still gets paid. Good luck!',
+      });
+      setFreeEntryAvailable(false);
+      // Refresh event data
+      if (id) {
+        api.get<EventDetail>(`/events/${id}`).then(setEvent).catch(() => {});
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Free entry failed.';
+      setFeedback({ type: 'error', text: msg });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle claiming auto-win ticket (acknowledge the win)
+  const handleClaimAutoWin = async () => {
+    setClaimingTicket(true);
+    setFeedback({
+      type: 'success',
+      text: 'Ticket claimed! Check your email for details. See you at the show!',
+    });
+    setTimeout(() => setClaimingTicket(false), 2000);
+  };
+
   // Called when Stripe payment succeeds on the frontend
   const handlePaymentSuccess = useCallback(() => {
     if (checkout.type === 'support') {
@@ -375,6 +430,10 @@ export default function EventDetailPage() {
   const campaignGoalReached = activeCampaign ? activeCampaign.fundedCents >= activeCampaign.goalCents : false;
   const showIsMoreThan1DayAway = (new Date(event.date).getTime() - Date.now()) > 24 * 60 * 60 * 1000;
   const raffleUnlocked = campaignGoalReached && showIsMoreThan1DayAway;
+  const isShowDay = new Date(event.date).setHours(0, 0, 0, 0) <= Date.now();
+  const mainPool = event.rafflePools[0];
+  const everyoneWins = mainPool && mainPool.uniqueEntrants > 0 && mainPool.uniqueEntrants <= 10;
+  const userHasEntry = mainPool ? mainPool.totalEntries > 0 : false; // TODO: check if current user entered
 
   return (
     <div className="min-h-screen bg-noir-950">
@@ -925,86 +984,137 @@ export default function EventDetailPage() {
                     )}
                   </div>
 
-                  {/* Raffle Entry */}
-                  {raffleUnlocked ? (
-                    hasRafflePools ? (
-                      <div>
-                        <h3 className="font-display text-sm tracking-wider text-emerald-400 uppercase mb-3">
-                          Raffle Open
-                        </h3>
-                        <div className="space-y-3">
-                          {event.rafflePools.map((pool) => (
-                            <div
-                              key={pool.id}
-                              className="bg-noir-900 rounded-lg p-4"
-                            >
-                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                                <div>
-                                  <span className="font-display text-2xl text-amber-400">
-                                    {formatPrice(pool.tierCents)}
-                                  </span>
-                                  <span className="text-gray-400 text-sm ml-2">Entry</span>
-                                  <div className="text-sm text-gray-400 mt-1">
-                                    {pool.totalEntries} entries &middot; {pool.availableTickets} tickets available
-                                  </div>
-                                  {pool.drawTime && (
-                                    <div className="text-xs text-gray-400 mt-1">
-                                      Draw: {formatDate(pool.drawTime)}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-shrink-0">
-                                  {pool.status === 'OPEN' ? (
-                                    checkout.type === 'raffle' && checkout.poolId === pool.id ? null : (
-                                      <button
-                                        onClick={() => handleRaffleEntry(pool.id, pool.tierCents)}
-                                        disabled={actionLoading}
-                                        className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-noir-950 text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors"
-                                      >
-                                        ENTER RAFFLE
-                                      </button>
-                                    )
-                                  ) : pool.status === 'COMPLETED' ? (
-                                    <span className="text-sm text-gray-400">Draw complete</span>
-                                  ) : (
-                                    <span className="text-sm text-gray-400">{pool.status}</span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Inline checkout for this pool */}
-                              {checkout.type === 'raffle' && checkout.poolId === pool.id && (
-                                <div className="mt-4">
-                                  <Suspense fallback={<div className="py-6 text-center text-gray-400 text-sm" role="status">Loading payment form...</div>}>
-                                    <StripeCheckout
-                                      clientSecret={checkout.clientSecret}
-                                      onSuccess={handlePaymentSuccess}
-                                      onError={handlePaymentError}
-                                      onCancel={handleCancelCheckout}
-                                      submitLabel={`Pay ${formatPrice(checkout.tierCents)}`}
-                                      title="Complete Raffle Entry"
-                                      description={`Entry fee: ${formatPrice(pool.tierCents)}`}
-                                      onCaptchaVerify={setCaptchaToken}
-                                    />
-                                  </Suspense>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400 font-body">
-                        Raffle pools opening soon &mdash; check back!
-                      </p>
-                    )
-                  ) : !showIsMoreThan1DayAway && !campaignGoalReached ? (
-                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4">
-                      <p className="text-sm text-amber-400 font-body">
-                        Goal not reached &mdash; all support goes directly to {event.artistName}
-                      </p>
+                  {/* Countdown + Auto-Win Section */}
+                  {hasRafflePools && mainPool && (isShowDay || mainPool.status === 'COMPLETED') && everyoneWins && (
+                    <div className="mb-6">
+                      <RaffleAutoWin
+                        eventDate={event.date}
+                        uniqueEntrants={mainPool.uniqueEntrants}
+                        totalEntries={mainPool.totalEntries}
+                        poolStatus={mainPool.status}
+                        userEntered={userHasEntry}
+                        onClaim={handleClaimAutoWin}
+                        claiming={claimingTicket}
+                      />
                     </div>
-                  ) : null}
+                  )}
+
+                  {/* Countdown to show — visible when raffle is open and show is upcoming */}
+                  {hasRafflePools && mainPool && mainPool.status === 'OPEN' && !isShowDay && (
+                    <div className="mb-6">
+                      <RaffleAutoWin
+                        eventDate={event.date}
+                        uniqueEntrants={mainPool.uniqueEntrants}
+                        totalEntries={mainPool.totalEntries}
+                        poolStatus={mainPool.status}
+                        userEntered={userHasEntry}
+                        onClaim={handleClaimAutoWin}
+                        claiming={claimingTicket}
+                      />
+                    </div>
+                  )}
+
+                  {/* Raffle Entry — open to all, independent of campaign */}
+                  {hasRafflePools ? (
+                    <div>
+                      <h3 className="font-display text-sm tracking-wider text-emerald-400 uppercase mb-3">
+                        Daily Raffle &mdash; $5/Entry
+                      </h3>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Enter once per day until the show. {'\u2264'}10 entrants = everyone gets a ticket. More than 10 = cryptographic draw.
+                      </p>
+                      <div className="space-y-3">
+                        {event.rafflePools.map((pool) => (
+                          <div
+                            key={pool.id}
+                            className="bg-noir-900 rounded-lg p-4"
+                          >
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                              <div>
+                                <span className="font-display text-2xl text-amber-400">
+                                  {formatPrice(pool.tierCents)}
+                                </span>
+                                <span className="text-gray-400 text-sm ml-2">/ Entry</span>
+                                <div className="text-sm text-gray-400 mt-1">
+                                  {pool.uniqueEntrants} {pool.uniqueEntrants === 1 ? 'person' : 'people'} entered &middot; {pool.totalEntries} total entries
+                                </div>
+                                {pool.uniqueEntrants <= 10 && pool.uniqueEntrants > 0 && (
+                                  <div className="text-xs text-emerald-400 mt-1 font-medium">
+                                    Everyone wins right now! Enter for a free ticket
+                                  </div>
+                                )}
+                                {pool.drawTime && (
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    Draw: {formatDate(pool.drawTime)}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-shrink-0 flex flex-col gap-2">
+                                {pool.status === 'OPEN' ? (
+                                  checkout.type === 'raffle' && checkout.poolId === pool.id ? null : (
+                                    <>
+                                      {/* Free first entry for new users */}
+                                      {freeEntryAvailable ? (
+                                        <button
+                                          onClick={() => handleFreeRaffleEntry(pool.id)}
+                                          disabled={actionLoading}
+                                          className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-noir-950 text-sm font-bold rounded-lg disabled:opacity-50 transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-400/30"
+                                        >
+                                          <span className="flex items-center gap-1.5">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                                            </svg>
+                                            FIRST ENTRY FREE
+                                          </span>
+                                          <span className="block text-[10px] font-normal opacity-80 mt-0.5">
+                                            On us &mdash; artist still gets paid
+                                          </span>
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleRaffleEntry(pool.id, pool.tierCents)}
+                                          disabled={actionLoading}
+                                          className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-noir-950 text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors"
+                                        >
+                                          ENTER RAFFLE
+                                        </button>
+                                      )}
+                                    </>
+                                  )
+                                ) : pool.status === 'COMPLETED' ? (
+                                  <span className="text-sm text-gray-400">Draw complete</span>
+                                ) : (
+                                  <span className="text-sm text-gray-400">{pool.status}</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Inline checkout for this pool */}
+                            {checkout.type === 'raffle' && checkout.poolId === pool.id && (
+                              <div className="mt-4">
+                                <Suspense fallback={<div className="py-6 text-center text-gray-400 text-sm" role="status">Loading payment form...</div>}>
+                                  <StripeCheckout
+                                    clientSecret={checkout.clientSecret}
+                                    onSuccess={handlePaymentSuccess}
+                                    onError={handlePaymentError}
+                                    onCancel={handleCancelCheckout}
+                                    submitLabel={`Pay ${formatPrice(checkout.tierCents)}`}
+                                    title="Complete Raffle Entry"
+                                    description={`Entry fee: ${formatPrice(pool.tierCents)}`}
+                                    onCaptchaVerify={setCaptchaToken}
+                                  />
+                                </Suspense>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400 font-body">
+                      Raffle pools opening soon &mdash; check back!
+                    </p>
+                  )}
                 </div>
               )}
             </div>

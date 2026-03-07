@@ -39,6 +39,9 @@ export default {
         'float': 'float 6s ease-in-out infinite',
         'glow-pulse': 'glowPulse 3s ease-in-out infinite',
         'fresnel-shift': 'fresnelShift 4s ease-in-out infinite',
+        'countdown-tick': 'countdownTick 0.3s ease-out',
+        'confetti-fall': 'confettiFall 3s ease-in forwards',
+        'confetti-spin': 'confettiSpin 1s linear infinite',
       },
       keyframes: {
         fadeInUp: {
@@ -104,6 +107,18 @@ export default {
         fresnelShift: {
           '0%, 100%': { backgroundPosition: '0% 50%' },
           '50%': { backgroundPosition: '100% 50%' },
+        },
+        countdownTick: {
+          '0%': { transform: 'translateY(-100%)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        confettiFall: {
+          '0%': { transform: 'translateY(-10px) rotate(0deg)', opacity: '1' },
+          '100%': { transform: 'translateY(400px) rotate(720deg)', opacity: '0' },
+        },
+        confettiSpin: {
+          '0%': { transform: 'rotateY(0deg)' },
+          '100%': { transform: 'rotateY(360deg)' },
         },
       },
       transitionTimingFunction: {
