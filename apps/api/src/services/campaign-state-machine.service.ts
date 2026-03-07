@@ -3,6 +3,7 @@ import type { Server } from 'socket.io';
 import { CAMPAIGN_TRANSITIONS } from '@miraculturee/shared';
 import type { CampaignStatus } from '@miraculturee/shared';
 import { scheduleRaffleDraw } from '../jobs/workers.js';
+import { CreditsService } from './credits.service.js';
 
 /**
  * Campaign State Machine Service
@@ -126,7 +127,13 @@ export class CampaignStateMachineService {
       }
 
       case 'RAFFLE_MODE': {
-        // Time expired before goal — raffle whatever tickets were funded
+        // Time expired before goal — convert donations to credits for donors
+        const creditsService = new CreditsService(this.prisma);
+        const creditResult = await creditsService.convertCampaignDonationsToCredits(campaign.id);
+        console.info(
+          `[CampaignSM] Converted ${creditResult.converted} donations ($${(creditResult.totalCents / 100).toFixed(2)}) to credits for campaign ${campaign.id}`,
+        );
+
         // Schedule raffle draw for day of show
         const rafflePools = await this.prisma.rafflePool.findMany({
           where: { eventId: campaign.eventId, status: 'OPEN' },
@@ -141,7 +148,7 @@ export class CampaignStateMachineService {
             data: {
               userId: artistUserId,
               title: 'Campaign Entered Raffle Mode',
-              body: `Your campaign "${campaign.headline}" didn't reach its full goal in time. Funded tickets will be raffled to local fans.`,
+              body: `Your campaign "${campaign.headline}" didn't reach its full goal in time. Donors have received platform credits. Raffle tickets will be drawn on the day of the show.`,
               metadata: { campaignId: campaign.id, eventId: campaign.eventId, type: 'raffle_mode' },
             },
           });

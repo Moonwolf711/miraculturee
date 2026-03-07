@@ -56,6 +56,8 @@ enum TransactionType {
   LOCAL_TICKET
   ARTIST_PAYOUT
   REFUND
+  CREDIT_CONVERSION
+  CREDIT_SPEND
 }
 
 enum DirectTicketStatus {
@@ -119,6 +121,7 @@ model User {
   suspiciousActivities SuspiciousActivity[]
   passkeys             Passkey[]
   socialLogins         SocialLogin[]
+  creditsBalanceCents  Int       @default(0)
   devInvitesSent       DeveloperInvite[] @relation("DevInvitesSent")
   devInvitesAccepted   DeveloperInvite[] @relation("DevInvitesAccepted")
 }
@@ -321,12 +324,13 @@ model RaffleEntry {
   userId    String
   won       Boolean  @default(false)
   ticketId  String?
+  entryDate DateTime @default(now()) @db.Date
   createdAt DateTime @default(now())
 
   pool RafflePool @relation(fields: [poolId], references: [id], onDelete: Cascade)
   user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([poolId, userId])
+  @@unique([poolId, userId, entryDate])
   @@index([poolId])
   @@index([userId])
 }

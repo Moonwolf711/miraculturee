@@ -37,8 +37,10 @@ import chatRoutes from './routes/admin/chat.js';
 import { devInviteRoutes } from './routes/dev-invite.js';
 import { publicChatRoutes } from './routes/public-chat.js';
 import { newsletterRoutes } from './routes/newsletter.js';
+import { creditsRoutes } from './routes/credits.js';
 import { requireRole } from './middleware/authenticate.js';
 import { initWorkers } from './jobs/workers.js';
+import { setupCronJobs } from './cron.js';
 
 const app = Fastify({
   logger: { level: process.env.LOG_LEVEL ?? 'info' },
@@ -90,6 +92,7 @@ async function start() {
   await app.register(applePayRoutes, { prefix: '/apple-pay' });
   await app.register(connectRoutes, { prefix: '/connect' });
   await app.register(donorConnectionRoutes, { prefix: '/donor-connections' });
+  await app.register(creditsRoutes, { prefix: '/credits' });
   await app.register(shareRoutes, { prefix: '/share' });
   // Webhook routes — use their own raw body parsers for Stripe signature verification
   await app.register(webhookRoutes, { prefix: '/webhook' });
@@ -136,6 +139,9 @@ async function start() {
 
   // Start BullMQ workers
   await initWorkers();
+
+  // Start event sync cron jobs (Ticketmaster, EDMTrain)
+  setupCronJobs(app);
 
   const port = Number(process.env.PORT ?? 3000);
   const host = process.env.HOST ?? '0.0.0.0';
