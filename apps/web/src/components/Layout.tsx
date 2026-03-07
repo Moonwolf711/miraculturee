@@ -131,8 +131,9 @@ export default function Layout({ children }: { children: ReactNode }) {
               M
             </span>
             <span className="text-[0.9em] leading-none" role="img" aria-label="finger pointing up">☝️</span>
+            <span className="text-amber-500 transition-colors duration-300 group-hover:text-amber-400">ra</span>
             <span className="text-gray-100 transition-colors duration-300 group-hover:text-white">
-              raCulture
+              Culture
             </span>
           </Link>
 
@@ -305,7 +306,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             {/* Brand column */}
             <div>
               <div className="font-display text-lg tracking-ultra-wide uppercase text-gray-400 mb-3">
-                <span className="text-amber-500/70">M</span><span className="text-[0.9em]">☝️</span>raCulture
+                <span className="text-amber-500/70">M</span><span className="text-[0.9em]">☝️</span><span className="text-amber-500/70">ra</span>Culture
               </div>
               <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
                 Fan-powered ticket redistribution. No scalpers, no bots — just
