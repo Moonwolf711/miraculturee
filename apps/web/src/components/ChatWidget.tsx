@@ -183,10 +183,13 @@ interface ChatMessage {
 // Component
 // ---------------------------------------------------------------------------
 
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -217,9 +220,9 @@ export default function ChatWidget() {
   }, [open, hasInteracted]);
 
   const handleSend = useCallback(
-    (text?: string) => {
+    async (text?: string) => {
       const msg = (text || input).trim();
-      if (!msg) return;
+      if (!msg || loading) return;
 
       const userMsg: ChatMessage = {
         id: `u-${Date.now()}`,
@@ -231,30 +234,71 @@ export default function ChatWidget() {
       setMessages((prev) => [...prev, userMsg]);
       setInput('');
 
-      // Find answer
-      setTimeout(() => {
-        const match = findBestMatch(msg);
-
-        const botMsg: ChatMessage = match
-          ? {
+      // Try FAQ first
+      const match = findBestMatch(msg);
+      if (match) {
+        setTimeout(() => {
+          setMessages((prev) => [
+            ...prev,
+            {
               id: `b-${Date.now()}`,
               role: 'bot',
               text: match.answer,
               links: match.links,
               timestamp: new Date(),
-            }
-          : {
+            },
+          ]);
+        }, 300);
+        return;
+      }
+
+      // No FAQ match — try Claude API
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/chat/ask`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setMessages((prev) => [
+            ...prev,
+            {
               id: `b-${Date.now()}`,
               role: 'bot',
-              text: "I'm not sure about that one. Try asking about tickets, raffles, campaigns, fan impact scores, or artist onboarding. You can also email support@mira-culture.com for help.",
+              text: data.answer,
+              timestamp: new Date(),
+            },
+          ]);
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `b-${Date.now()}`,
+              role: 'bot',
+              text: "I'm not sure about that one. Try asking about tickets, raffles, campaigns, or supporting artists. You can also email support@mira-culture.com.",
               links: [{ label: 'Browse Events', href: '/events' }],
               timestamp: new Date(),
-            };
-
-        setMessages((prev) => [...prev, botMsg]);
-      }, 400);
+            },
+          ]);
+        }
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `b-${Date.now()}`,
+            role: 'bot',
+            text: "Sorry, I'm having trouble connecting. Try again in a moment, or email support@mira-culture.com for help.",
+            timestamp: new Date(),
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
     },
-    [input],
+    [input, loading],
   );
 
   return (
@@ -328,6 +372,16 @@ export default function ChatWidget() {
                 </div>
               </div>
             ))}
+            {/* Typing indicator */}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-noir-800/80 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
 
             {/* Quick questions — only show when just the welcome message */}
@@ -366,7 +420,7 @@ export default function ChatWidget() {
               />
               <button
                 type="submit"
-                disabled={!input.trim()}
+                disabled={!input.trim() || loading}
                 className="px-3 py-2 rounded-xl bg-amber-500 text-noir-950 text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-amber-400 transition-colors"
               >
                 Send

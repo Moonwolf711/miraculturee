@@ -34,6 +34,7 @@ import adminDashboardRoutes from './routes/admin/dashboard.js';
 import developerRoutes from './routes/admin/developers.js';
 import chatRoutes from './routes/admin/chat.js';
 import { devInviteRoutes } from './routes/dev-invite.js';
+import { publicChatRoutes } from './routes/public-chat.js';
 import { requireRole } from './middleware/authenticate.js';
 import { initWorkers } from './jobs/workers.js';
 
@@ -107,6 +108,8 @@ async function start() {
   }, { prefix: '/admin' });
   // Public developer invite routes (not behind admin scope)
   await app.register(devInviteRoutes, { prefix: '/auth/dev-invite' });
+  // Public fan chat (rate-limited, no auth required)
+  await app.register(publicChatRoutes, { prefix: '/chat' });
 
   // Health check
   app.get('/health', async () => ({
