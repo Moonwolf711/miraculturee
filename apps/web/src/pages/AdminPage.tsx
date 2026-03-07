@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../hooks/useAuth.js';
 import SEO from '../components/SEO.js';
 import { StatsSkeleton } from '../components/LoadingStates.js';
+
+const DevChat = lazy(() => import('../components/DevChat.js'));
 
 interface UserItem {
   id: string;
@@ -1042,6 +1044,11 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {/* Floating Dev Chat */}
+      <Suspense fallback={null}>
+        <DevChat />
+      </Suspense>
     </div>
   );
 }
