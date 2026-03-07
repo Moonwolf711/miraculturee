@@ -32,6 +32,7 @@ import issuingRoutes from './routes/admin/issuing.js';
 import vendorTicketRoutes from './routes/admin/vendor-tickets.js';
 import adminDashboardRoutes from './routes/admin/dashboard.js';
 import adminCleanupRoutes from './routes/admin/cleanup.js';
+import adminRepriceRoutes from './routes/admin/reprice.js';
 import developerRoutes from './routes/admin/developers.js';
 import chatRoutes from './routes/admin/chat.js';
 import { devInviteRoutes } from './routes/dev-invite.js';
@@ -105,6 +106,7 @@ async function start() {
     await admin.register(vendorTicketRoutes, { prefix: '/vendors' });
     await admin.register(adminDashboardRoutes, { prefix: '/dashboard' });
     await admin.register(adminCleanupRoutes, { prefix: '/cleanup' });
+    await admin.register(adminRepriceRoutes);
     await admin.register(developerRoutes, { prefix: '/developers' });
   }, { prefix: '/admin' });
   // Admin chat — accessible to ADMIN + DEVELOPER
