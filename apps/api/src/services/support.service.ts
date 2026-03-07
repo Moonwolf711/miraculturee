@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { POSClient } from '@miraculturee/pos';
 import type { SupportPurchaseResult } from '@miraculturee/shared';
 import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
+import { CampaignStateMachineService } from './campaign-state-machine.service.js';
 
 export class SupportService {
   constructor(
@@ -108,26 +109,23 @@ export class SupportService {
     });
     if (event) {
       const donationCents = event.ticketPriceCents * supportTicket.ticketCount;
+      // Find campaign in any active lifecycle state (not just ACTIVE)
       const campaign = await this.prisma.campaign.findFirst({
-        where: { eventId: supportTicket.eventId, status: 'ACTIVE' },
+        where: {
+          eventId: supportTicket.eventId,
+          status: { in: ['ACTIVE', 'GOAL_REACHED', 'TICKETS_OPEN', 'OVERFLOW'] },
+        },
       });
       if (campaign) {
         const newFunded = campaign.fundedCents + donationCents;
-        const justReachedGoal = !campaign.goalReached && newFunded >= campaign.goalCents && campaign.goalCents > 0;
         await this.prisma.campaign.update({
           where: { id: campaign.id },
-          data: {
-            fundedCents: newFunded,
-            ...(justReachedGoal && { goalReached: true, goalReachedAt: new Date() }),
-          },
+          data: { fundedCents: newFunded },
         });
 
-        if (justReachedGoal) {
-          await this.prisma.artist.update({
-            where: { id: campaign.artistId },
-            data: { successfulCampaigns: { increment: 1 } },
-          });
-        }
+        // Let the state machine handle transitions
+        const stateMachine = new CampaignStateMachineService(this.prisma);
+        await stateMachine.onFundingUpdate(campaign.id, newFunded);
       }
     }
   }

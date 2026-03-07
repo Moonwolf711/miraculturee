@@ -20,11 +20,13 @@ export async function campaignTicketRoutes(app: FastifyInstance) {
       include: { event: true },
     });
     if (!campaign) return reply.code(404).send({ error: 'Campaign not found' });
-    if (campaign.status !== 'ACTIVE') {
-      return reply.code(400).send({ error: 'Campaign is not active' });
-    }
-    if (!campaign.goalReached) {
-      return reply.code(400).send({ error: 'Campaign goal has not been reached yet' });
+    // Local tickets are available once campaign reaches TICKETS_OPEN or OVERFLOW state
+    const ticketStates = ['TICKETS_OPEN', 'OVERFLOW'];
+    if (!ticketStates.includes(campaign.status)) {
+      const msg = campaign.status === 'ACTIVE'
+        ? 'Campaign goal has not been reached yet'
+        : `Campaign is in ${campaign.status} state — local tickets are not available`;
+      return reply.code(400).send({ error: msg });
     }
 
     // Check max local tickets sold for this campaign

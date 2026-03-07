@@ -1,0 +1,6 @@
+-- AlterEnum: Add new CampaignStatus values for the campaign state machine
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'GOAL_REACHED';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'TICKETS_OPEN';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'OVERFLOW';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'RAFFLE_MODE';
+ALTER TYPE "CampaignStatus" ADD VALUE IF NOT EXISTS 'SURPLUS_RESOLVED';

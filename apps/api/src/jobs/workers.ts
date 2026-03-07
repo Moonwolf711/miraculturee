@@ -5,7 +5,8 @@ import { randomInt } from 'node:crypto';
 import { EmailService } from '../services/email.service.js';
 import { EdmtrainService } from '../services/edmtrain.service.js';
 import { PurchaseAgentService } from '../services/purchase-agent.service.js';
-import { EDMTRAIN_SYNC_INTERVAL_MS, EVENT_CLEANUP_INTERVAL_MS } from '@miraculturee/shared';
+import { CampaignStateMachineService } from '../services/campaign-state-machine.service.js';
+import { EDMTRAIN_SYNC_INTERVAL_MS, EVENT_CLEANUP_INTERVAL_MS, CAMPAIGN_LIFECYCLE_INTERVAL_MS } from '@miraculturee/shared';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
@@ -379,25 +380,51 @@ export async function initWorkers() {
         await eventService.processSurplusPayout(eventId);
       }
 
-      // Update active campaign bonus if sold out
+      // Use state machine for campaign transitions
       const activeCampaign = await prisma.campaign.findFirst({
-        where: { eventId, status: 'ACTIVE' },
+        where: { eventId, status: { notIn: ['ENDED', 'DRAFT'] } },
       });
-      if (activeCampaign && isSoldOut) {
-        const surplusCents = Math.max(0, remainingFunds - (ticketsToBuy * event.ticketPriceCents));
-        if (surplusCents > 0) {
-          await prisma.campaign.update({
-            where: { id: activeCampaign.id },
-            data: { bonusCents: surplusCents, status: 'ENDED' },
-          });
-          console.info(`[PreEvent] Campaign ${activeCampaign.id} bonus: ${surplusCents} cents`);
+      if (activeCampaign) {
+        const stateMachine = new CampaignStateMachineService(prisma);
+        if (isSoldOut) {
+          const surplusCents = Math.max(0, remainingFunds - (ticketsToBuy * event.ticketPriceCents));
+          if (surplusCents > 0) {
+            await prisma.campaign.update({
+              where: { id: activeCampaign.id },
+              data: { bonusCents: surplusCents },
+            });
+            console.info(`[PreEvent] Campaign ${activeCampaign.id} bonus: ${surplusCents} cents`);
+          }
         }
-      } else if (activeCampaign && !isSoldOut) {
-        // Not sold out — just end the campaign, tickets were bought and will be raffled
-        await prisma.campaign.update({
-          where: { id: activeCampaign.id },
-          data: { status: 'ENDED' },
-        });
+        await stateMachine.transition(activeCampaign.id, 'SURPLUS_RESOLVED');
+      }
+    },
+    { connection: getConnection(), concurrency: 1 },
+  );
+
+  // ──── Campaign Lifecycle State Machine (every 5 minutes) ────
+  const campaignQueue = new Queue('campaign-lifecycle', {
+    connection: getConnection(),
+    defaultJobOptions: {
+      removeOnComplete: 10,
+      removeOnFail: 10,
+    },
+  });
+  await campaignQueue.add(
+    'tick',
+    {},
+    { repeat: { every: CAMPAIGN_LIFECYCLE_INTERVAL_MS }, jobId: 'campaign-lifecycle-tick' },
+  );
+
+  new Worker(
+    'campaign-lifecycle',
+    async () => {
+      const stateMachine = new CampaignStateMachineService(prisma);
+      const result = await stateMachine.runLifecycleTick();
+      if (result.transitioned > 0) {
+        console.info(
+          `[CampaignLifecycle] Checked ${result.checked} campaigns, ${result.transitioned} transitioned`,
+        );
       }
     },
     { connection: getConnection(), concurrency: 1 },
@@ -500,5 +527,5 @@ export async function initWorkers() {
     { connection: getConnection(), concurrency: 1 },
   );
 
-  console.info('[Workers] Raffle draw, notification, pre-event, purchase-agent, event-sync, and event-cleanup workers initialized');
+  console.info('[Workers] Raffle draw, notification, pre-event, purchase-agent, campaign-lifecycle, event-sync, and event-cleanup workers initialized');
 }

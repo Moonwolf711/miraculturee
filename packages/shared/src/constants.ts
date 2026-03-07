@@ -113,6 +113,39 @@ export const DEFAULT_LOCAL_RADIUS_KM = 50;
 /** Mean radius of the Earth in kilometers (used in Haversine calculations). */
 export const EARTH_RADIUS_KM = 6371;
 
+/** Campaign lifecycle status constants. */
+export const CAMPAIGN_STATUS = {
+  DRAFT: 'DRAFT',
+  ACTIVE: 'ACTIVE',
+  GOAL_REACHED: 'GOAL_REACHED',
+  TICKETS_OPEN: 'TICKETS_OPEN',
+  OVERFLOW: 'OVERFLOW',
+  RAFFLE_MODE: 'RAFFLE_MODE',
+  SURPLUS_RESOLVED: 'SURPLUS_RESOLVED',
+  ENDED: 'ENDED',
+} as const;
+
+/** Union type of campaign statuses. */
+export type CampaignStatus = (typeof CAMPAIGN_STATUS)[keyof typeof CAMPAIGN_STATUS];
+
+/** Campaign lifecycle check interval (every 5 minutes). */
+export const CAMPAIGN_LIFECYCLE_INTERVAL_MS = 5 * 60 * 1000;
+
+/**
+ * Valid campaign state transitions.
+ * Each key maps to an array of states it can transition TO.
+ */
+export const CAMPAIGN_TRANSITIONS: Record<CampaignStatus, CampaignStatus[]> = {
+  DRAFT: ['ACTIVE'],
+  ACTIVE: ['GOAL_REACHED', 'RAFFLE_MODE', 'ENDED'],
+  GOAL_REACHED: ['TICKETS_OPEN', 'ENDED'],
+  TICKETS_OPEN: ['OVERFLOW', 'SURPLUS_RESOLVED', 'ENDED'],
+  OVERFLOW: ['SURPLUS_RESOLVED', 'ENDED'],
+  RAFFLE_MODE: ['ENDED'],
+  SURPLUS_RESOLVED: ['ENDED'],
+  ENDED: [],
+};
+
 /** EDMTrain sync runs every 6 hours */
 export const EDMTRAIN_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 /** Past-event cleanup runs every 1 hour */

@@ -1,4 +1,4 @@
-import type { Role, EventType, EventStatus, RaffleStatus, TransactionType, DirectTicketStatus } from './constants.js';
+import type { Role, EventType, EventStatus, RaffleStatus, TransactionType, DirectTicketStatus, CampaignStatus } from './constants.js';
 
 /** Decoded JWT payload for an authenticated user. */
 export interface UserPayload {
@@ -67,7 +67,7 @@ export interface EventDetail extends EventSummary {
   currentProcessingFeeCents: number;
   sourceUrl: string | null;
   rafflePools: RafflePoolSummary[];
-  campaigns?: { id: string; headline: string; message: string }[];
+  campaigns?: CampaignDetail[];
   shareCount?: number;
 }
 
@@ -163,8 +163,6 @@ export interface DirectTicketSummary {
   createdAt: string;
 }
 
-export type CampaignStatus = 'DRAFT' | 'ACTIVE' | 'ENDED';
-
 /** Per-campaign earnings breakdown for the artist payout page. */
 export interface CampaignEarnings {
   campaignId: string;
@@ -198,6 +196,22 @@ export interface PayoutSummary {
   connectAccountStatus: 'none' | 'pending' | 'ready';
   campaigns: CampaignEarnings[];
   payoutHistory: PayoutRecord[];
+}
+
+/** Campaign data included in event detail responses. */
+export interface CampaignDetail {
+  id: string;
+  headline: string;
+  message: string;
+  status: CampaignStatus;
+  goalCents: number;
+  fundedCents: number;
+  goalReached: boolean;
+  discountCents: number;
+  maxLocalTickets: number;
+  bonusCents: number;
+  /** Percentage of goal funded (0-100+). */
+  fundingPercent: number;
 }
 
 export interface CampaignSummary {

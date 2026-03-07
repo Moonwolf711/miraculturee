@@ -261,11 +261,11 @@ export class EventService {
         select: { sourceUrl: true },
       }),
       this.prisma.campaign.findMany({
-        where: { eventId: id, status: 'ACTIVE' },
+        where: { eventId: id, status: { notIn: ['DRAFT', 'ENDED'] } },
         select: {
-          id: true, headline: true, message: true,
+          id: true, headline: true, message: true, status: true,
           goalCents: true, fundedCents: true, goalReached: true,
-          discountCents: true, maxLocalTickets: true,
+          discountCents: true, maxLocalTickets: true, bonusCents: true,
         },
         orderBy: { createdAt: 'desc' },
         take: 3,
@@ -302,7 +302,10 @@ export class EventService {
         totalEntries: p.entries.length,
         drawTime: p.scheduledDrawTime?.toISOString() ?? null,
       })),
-      campaigns: activeCampaigns,
+      campaigns: activeCampaigns.map((c) => ({
+        ...c,
+        fundingPercent: c.goalCents > 0 ? Math.round((c.fundedCents / c.goalCents) * 100) : 0,
+      })),
       shareCount,
     };
   }

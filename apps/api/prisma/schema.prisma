@@ -178,6 +178,11 @@ enum SocialProvider {
 enum CampaignStatus {
   DRAFT
   ACTIVE
+  GOAL_REACHED
+  TICKETS_OPEN
+  OVERFLOW
+  RAFFLE_MODE
+  SURPLUS_RESOLVED
   ENDED
 }
 
