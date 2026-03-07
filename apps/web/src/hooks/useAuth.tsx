@@ -93,6 +93,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithPasskey = async () => {
     const { startAuthentication } = await import('@simplewebauthn/browser');
     const options = await api.post<any>('/auth/passkeys/auth/options', {});
+    // Hint the browser to prefer platform authenticators (Windows Hello PIN, Touch ID)
+    // over cross-platform ones (USB security keys)
+    (options as any).hints = ['client-device'];
     const authResponse = await startAuthentication({ optionsJSON: options });
     const tokens = await api.post<{ accessToken: string; refreshToken: string }>(
       '/auth/passkeys/auth/verify',
