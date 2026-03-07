@@ -83,7 +83,7 @@ async function start() {
   await app.register(raffleRoutes, { prefix: '/raffle' });
   await app.register(posRoutes, { prefix: '/pos' });
   await app.register(artistRoutes, { prefix: '/artist' });
-  await app.register(tickRoutes, { prefix: '/tickets' });
+  await app.register(ticketRoutes, { prefix: '/tickets' });
   await app.register(campaignTicketRoutes, { prefix: '/campaign-tickets' });
   await app.register(userRoutes, { prefix: '/user' });
   await app.register(applePayRoutes, { prefix: '/apple-pay' });
