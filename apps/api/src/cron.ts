@@ -73,8 +73,83 @@ export function setupCronJobs(app: FastifyInstance) {
     setTimeout(runSync, 5000); // Wait 5 seconds for server to be ready
   }
 
+  // One-time reprice of events with bad/unknown pricing via Ticketmaster
+  if (process.env.REPRICE_ON_STARTUP === 'true' && process.env.TICKETMASTER_API_KEY) {
+    setTimeout(async () => {
+      app.log.info('Starting one-time event reprice via Ticketmaster');
+      try {
+        const apiKey = process.env.TICKETMASTER_API_KEY!;
+        const events = await app.prisma.event.findMany({
+          where: {
+            date: { gte: new Date() },
+            OR: [
+              { priceSource: 'unknown' },
+              { priceSource: 'default' },
+              { ticketPriceCents: 0 },
+            ],
+          },
+          include: { artist: { select: { stageName: true, isPlaceholder: true } } },
+        });
+        app.log.info(`Repricing ${events.length} events with bad pricing`);
+        let updated = 0;
+        for (const event of events) {
+          await new Promise((r) => setTimeout(r, 260));
+          const artistName = event.artist.isPlaceholder
+            ? event.title.split(' at ')[0].split(' @ ')[0].split(' - ')[0].trim()
+            : event.artist.stageName;
+          const eventDate = new Date(event.date);
+          const dayBefore = new Date(eventDate);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          const dayAfter = new Date(eventDate);
+          dayAfter.setDate(dayAfter.getDate() + 1);
+          const params = new URLSearchParams({
+            apikey: apiKey,
+            keyword: artistName.split(',')[0].trim(),
+            size: '5',
+            classificationName: 'music',
+            startDateTime: dayBefore.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+            endDateTime: dayAfter.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+          });
+          const city = event.venueCity.split(',')[0].trim();
+          if (city) params.set('city', city);
+          try {
+            const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params}`);
+            if (!res.ok) continue;
+            const data = (await res.json()) as any;
+            const tmEvents = data._embedded?.events ?? [];
+            let matched: any = null;
+            const kw = artistName.split(',')[0].trim().toLowerCase();
+            for (const tm of tmEvents) {
+              const tmA = (tm._embedded?.attractions?.[0]?.name ?? tm.name).toLowerCase();
+              if (tmA.includes(kw) || kw.includes(tmA)) { matched = tm; break; }
+            }
+            if (!matched && tmEvents.length === 1 && tmEvents[0].priceRanges?.length) matched = tmEvents[0];
+            if (matched?.priceRanges?.length) {
+              const r = matched.priceRanges[0];
+              const minC = Math.round(r.min * 100);
+              const maxC = Math.round(r.max * 100);
+              await app.prisma.event.update({
+                where: { id: event.id },
+                data: {
+                  ticketPriceCents: minC,
+                  maxPriceCents: maxC !== minC ? maxC : null,
+                  priceSource: 'ticketmaster',
+                  feesIncluded: false,
+                },
+              });
+              updated++;
+            }
+          } catch { /* skip individual errors */ }
+        }
+        app.log.info(`Reprice complete: ${updated}/${events.length} events updated`);
+      } catch (err) {
+        app.log.error({ err }, 'Reprice on startup failed');
+      }
+    }, 10000);
+  }
+
   // Schedule recurring syncs
   setInterval(runSync, intervalMs);
-  
+
   app.log.info(`Next sync scheduled in ${intervalHours} hours`);
 }
