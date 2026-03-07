@@ -69,6 +69,17 @@ When implementing features:
 3. Write files with clear commit messages
 4. Explain what you changed and why
 
+### Admin Power Tools
+Full admin access to the live platform:
+- run_prisma_query: Run ANY Prisma operation (findMany, create, update, delete, aggregate, etc.) on any model
+- manage_user: Update roles, ban/unban, verify emails, delete users
+- call_api_endpoint: Call any API endpoint internally (test routes, trigger actions)
+- run_raw_sql: Run raw SQL for complex queries or bulk operations
+
+You have FULL admin access. When asked to create endpoints, modify the database, manage users,
+clean up data, or perform any admin task — just do it. You can both modify the codebase (via GitHub)
+AND interact with the live database/API directly.
+
 Always give complete, working implementations. Follow existing patterns in the codebase.
 Format code blocks with the language identifier.`;
 
@@ -198,6 +209,58 @@ const TOOLS = [
     name: 'get_prisma_schema',
     description: 'Read the full Prisma database schema. Shows all models, enums, relations, and fields. Essential for understanding the data layer before making changes.',
     input_schema: { type: 'object' as const, properties: {}, required: [] as string[] },
+  },
+  // === Admin Power Tools ===
+  {
+    name: 'run_prisma_query',
+    description: 'Run any Prisma query against the live database. Supports all Prisma operations: findMany, findFirst, create, update, upsert, delete, deleteMany, aggregate, groupBy, count. Use this for any database operation not covered by other tools.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        model: { type: 'string', description: 'Prisma model name (camelCase): user, artist, event, campaign, supportTicket, rafflePool, raffleEntry, directTicket, transaction, notification, externalEvent, eventSyncLog, developerInvite, passkey, socialLogin, connectedAccount, donorConnection, suspiciousActivity, connectSubscription, ticketAcquisition, artistSocialAccount' },
+        operation: { type: 'string', enum: ['findMany', 'findFirst', 'findUnique', 'create', 'createMany', 'update', 'updateMany', 'upsert', 'delete', 'deleteMany', 'count', 'aggregate', 'groupBy'], description: 'Prisma operation to run' },
+        args: { type: 'object', description: 'Prisma operation arguments (where, data, select, include, orderBy, take, skip, etc). Dates should be ISO strings.' },
+      },
+      required: ['model', 'operation'],
+    },
+  },
+  {
+    name: 'manage_user',
+    description: 'Manage user accounts: update role, ban/unban, verify email, reset password, or delete user. Use for admin operations on specific users.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        action: { type: 'string', enum: ['update_role', 'ban', 'unban', 'verify_email', 'delete', 'get_details'], description: 'Action to perform' },
+        email: { type: 'string', description: 'User email to act on' },
+        role: { type: 'string', enum: ['FAN', 'LOCAL_FAN', 'ARTIST', 'ADMIN', 'DEVELOPER'], description: 'New role (for update_role action)' },
+      },
+      required: ['action', 'email'],
+    },
+  },
+  {
+    name: 'call_api_endpoint',
+    description: 'Call any MiraCulture API endpoint internally. Useful for testing endpoints, triggering actions, or previewing responses. Runs against the live API.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], description: 'HTTP method' },
+        path: { type: 'string', description: 'API path, e.g. "/events" or "/admin/dashboard/analytics"' },
+        body: { type: 'object', description: 'Request body for POST/PUT/PATCH' },
+      },
+      required: ['method', 'path'],
+    },
+  },
+  {
+    name: 'run_raw_sql',
+    description: 'Run a raw SQL query against the PostgreSQL database. Use for complex queries, migrations, or operations not easily done via Prisma. SELECT queries return rows. INSERT/UPDATE/DELETE return affected count.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'SQL query to execute. Use $1, $2 etc for parameters.' },
+        params: { type: 'array', description: 'Query parameters (optional, for parameterized queries)' },
+      },
+      required: ['query'],
+    },
   },
 ];
 
@@ -394,6 +457,92 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
       const data = await res.json();
       const content = Buffer.from(data.content, 'base64').toString('utf-8');
       return { path: 'apps/api/prisma/schema.prisma', content };
+    }
+
+    // === Admin Power Tools ===
+    case 'run_prisma_query': {
+      const { model, operation, args } = input;
+      if (!prisma[model]) return { error: `Unknown model: ${model}` };
+      if (typeof prisma[model][operation] !== 'function') return { error: `Unknown operation: ${model}.${operation}` };
+
+      // Parse date strings in args
+      const processedArgs = args ? JSON.parse(JSON.stringify(args), (_key, value) => {
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) return new Date(value);
+        return value;
+      }) : undefined;
+
+      const result = await prisma[model][operation](processedArgs);
+      // Truncate large results
+      const json = JSON.stringify(result);
+      if (json.length > 20000) {
+        const count = Array.isArray(result) ? result.length : 1;
+        return { truncated: true, count, preview: JSON.parse(json.slice(0, 20000) + '..."]}') };
+      }
+      return result;
+    }
+
+    case 'manage_user': {
+      const { action, email, role } = input;
+      const user = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true, name: true, role: true, emailVerified: true, isBanned: true, createdAt: true, _count: { select: { supportTickets: true, raffleEntries: true, transactions: true, directTickets: true } } } });
+      if (!user) return { error: `User not found: ${email}` };
+
+      switch (action) {
+        case 'get_details':
+          return user;
+        case 'update_role':
+          if (!role) return { error: 'role is required for update_role' };
+          return prisma.user.update({ where: { email }, data: { role }, select: { email: true, name: true, role: true } });
+        case 'ban':
+          return prisma.user.update({ where: { email }, data: { isBanned: true, bannedAt: new Date() }, select: { email: true, name: true, isBanned: true } });
+        case 'unban':
+          return prisma.user.update({ where: { email }, data: { isBanned: false, bannedAt: null }, select: { email: true, name: true, isBanned: true } });
+        case 'verify_email':
+          return prisma.user.update({ where: { email }, data: { emailVerified: true }, select: { email: true, name: true, emailVerified: true } });
+        case 'delete': {
+          // Delete events first (cascade doesn't always cover all paths)
+          await prisma.event.deleteMany({ where: { artist: { userId: user.id } } });
+          return prisma.user.delete({ where: { email }, select: { email: true, name: true } });
+        }
+        default:
+          return { error: `Unknown action: ${action}` };
+      }
+    }
+
+    case 'call_api_endpoint': {
+      const { method, path: apiPath, body } = input;
+      const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : `http://0.0.0.0:${process.env.PORT || 3000}`;
+      const url = `${baseUrl}${apiPath.startsWith('/') ? apiPath : '/' + apiPath}`;
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        ...(body && ['POST', 'PUT', 'PATCH'].includes(method) ? { body: JSON.stringify(body) } : {}),
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      const responseBody = contentType.includes('json') ? await res.json() : await res.text();
+      return { status: res.status, body: responseBody };
+    }
+
+    case 'run_raw_sql': {
+      const { query, params } = input;
+      // Safety: block dangerous operations without WHERE clause
+      const upper = query.trim().toUpperCase();
+      if ((upper.startsWith('DROP') || upper.startsWith('TRUNCATE') || upper.startsWith('ALTER')) && !upper.includes('--FORCE')) {
+        return { error: 'DROP/TRUNCATE/ALTER blocked for safety. Add --FORCE comment to override.' };
+      }
+
+      if (upper.startsWith('SELECT') || upper.startsWith('WITH') || upper.startsWith('EXPLAIN')) {
+        const result = await prisma.$queryRawUnsafe(query, ...(params || []));
+        const json = JSON.stringify(result, (_k, v) => typeof v === 'bigint' ? Number(v) : v);
+        if (json.length > 20000) return { truncated: true, rowCount: (result as any[]).length, preview: json.slice(0, 20000) };
+        return JSON.parse(json);
+      } else {
+        const affected = await prisma.$executeRawUnsafe(query, ...(params || []));
+        return { affected, query: query.slice(0, 100) };
+      }
     }
 
     default:

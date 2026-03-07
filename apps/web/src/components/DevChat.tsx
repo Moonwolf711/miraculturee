@@ -133,7 +133,7 @@ function renderInline(text: string) {
 // Tool call indicator
 // ---------------------------------------------------------------------------
 
-const DEV_TOOLS = ['read_file', 'write_file', 'list_directory', 'search_code', 'get_prisma_schema'];
+const DEV_TOOLS = ['read_file', 'write_file', 'list_directory', 'search_code', 'get_prisma_schema', 'run_prisma_query', 'manage_user', 'call_api_endpoint', 'run_raw_sql'];
 
 function ToolCallBadge({ name, status }: { name: string; status: string }) {
   const label = name.replace(/_/g, ' ');
