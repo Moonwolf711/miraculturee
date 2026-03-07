@@ -479,11 +479,27 @@ export default async function chatRoutes(app: FastifyInstance) {
       return reply.code(503).send({ error: 'AI chat not configured' });
     }
 
-    // SSE headers
+    // SSE headers — must include CORS since reply.raw bypasses Fastify middleware
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      'https://miracultureeweb-production.up.railway.app',
+      'https://www.mira-culture.com',
+      'https://mira-culture.com',
+      ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : []),
+      ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173', 'http://localhost:3000'] : []),
+    ];
+    const corsHeaders: Record<string, string> = {};
+    if (origin && allowedOrigins.includes(origin)) {
+      corsHeaders['Access-Control-Allow-Origin'] = origin;
+      corsHeaders['Access-Control-Allow-Credentials'] = 'true';
+      corsHeaders['Vary'] = 'Origin';
+    }
+
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
+      ...corsHeaders,
     });
 
     try {
