@@ -60,7 +60,7 @@ export async function twoFactorRoutes(app: FastifyInstance) {
     const body = req.body as Record<string, any>;
     const { friendlyName } = PasskeyRegisterSchema.parse({ friendlyName: body.friendlyName });
     const { friendlyName: _, ...webauthnBody } = body;
-    const result = await webauthnService.verifyRegResponse(req.user.id, friendlyName, webauthnBody);
+    const result = await webauthnService.verifyRegResponse(req.user.id, friendlyName, webauthnBody as any);
     return reply.send(result);
   });
 
@@ -83,7 +83,7 @@ export async function twoFactorRoutes(app: FastifyInstance) {
   });
 
   app.post('/passkeys/auth/verify', { config: { rateLimit: authRateLimit } }, async (req, reply) => {
-    const tokens = await webauthnService.verifyAuthResponse(req.body);
+    const tokens = await webauthnService.verifyAuthResponse(req.body as any);
     return reply.send(tokens);
   });
 }

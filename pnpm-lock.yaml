@@ -41,6 +41,9 @@ importers:
       '@simplewebauthn/server':
         specifier: ^11.0.0
         version: 11.0.0
+      '@simplewebauthn/types':
+        specifier: ^11.0.0
+        version: 11.0.0
       '@types/seedrandom':
         specifier: ^3.0.8
         version: 3.0.8

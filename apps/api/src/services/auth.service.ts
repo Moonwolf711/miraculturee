@@ -57,7 +57,7 @@ export class AuthService {
 
     if (user.totpEnabled) {
       const tempToken = this.app.jwt.sign(
-        { id: user.id, purpose: '2fa' },
+        { id: user.id, purpose: '2fa' } as any,
         { expiresIn: '5m' },
       );
       return { requiresTwoFactor: true, tempToken };
@@ -100,11 +100,11 @@ export class AuthService {
       where: { id: userId },
       data: {
         totpSecret: encryptedSecret,
-        totpBackupCodes: hashedBackupCodes,
+        totpBackupCodes: JSON.stringify(hashedBackupCodes),
       },
     });
 
-    return { secret, qrCodeUrl, backupCodes };
+    return { secret, qrCodeDataUrl: qrCodeUrl, backupCodes } as TotpSetupResponse & { secret: string };
   }
 
   async enableTotp(userId: string, code: string): Promise<void> {
@@ -150,7 +150,7 @@ export class AuthService {
       data: {
         totpEnabled: false,
         totpSecret: null,
-        totpBackupCodes: [],
+        totpBackupCodes: null,
       },
     });
   }
@@ -183,7 +183,7 @@ export class AuthService {
     }
 
     // Try backup codes
-    const backupCodes = (user.totpBackupCodes as string[]) || [];
+    const backupCodes: string[] = user.totpBackupCodes ? JSON.parse(user.totpBackupCodes) : [];
     for (let i = 0; i < backupCodes.length; i++) {
       const isMatch = await compare(code, backupCodes[i]);
       if (isMatch) {
@@ -192,7 +192,7 @@ export class AuthService {
         updatedCodes.splice(i, 1);
         await this.prisma.user.update({
           where: { id: user.id },
-          data: { totpBackupCodes: updatedCodes },
+          data: { totpBackupCodes: JSON.stringify(updatedCodes) },
         });
         return this.generateTokens(user);
       }

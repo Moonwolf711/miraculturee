@@ -8,7 +8,7 @@ import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture,
-} from '@simplewebauthn/server';
+} from '@simplewebauthn/types';
 import type { PrismaClient } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import type { TokenPair, UserPayload, PasskeySummary } from '@miraculturee/shared';

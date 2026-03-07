@@ -120,7 +120,7 @@ async function generateTokens(
 // Redirect helper: sends user back to frontend with tokens (or error)
 // ---------------------------------------------------------------------------
 function redirectWithTokens(
-  reply: Parameters<Parameters<FastifyInstance['get']>[1]>[1] extends infer R ? R : never,
+  reply: any,
   tokens: { accessToken: string; refreshToken: string },
 ): void {
   const url = `${FRONTEND_URL}/auth/callback?accessToken=${encodeURIComponent(tokens.accessToken)}&refreshToken=${encodeURIComponent(tokens.refreshToken)}`;
@@ -207,10 +207,9 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
 
     app.get('/facebook/redirect', async (_req, reply) => {
       const state = generateState();
-      const codeVerifier = generateCodeVerifier();
-      storeState(state, codeVerifier);
+      storeState(state, '');
 
-      const url = facebook.createAuthorizationURL(state, codeVerifier, ['email', 'public_profile']);
+      const url = facebook.createAuthorizationURL(state, ['email', 'public_profile']);
       return reply.redirect(url.toString());
     });
 
@@ -227,7 +226,7 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
       }
 
       try {
-        const tokens: OAuth2Tokens = await facebook.validateAuthorizationCode(code, entry.codeVerifier);
+        const tokens: OAuth2Tokens = await facebook.validateAuthorizationCode(code);
         const accessToken = tokens.accessToken();
 
         // Fetch profile from Graph API
@@ -270,22 +269,23 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
   // =========================================================================
   if (
     process.env.APPLE_CLIENT_ID &&
-    process.env.APPLE_CLIENT_SECRET &&
     process.env.APPLE_TEAM_ID &&
-    process.env.APPLE_KEY_ID
+    process.env.APPLE_KEY_ID &&
+    process.env.APPLE_PRIVATE_KEY
   ) {
     const apple = new Apple(
       process.env.APPLE_CLIENT_ID,
-      process.env.APPLE_CLIENT_SECRET,
+      process.env.APPLE_TEAM_ID,
+      process.env.APPLE_KEY_ID,
+      new TextEncoder().encode(process.env.APPLE_PRIVATE_KEY),
       `${API_URL}/auth/apple/callback`,
     );
 
     app.get('/apple/redirect', async (_req, reply) => {
       const state = generateState();
-      const codeVerifier = generateCodeVerifier();
-      storeState(state, codeVerifier);
+      storeState(state, '');
 
-      const url = apple.createAuthorizationURL(state, codeVerifier, ['name', 'email']);
+      const url = apple.createAuthorizationURL(state, ['name', 'email']);
       return reply.redirect(url.toString());
     });
 
@@ -302,7 +302,7 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
       }
 
       try {
-        const tokens: OAuth2Tokens = await apple.validateAuthorizationCode(code, entry.codeVerifier);
+        const tokens: OAuth2Tokens = await apple.validateAuthorizationCode(code);
         const idToken = tokens.idToken();
         const claims = decodeIdToken(idToken) as {
           sub: string;
