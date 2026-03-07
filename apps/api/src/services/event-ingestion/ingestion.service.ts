@@ -201,24 +201,12 @@ export class EventIngestionService {
   }
 
   /**
-   * Auto-publish DISCOVERED external events into the main Event table.
-   * Creates a system user/artist per unique artistName if needed.
+   * Publish DISCOVERED external events into the main Event table.
+   * Only publishes events where a REAL verified artist exists (matched by stage name).
+   * Does NOT create placeholder users/artists — artists must register and verify via Spotify first.
+   * Unmatched events stay as DISCOVERED in ExternalEvent for artists to claim later.
    */
-  async publishExternalEvents(): Promise<{ published: number; skipped: number }> {
-    // Ensure system user exists for external event artists
-    const systemEmail = 'system@miraculture.com';
-    let systemUser = await this.prisma.user.findUnique({ where: { email: systemEmail } });
-    if (!systemUser) {
-      systemUser = await this.prisma.user.create({
-        data: {
-          email: systemEmail,
-          passwordHash: 'SYSTEM_NO_LOGIN',
-          name: 'MiraCulture System',
-          role: 'ARTIST',
-        },
-      });
-    }
-
+  async publishExternalEvents(): Promise<{ published: number; skipped: number; awaitingArtist: number }> {
     const discovered = await this.prisma.externalEvent.findMany({
       where: { status: 'DISCOVERED', importedEventId: null },
       orderBy: { eventDate: 'asc' },
@@ -226,9 +214,10 @@ export class EventIngestionService {
 
     let published = 0;
     let skipped = 0;
+    let awaitingArtist = 0;
 
-    // Cache artists by name to avoid duplicate lookups
-    const artistCache = new Map<string, string>();
+    // Cache artist lookups by name
+    const artistCache = new Map<string, string | null>();
 
     for (const ext of discovered) {
       try {
@@ -238,39 +227,25 @@ export class EventIngestionService {
           continue;
         }
 
-        // Find or create artist by stageName
+        // Look for a REAL (non-placeholder) artist matching this name
         const artistKey = ext.artistName.toLowerCase().trim();
-        let artistId = artistCache.get(artistKey);
+        let artistId = artistCache.has(artistKey) ? artistCache.get(artistKey) : undefined;
 
-        if (!artistId) {
-          // Check if artist already exists
+        if (artistId === undefined) {
           const existing = await this.prisma.artist.findFirst({
-            where: { stageName: { equals: ext.artistName, mode: 'insensitive' } },
+            where: {
+              stageName: { equals: ext.artistName, mode: 'insensitive' },
+              isPlaceholder: false,
+            },
           });
-          if (existing) {
-            artistId = existing.id;
-          } else {
-            // Create artist linked to system user — use a unique dummy userId
-            // Since userId is @unique on Artist, we create a placeholder user per artist
-            const placeholderUser = await this.prisma.user.create({
-              data: {
-                email: `artist-${ext.id}@system.miraculture.com`,
-                passwordHash: 'SYSTEM_NO_LOGIN',
-                name: ext.artistName,
-                role: 'ARTIST',
-              },
-            });
-            const newArtist = await this.prisma.artist.create({
-              data: {
-                userId: placeholderUser.id,
-                stageName: ext.artistName,
-                genre: ext.genre || null,
-                isPlaceholder: true,
-              },
-            });
-            artistId = newArtist.id;
-          }
+          artistId = existing?.id || null;
           artistCache.set(artistKey, artistId);
+        }
+
+        // No real artist registered yet — leave as DISCOVERED for later claiming
+        if (!artistId) {
+          awaitingArtist++;
+          continue;
         }
 
         // Check for duplicate event (same title + date + venue)
@@ -294,7 +269,7 @@ export class EventIngestionService {
         const ticketPriceCents = ext.minPriceCents || 2500;
         const isFestival = ext.category === 'Festival' || ext.title.toLowerCase().includes('festival');
 
-        // Create event
+        // Create event linked to the real artist
         const event = await this.prisma.event.create({
           data: {
             artistId,
@@ -334,8 +309,8 @@ export class EventIngestionService {
       }
     }
 
-    this.log.info({ published, skipped }, 'External event publishing complete');
-    return { published, skipped };
+    this.log.info({ published, skipped, awaitingArtist }, 'External event publishing complete');
+    return { published, skipped, awaitingArtist };
   }
 
   /**
