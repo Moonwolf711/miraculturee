@@ -1,9 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="6" fill="#0a0a0a"/>
-  <!-- Pixel-art hand pointing up — Deadhead miracle ticket gesture -->
-  <g transform="translate(6, 1)">
-    <path d="M6,0H14V16H17V14H20V24H18V26H16V28H15V30H7V28H6V26H4V24H2V20H0V16H2V14H4V16H6Z" fill="#1a1a1a"/>
-    <path d="M7,1H13V16H16V15H19V23H17V25H15V27H14V29H8V27H7V25H5V23H3V21H1V17H3V15H5V17H7Z" fill="#f59e0b"/>
-    <path d="M8,2H12V14H8Z" fill="#fbbf24" opacity="0.4"/>
-  </g>
+  <text x="16" y="24" text-anchor="middle" font-size="22">☝️</text>
 </svg>
