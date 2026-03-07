@@ -6,6 +6,7 @@ import type { WSMessage } from '../lib/ws.js';
 import SEO, { getBreadcrumbSchema } from '../components/SEO.js';
 import { CardSkeleton, InlineError } from '../components/LoadingStates.js';
 import ShareButton from '../components/ShareButton.js';
+import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
 
 type EventTypeFilter = 'SHOW' | 'FESTIVAL';
 type SortKey = 'distance' | 'popular' | 'date';
@@ -481,29 +482,16 @@ export default function EventsPage() {
                     />
                   </div>
 
-                  {/* Progress bar — compact, hidden on small screens */}
-                  <div className="hidden sm:flex items-center gap-2 flex-shrink-0 w-28 pr-2">
-                    <div
-                      className="flex-1 h-1 bg-noir-700 rounded-full overflow-hidden"
-                      role="progressbar"
-                      aria-valuenow={Math.round(Math.min(100, (event.supportedTickets / event.totalTickets) * 100))}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label={`${event.supportedTickets} of ${event.totalTickets} tickets supported`}
-                    >
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, (event.supportedTickets / event.totalTickets) * 100)}%` }}
-                      />
-                    </div>
+                  {/* Supported count — compact, hidden on small screens */}
+                  <div className="hidden sm:flex items-center gap-2 flex-shrink-0 pr-2">
                     <span className="font-body text-gray-500 text-[10px] whitespace-nowrap">
-                      {event.supportedTickets}/{event.totalTickets}
+                      {event.supportedTickets} supported
                     </span>
                   </div>
 
-                  {/* Price — always visible, never cut off */}
+                  {/* Price (incl. fees) — always visible, never cut off */}
                   <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 text-right border-l border-noir-700">
-                    <span className="font-display text-lg text-amber-400 leading-none">{formatPrice(event.ticketPriceCents)}</span>
+                    <span className="font-display text-lg text-amber-400 leading-none">{formatPrice(event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS)}</span>
                   </div>
                 </div>
               </Link>

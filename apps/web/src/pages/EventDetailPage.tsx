@@ -418,7 +418,6 @@ export default function EventDetailPage() {
     );
   }
 
-  const supportPercent = Math.min(100, (event.supportedTickets / event.totalTickets) * 100);
 
   const eventDescription = event.description
     || `${event.artistName} live at ${event.venueName}, ${event.venueCity}. Get face-value tickets on MiraCulture.`;
@@ -602,12 +601,8 @@ export default function EventDetailPage() {
             </span>
             <div className="space-y-3 mt-3">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Face value</span>
-                <span className="text-warm-50 font-medium">{formatPrice(event.ticketPriceCents)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Total tickets</span>
-                <span className="text-warm-50 font-medium">{event.totalTickets}</span>
+                <span className="text-gray-400">Ticket price (incl. fees)</span>
+                <span className="text-warm-50 font-medium">{formatPrice(event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Supported</span>
@@ -617,19 +612,6 @@ export default function EventDetailPage() {
                 <span className="text-gray-400">Local radius</span>
                 <span className="text-warm-50 font-medium">{event.localRadiusKm} km</span>
               </div>
-            </div>
-            <div
-              className="mt-4 bg-noir-700 rounded-full h-2"
-              role="progressbar"
-              aria-valuenow={Math.round(supportPercent)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`${event.supportedTickets} of ${event.totalTickets} tickets supported`}
-            >
-              <div
-                className="bg-amber-500 h-2 rounded-full transition-all"
-                style={{ width: `${supportPercent}%` }}
-              />
             </div>
           </div>
         </div>
