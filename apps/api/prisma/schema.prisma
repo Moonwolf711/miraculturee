@@ -122,6 +122,7 @@ model User {
   passkeys             Passkey[]
   socialLogins         SocialLogin[]
   creditsBalanceCents  Int       @default(0)
+  freeRaffleUsed       Boolean   @default(false)
   devInvitesSent       DeveloperInvite[] @relation("DevInvitesSent")
   devInvitesAccepted   DeveloperInvite[] @relation("DevInvitesAccepted")
 }

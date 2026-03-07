@@ -13,3 +13,6 @@ DROP INDEX IF EXISTS "RaffleEntry_poolId_userId_key";
 
 -- CreateIndex: New unique constraint (one entry per user per pool per day)
 CREATE UNIQUE INDEX "RaffleEntry_poolId_userId_entryDate_key" ON "RaffleEntry"("poolId", "userId", "entryDate");
+
+-- AlterTable: Add freeRaffleUsed to User
+ALTER TABLE "User" ADD COLUMN "freeRaffleUsed" BOOLEAN NOT NULL DEFAULT false;

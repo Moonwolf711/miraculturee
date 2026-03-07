@@ -13,11 +13,21 @@ export class RaffleService {
     private io: Server,
   ) {}
 
+  /** Check if a user is eligible for a free first raffle entry. */
+  async isFreeEntryAvailable(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { freeRaffleUsed: true },
+    });
+    return user ? !user.freeRaffleUsed : false;
+  }
+
   async enter(
     userId: string,
     poolId: string,
     userLat: number,
     userLng: number,
+    useFreeEntry = false,
   ): Promise<RaffleEntryResult> {
     const pool = await this.prisma.rafflePool.findUnique({
       where: { id: poolId },
@@ -49,7 +59,46 @@ export class RaffleService {
       throw Object.assign(new Error('Already entered this raffle today. Come back tomorrow!'), { statusCode: 409 });
     }
 
-    // Process entry fee via POS
+    // Free first entry: platform covers the cost, artist still gets paid
+    if (useFreeEntry) {
+      const isFree = await this.isFreeEntryAvailable(userId);
+      if (!isFree) {
+        throw Object.assign(new Error('Free raffle entry already used'), { statusCode: 400 });
+      }
+
+      const entryDate = new Date();
+      entryDate.setHours(0, 0, 0, 0);
+      const entry = await this.prisma.raffleEntry.create({
+        data: { poolId, userId, entryDate },
+      });
+
+      // Mark free entry as used
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { freeRaffleUsed: true },
+      });
+
+      // Record platform-covered transaction (artist still gets paid)
+      await this.prisma.transaction.create({
+        data: {
+          userId,
+          type: 'RAFFLE_ENTRY',
+          amountCents: pool.tierCents,
+          posReference: entry.id,
+          status: 'completed',
+          metadata: { freeEntry: true, platformCovered: true, poolId, eventId: pool.eventId },
+        },
+      });
+
+      return {
+        id: entry.id,
+        poolId,
+        status: 'ENTERED',
+        clientSecret: null as any, // No payment needed
+      };
+    }
+
+    // Standard paid entry via POS
     const payment = await this.pos.createPayment({
       amountCents: pool.tierCents,
       currency: 'usd',
@@ -317,12 +366,17 @@ export class RaffleService {
   }
 
   async getPoolsByEvent(eventId: string) {
-    return this.prisma.rafflePool.findMany({
+    const pools = await this.prisma.rafflePool.findMany({
       where: { eventId },
       include: {
         entries: { select: { id: true, userId: true, won: true } },
       },
     });
+    // Augment with unique entrant count
+    return pools.map((pool) => ({
+      ...pool,
+      uniqueEntrants: new Set(pool.entries.map((e) => e.userId)).size,
+    }));
   }
 
   async getResults(poolId: string) {

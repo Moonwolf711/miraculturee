@@ -300,6 +300,7 @@ export class EventService {
         status: p.status,
         availableTickets,
         totalEntries: p.entries.length,
+        uniqueEntrants: new Set(p.entries.map((e) => e.userId)).size,
         drawTime: p.scheduledDrawTime?.toISOString() ?? null,
       })),
       campaigns: activeCampaigns.map((c) => ({

@@ -5,7 +5,7 @@ import { RaffleService } from '../services/raffle.service.js';
 export async function raffleRoutes(app: FastifyInstance) {
   const raffleService = new RaffleService(app.prisma, app.pos, app.io);
 
-  // Public: get raffle pools for event
+  // Public: get raffle pools for event (includes unique entrant count)
   app.get('/:eventId/pools', async (req, reply) => {
     const { eventId } = EventIdParamSchema.parse(req.params);
     const pools = await raffleService.getPoolsByEvent(eventId);
@@ -14,14 +14,22 @@ export async function raffleRoutes(app: FastifyInstance) {
       tierCents: p.tierCents,
       status: p.status,
       totalEntries: p.entries.length,
+      uniqueEntrants: p.uniqueEntrants,
       drawTime: p.scheduledDrawTime?.toISOString() ?? null,
     }));
   });
 
-  // Authenticated: enter raffle
+  // Authenticated: check if free first entry is available
+  app.get('/free-entry', { preHandler: [app.authenticate] }, async (req) => {
+    const available = await raffleService.isFreeEntryAvailable(req.user.id);
+    return { freeEntryAvailable: available };
+  });
+
+  // Authenticated: enter raffle (paid or free first entry)
   app.post('/enter', { preHandler: [app.authenticate] }, async (req, reply) => {
     const body = RaffleEntrySchema.parse(req.body);
     const { poolId, lat, lng, captchaToken } = body;
+    const useFreeEntry = (req.body as any).useFreeEntry === true;
     const ip = req.ip;
 
     // 0. Validate event timing — raffle runs independently from campaign donations
@@ -42,13 +50,15 @@ export async function raffleRoutes(app: FastifyInstance) {
       );
     }
 
-    // 1. Verify CAPTCHA
-    const captchaValid = await app.captcha.verify(captchaToken, ip);
-    if (!captchaValid) {
-      throw Object.assign(
-        new Error('CAPTCHA verification failed. Please try again.'),
-        { statusCode: 400 },
-      );
+    // 1. Verify CAPTCHA (skip for free entries — less friction for new users)
+    if (!useFreeEntry) {
+      const captchaValid = await app.captcha.verify(captchaToken, ip);
+      if (!captchaValid) {
+        throw Object.assign(
+          new Error('CAPTCHA verification failed. Please try again.'),
+          { statusCode: 400 },
+        );
+      }
     }
 
     // 2. Check for VPN/Proxy
@@ -97,6 +107,7 @@ export async function raffleRoutes(app: FastifyInstance) {
       poolId,
       geoCheck.serverLocation.lat,
       geoCheck.serverLocation.lng,
+      useFreeEntry,
     );
 
     return reply.code(201).send(result);
