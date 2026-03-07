@@ -38,7 +38,10 @@ interface EventDetail {
   venueLng: number;
   date: string;
   ticketPriceCents: number;
+  maxPriceCents: number | null;
   totalTickets: number;
+  priceSource: string;
+  feesIncluded: boolean;
   supportedTickets: number;
   localRadiusKm: number;
   currentProcessingFeeCents: number;
@@ -601,9 +604,30 @@ export default function EventDetailPage() {
             </span>
             <div className="space-y-3 mt-3">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Ticket price (incl. fees)</span>
-                <span className="text-warm-50 font-medium">{formatPrice(event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS)}</span>
+                <span className="text-gray-400">Ticket price</span>
+                <span className="text-warm-50 font-medium">
+                  {event.ticketPriceCents === 0
+                    ? 'Price TBD'
+                    : event.maxPriceCents && event.maxPriceCents !== event.ticketPriceCents
+                      ? `${formatPrice(event.ticketPriceCents)} \u2013 ${formatPrice(event.maxPriceCents)}`
+                      : formatPrice(event.ticketPriceCents)}
+                </span>
               </div>
+              {event.ticketPriceCents > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">+ platform fee</span>
+                  <span className="text-gray-500 font-medium">{formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)}</span>
+                </div>
+              )}
+              {event.priceSource && event.priceSource !== 'manual' && event.ticketPriceCents > 0 && (
+                <div className="text-[10px] text-gray-600 mt-1">
+                  {event.priceSource === 'ticketmaster' || event.priceSource === 'ticketmaster_crossref'
+                    ? 'Face value via Ticketmaster (venue fees may apply)'
+                    : event.priceSource === 'unknown'
+                      ? 'Price may vary \u2014 check venue for exact pricing'
+                      : null}
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Supported</span>
                 <span className="text-amber-400 font-medium">{event.supportedTickets}</span>
@@ -824,6 +848,12 @@ export default function EventDetailPage() {
               </h2>
 
               {/* Unified Purchase Flow */}
+              {event.ticketPriceCents === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-gray-400 text-sm">Ticket pricing not yet available for this event.</p>
+                  <p className="text-gray-500 text-xs mt-1">Check back soon or enter the raffle below.</p>
+                </div>
+              ) : (
               <div>
                 <p className="text-sm text-gray-400 mb-5 font-body">
                   Buy tickets to support {event.artistName}. 100% of the ticket price goes to the artist.
@@ -933,6 +963,7 @@ export default function EventDetailPage() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* Campaign Progress & Raffle Section */}
               {activeCampaign && (

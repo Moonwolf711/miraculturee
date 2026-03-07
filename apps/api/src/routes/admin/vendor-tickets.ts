@@ -218,7 +218,8 @@ export default async function vendorTicketRoutes(app: FastifyInstance) {
     }
 
     // Create the MiraCulture event
-    const ticketPriceCents = vendorEvent.minPriceCents || 5000;
+    const ticketPriceCents = vendorEvent.minPriceCents || 0;
+    const maxPriceCents = vendorEvent.maxPriceCents || null;
     const event = await app.prisma.event.create({
       data: {
         artistId: artist.id,
@@ -230,6 +231,9 @@ export default async function vendorTicketRoutes(app: FastifyInstance) {
         venueCity: vendorEvent.venueCity,
         date: vendorEvent.date,
         ticketPriceCents,
+        maxPriceCents,
+        priceSource: vendorEvent.minPriceCents ? vendorEvent.vendor : 'unknown',
+        feesIncluded: false,
         totalTickets: 200,
         type: 'SHOW',
         status: 'PUBLISHED',

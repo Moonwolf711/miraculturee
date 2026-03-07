@@ -25,6 +25,9 @@ export class SupportService {
     if (event.status !== 'PUBLISHED') {
       throw Object.assign(new Error('Event is not accepting support'), { statusCode: 400 });
     }
+    if (event.ticketPriceCents === 0) {
+      throw Object.assign(new Error('Ticket pricing not yet available for this event'), { statusCode: 400 });
+    }
 
     const totalAmountCents = (event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) * ticketCount;
 

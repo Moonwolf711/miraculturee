@@ -228,7 +228,10 @@ model Event {
   venueCity        String      @default("")
   date             DateTime
   ticketPriceCents Int
+  maxPriceCents    Int?
   totalTickets     Int
+  priceSource      String      @default("manual")
+  feesIncluded     Boolean     @default(false)
   localRadiusKm    Float       @default(50)
   type             EventType   @default(SHOW)
   status           EventStatus @default(DRAFT)

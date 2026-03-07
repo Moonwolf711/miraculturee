@@ -356,6 +356,10 @@ export async function initWorkers() {
         console.warn(`[PreEvent] Event ${eventId} not found`);
         return;
       }
+      if (event.ticketPriceCents === 0) {
+        console.warn(`[PreEvent] Event ${eventId} has no ticket price, skipping`);
+        return;
+      }
 
       // Total confirmed donation funds
       const supportTickets = await prisma.supportTicket.findMany({

@@ -50,7 +50,9 @@ export interface EventSummary {
   venueCity: string;
   date: string;
   ticketPriceCents: number;
+  maxPriceCents: number | null;
   totalTickets: number;
+  priceSource: string;
   supportedTickets: number;
   type: EventType;
   status: EventStatus;
@@ -59,6 +61,7 @@ export interface EventSummary {
 
 /** Full event data including venue coordinates and raffle pools. */
 export interface EventDetail extends EventSummary {
+  feesIncluded: boolean;
   description: string | null;
   venueAddress: string;
   venueLat: number;

@@ -9,6 +9,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { TicketmasterClient, type TicketmasterConfig } from './ticketmaster.client.js';
 import { EdmtrainClient, type EdmtrainConfig } from './edmtrain.client.js';
 import { EventNormalizer, type NormalizedEvent } from './normalizer.js';
+import { PriceResolver } from './price-resolver.js';
 
 export interface IngestionConfig {
   ticketmaster?: TicketmasterConfig;
@@ -171,6 +172,25 @@ export class EventIngestionService {
 
       this.log.info(`Normalized ${normalizedEvents.length} valid events`);
 
+      // Cross-reference with Ticketmaster for real pricing
+      const priceResolver = new PriceResolver(this.log);
+      if (priceResolver.isConfigured()) {
+        const needsPricing = normalizedEvents.filter((e) => e.minPriceCents == null);
+        this.log.info(`Resolving prices for ${needsPricing.length} EDMTrain events via Ticketmaster`);
+
+        const resolved = await priceResolver.resolveBatch(needsPricing);
+        let resolvedCount = 0;
+        for (const event of normalizedEvents) {
+          const price = resolved.get(event.externalId);
+          if (price && price.minPriceCents != null) {
+            event.minPriceCents = price.minPriceCents;
+            event.maxPriceCents = price.maxPriceCents;
+            resolvedCount++;
+          }
+        }
+        this.log.info(`Resolved pricing for ${resolvedCount} of ${needsPricing.length} EDMTrain events`);
+      }
+
       const { newCount, updatedCount } = await this.storeEvents(normalizedEvents);
 
       await this.prisma.eventSyncLog.create({
@@ -270,8 +290,12 @@ export class EventIngestionService {
           continue;
         }
 
-        // Determine ticket price — use min price from external data or default $25
-        const ticketPriceCents = ext.minPriceCents || 2500;
+        // Determine ticket price — use real price from API, or 0 if unknown
+        const ticketPriceCents = ext.minPriceCents || 0;
+        const maxPriceCents = ext.maxPriceCents || null;
+        const priceSource = ext.minPriceCents
+          ? (ext.source === 'ticketmaster' ? 'ticketmaster' : 'ticketmaster_crossref')
+          : 'unknown';
         const isFestival = ext.category === 'Festival' || ext.title.toLowerCase().includes('festival');
 
         const event = await this.prisma.event.create({
@@ -286,6 +310,9 @@ export class EventIngestionService {
             venueCity: `${ext.venueCity}${ext.venueState ? `, ${ext.venueState}` : ''}`,
             date: ext.eventDate,
             ticketPriceCents,
+            maxPriceCents,
+            priceSource,
+            feesIncluded: false,
             totalTickets: isFestival ? 500 : 200,
             localRadiusKm: 50,
             type: isFestival ? 'FESTIVAL' : 'SHOW',

@@ -1,5 +1,4 @@
 import type { PrismaClient } from '@prisma/client';
-import { randomInt } from 'node:crypto';
 
 interface EdmtrainVenue {
   name?: string;
@@ -123,10 +122,6 @@ export class EdmtrainService {
           });
         }
 
-        // Random realistic pricing: $25 - $150 in $5 increments
-        const ticketPrice = randomInt(5, 31) * 500;
-        const totalTickets = randomInt(100, 501);
-
         const event = await this.prisma.event.create({
           data: {
             artistId: artist.id,
@@ -137,8 +132,10 @@ export class EdmtrainService {
             venueLng: raw.venue?.longitude ?? 0,
             venueCity: raw.venue?.location ?? '',
             date: eventDate,
-            ticketPriceCents: ticketPrice,
-            totalTickets,
+            ticketPriceCents: 0, // No pricing from EDMTrain — resolved via cross-reference or set by artist
+            totalTickets: 200,
+            priceSource: 'unknown',
+            feesIncluded: false,
             type: raw.festivalInd ? 'FESTIVAL' : 'SHOW',
             status: 'PUBLISHED',
           },

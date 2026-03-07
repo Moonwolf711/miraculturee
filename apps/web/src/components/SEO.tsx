@@ -126,8 +126,12 @@ export function getEventSchema(event: {
   venueCity: string;
   date: string;
   ticketPriceCents: number;
+  maxPriceCents?: number | null;
   id: string;
 }): Record<string, unknown> {
+  const hasPrice = event.ticketPriceCents > 0;
+  const hasRange = hasPrice && event.maxPriceCents && event.maxPriceCents !== event.ticketPriceCents;
+
   return {
     '@context': 'https://schema.org',
     '@type': 'Event',
@@ -151,13 +155,29 @@ export function getEventSchema(event: {
       '@type': 'MusicGroup',
       name: event.artistName,
     },
-    offers: {
-      '@type': 'Offer',
-      url: `${BASE_URL}/events/${event.id}`,
-      priceCurrency: 'USD',
-      price: ((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) / 100).toFixed(2),
-      availability: 'https://schema.org/InStock',
-    },
+    offers: hasPrice
+      ? hasRange
+        ? {
+            '@type': 'AggregateOffer',
+            url: `${BASE_URL}/events/${event.id}`,
+            priceCurrency: 'USD',
+            lowPrice: ((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) / 100).toFixed(2),
+            highPrice: ((event.maxPriceCents! + SUPPORT_FEE_PER_TICKET_CENTS) / 100).toFixed(2),
+            availability: 'https://schema.org/InStock',
+          }
+        : {
+            '@type': 'Offer',
+            url: `${BASE_URL}/events/${event.id}`,
+            priceCurrency: 'USD',
+            price: ((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) / 100).toFixed(2),
+            availability: 'https://schema.org/InStock',
+          }
+      : {
+          '@type': 'Offer',
+          url: `${BASE_URL}/events/${event.id}`,
+          priceCurrency: 'USD',
+          availability: 'https://schema.org/InStock',
+        },
     organizer: {
       '@type': 'Organization',
       name: 'MiraCulture',
