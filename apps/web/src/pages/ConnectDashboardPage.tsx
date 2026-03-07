@@ -94,6 +94,8 @@ export default function ConnectDashboardPage() {
     }
   }, [selectedAccount, fetchStatus, fetchSubscription]);
 
+  const [connectUnavailable, setConnectUnavailable] = useState(false);
+
   const handleCreateAccount = async () => {
     if (!displayName || !contactEmail) return;
     setActionLoading('create');
@@ -107,8 +109,13 @@ export default function ConnectDashboardPage() {
       setDisplayName('');
       setContactEmail('');
       await fetchAccounts();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create account.');
+    } catch (err: any) {
+      if (err?.code === 'CONNECT_NOT_ENABLED' || err?.message?.includes('not yet available')) {
+        setConnectUnavailable(true);
+        setShowCreateForm(false);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to create account.');
+      }
     } finally {
       setActionLoading(null);
     }
@@ -219,8 +226,87 @@ export default function ConnectDashboardPage() {
           </div>
         )}
 
+        {/* Connect Unavailable — show alternative payout options */}
+        {connectUnavailable && (
+          <div className="mb-8 bg-noir-800 border border-amber-500/30 rounded-xl p-6">
+            <h2 className="font-display text-lg tracking-wider text-amber-400 mb-2">
+              STRIPE CONNECT COMING SOON
+            </h2>
+            <p className="text-gray-300 text-sm font-body mb-5">
+              Instant payouts via Stripe Connect are being set up. In the meantime, choose how you&apos;d like to receive your earnings:
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <a
+                href="mailto:payouts@mira-culture.com?subject=Payout%20Request%20-%20Bank%20Transfer"
+                className="flex items-center gap-3 p-4 bg-noir-900 border border-noir-700 rounded-lg hover:border-amber-500/50 transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-warm-50 font-medium text-sm group-hover:text-amber-400 transition-colors">Bank Transfer (ACH)</div>
+                  <div className="text-gray-500 text-xs">Direct deposit to your bank account</div>
+                </div>
+              </a>
+              <a
+                href="mailto:payouts@mira-culture.com?subject=Payout%20Request%20-%20PayPal"
+                className="flex items-center gap-3 p-4 bg-noir-900 border border-noir-700 rounded-lg hover:border-amber-500/50 transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-warm-50 font-medium text-sm group-hover:text-amber-400 transition-colors">PayPal</div>
+                  <div className="text-gray-500 text-xs">Send to your PayPal email</div>
+                </div>
+              </a>
+              <a
+                href="mailto:payouts@mira-culture.com?subject=Payout%20Request%20-%20Venmo"
+                className="flex items-center gap-3 p-4 bg-noir-900 border border-noir-700 rounded-lg hover:border-amber-500/50 transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-warm-50 font-medium text-sm group-hover:text-amber-400 transition-colors">Venmo</div>
+                  <div className="text-gray-500 text-xs">Transfer to your Venmo account</div>
+                </div>
+              </a>
+              <a
+                href="mailto:payouts@mira-culture.com?subject=Payout%20Request%20-%20Zelle"
+                className="flex items-center gap-3 p-4 bg-noir-900 border border-noir-700 rounded-lg hover:border-amber-500/50 transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-warm-50 font-medium text-sm group-hover:text-amber-400 transition-colors">Zelle</div>
+                  <div className="text-gray-500 text-xs">Instant transfer via Zelle</div>
+                </div>
+              </a>
+            </div>
+            <p className="text-gray-500 text-xs mt-4">
+              Email us your preferred payout method and we&apos;ll process your earnings within 3-5 business days.
+            </p>
+            <button
+              onClick={() => setConnectUnavailable(false)}
+              className="mt-4 text-xs text-gray-500 hover:text-gray-400 underline"
+            >
+              Try Stripe Connect again
+            </button>
+          </div>
+        )}
+
         {/* Create Account Form */}
-        {showCreateForm && (
+        {showCreateForm && !connectUnavailable && (
           <div className="mb-8 bg-noir-800 border border-noir-700 rounded-xl p-6">
             <h2 className="font-display text-lg tracking-wider text-warm-50 mb-4">
               CREATE CONNECTED ACCOUNT
@@ -264,7 +350,7 @@ export default function ConnectDashboardPage() {
         )}
 
         {/* No accounts */}
-        {accounts.length === 0 && !showCreateForm && (
+        {accounts.length === 0 && !showCreateForm && !connectUnavailable && (
           <div className="flex flex-col items-center justify-center py-16 bg-noir-800 border border-noir-700 rounded-xl">
             <div className="w-14 h-14 rounded-full border-2 border-noir-700 flex items-center justify-center mb-5">
               <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -272,17 +358,25 @@ export default function ConnectDashboardPage() {
               </svg>
             </div>
             <h3 className="font-display text-lg tracking-wider text-gray-500 mb-2">
-              NO CONNECTED ACCOUNTS
+              SET UP PAYOUTS
             </h3>
-            <p className="text-gray-400 text-sm font-body mb-5">
-              Create a Stripe Connect account to start accepting payments.
+            <p className="text-gray-400 text-sm font-body mb-5 text-center max-w-sm">
+              Connect a Stripe account for instant payouts, or choose an alternative method.
             </p>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg text-sm transition-colors"
-            >
-              Create Account
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg text-sm transition-colors"
+              >
+                Stripe Connect
+              </button>
+              <button
+                onClick={() => setConnectUnavailable(true)}
+                className="px-5 py-2.5 bg-noir-700 hover:bg-noir-600 text-warm-50 font-semibold rounded-lg text-sm transition-colors"
+              >
+                Other Payout Options
+              </button>
+            </div>
           </div>
         )}
 

@@ -85,18 +85,30 @@ export async function connectRoutes(app: FastifyInstance) {
       });
     }
 
-    const account = await stripeClient.accounts.create({
-      type: 'express',
-      country: 'US',
-      email: contactEmail,
-      business_profile: {
-        name: displayName,
-      },
-      capabilities: {
-        card_payments: { requested: true },
-        transfers: { requested: true },
-      },
-    });
+    let account;
+    try {
+      account = await stripeClient.accounts.create({
+        type: 'express',
+        country: 'US',
+        email: contactEmail,
+        business_profile: {
+          name: displayName,
+        },
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+      });
+    } catch (stripeErr: any) {
+      // Stripe Connect not enabled on the platform account
+      if (stripeErr?.message?.includes('signed up for Connect')) {
+        return reply.code(503).send({
+          error: 'Stripe Connect is not yet available. Please contact the platform admin or choose an alternative payout method.',
+          code: 'CONNECT_NOT_ENABLED',
+        });
+      }
+      throw stripeErr;
+    }
 
     // Store the mapping in our database
     const connectedAccount = await app.prisma.connectedAccount.create({
