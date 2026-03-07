@@ -359,15 +359,16 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </li>
               </ul>
               <div className="flex items-center gap-3" role="list" aria-label="Social media links">
-                {/* Social placeholders */}
                 {([
-                  { abbr: 'X', label: 'X (Twitter)' },
-                  { abbr: 'IG', label: 'Instagram' },
-                  { abbr: 'TT', label: 'TikTok' },
+                  { abbr: 'X', label: 'X (Twitter)', href: import.meta.env.VITE_SOCIAL_X || 'https://x.com/miraculture' },
+                  { abbr: 'IG', label: 'Instagram', href: import.meta.env.VITE_SOCIAL_INSTAGRAM || 'https://instagram.com/miraculture' },
+                  { abbr: 'TT', label: 'TikTok', href: import.meta.env.VITE_SOCIAL_TIKTOK || 'https://tiktok.com/@miraculture' },
                 ] as const).map((s) => (
                   <a
                     key={s.abbr}
-                    href="#"
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     role="listitem"
                     aria-label={s.label}
                     className="w-8 h-8 rounded-full border border-noir-700 flex items-center justify-center text-gray-400 text-xs transition-all duration-300 hover:border-amber-500/50 hover:text-amber-500 hover:-translate-y-0.5"

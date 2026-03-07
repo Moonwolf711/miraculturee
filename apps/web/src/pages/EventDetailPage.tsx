@@ -46,11 +46,14 @@ interface EventDetail {
     id: string;
     headline: string;
     message: string;
+    status: string;
     goalCents: number;
     fundedCents: number;
     goalReached: boolean;
     discountCents: number;
     maxLocalTickets: number;
+    bonusCents: number;
+    fundingPercent: number;
   }[];
   shareCount?: number;
 }
@@ -157,6 +160,29 @@ export default function EventDetailPage() {
             setEvent((prev) => {
               if (!prev) return prev;
               return { ...prev, ...(msg.changes as Partial<EventDetail>) };
+            });
+          }
+          break;
+
+        case 'campaign:state':
+          if (msg.eventId === id) {
+            setEvent((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                campaigns: prev.campaigns?.map((c) =>
+                  c.id === msg.campaignId
+                    ? {
+                        ...c,
+                        status: msg.to,
+                        fundedCents: msg.fundedCents,
+                        goalReached: msg.goalReached,
+                        bonusCents: msg.bonusCents,
+                        fundingPercent: c.goalCents > 0 ? Math.round((msg.fundedCents / c.goalCents) * 100) : 0,
+                      }
+                    : c,
+                ),
+              };
             });
           }
           break;
@@ -393,29 +419,81 @@ export default function EventDetailPage() {
           </p>
         </div>
 
-        {/* Campaign Status — visible to all visitors */}
-        {activeCampaign && (
-          <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-5 py-4 mb-6 flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-emerald-400 text-sm font-semibold">
-                Campaign Active
-              </p>
-              <p className="text-gray-400 text-xs mt-0.5">
-                {ticketsFunded}/{totalTicketsGoal} tickets funded
-                {campaignGoalReached ? ' — Goal reached!' : ` — ${totalTicketsGoal - ticketsFunded} more to go`}
-              </p>
-            </div>
-            <div className="flex-shrink-0 w-24">
-              <div className="bg-noir-700 rounded-full h-1.5 overflow-hidden">
+        {/* Campaign Progress — live WebSocket-powered progress bar */}
+        {activeCampaign && (() => {
+          const pct = activeCampaign.goalCents > 0
+            ? Math.min(150, (activeCampaign.fundedCents / activeCampaign.goalCents) * 100)
+            : 0;
+          const barPct = Math.min(100, pct);
+          const overflowPct = pct > 100 ? Math.min(100, pct - 100) : 0;
+          const status = activeCampaign.status || 'ACTIVE';
+
+          const STATUS_CONFIG: Record<string, { color: string; bg: string; border: string; label: string }> = {
+            ACTIVE: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25', label: 'Campaign Active' },
+            GOAL_REACHED: { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/25', label: 'Goal Reached!' },
+            TICKETS_OPEN: { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/25', label: 'Local Tickets Open' },
+            OVERFLOW: { color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/25', label: 'Surplus Growing' },
+            RAFFLE_MODE: { color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/25', label: 'Raffle Mode' },
+            SURPLUS_RESOLVED: { color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/25', label: 'Surplus Resolved' },
+            ENDED: { color: 'text-gray-400', bg: 'bg-noir-800', border: 'border-noir-700', label: 'Campaign Ended' },
+          };
+          const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.ACTIVE;
+
+          return (
+            <div className={`${cfg.bg} border ${cfg.border} rounded-xl px-5 py-4 mb-6`}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className={`w-2.5 h-2.5 rounded-full ${status === 'ENDED' ? 'bg-gray-500' : `${cfg.color.replace('text-', 'bg-')} animate-pulse`} flex-shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`${cfg.color} text-sm font-semibold`}>{cfg.label}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">
+                    {ticketsFunded}/{totalTicketsGoal} tickets funded
+                    {campaignGoalReached
+                      ? overflowPct > 0
+                        ? ` — ${Math.round(pct)}% of goal (surplus active)`
+                        : ' — Goal reached!'
+                      : ` — ${totalTicketsGoal - ticketsFunded} more to go`}
+                  </p>
+                </div>
+                <span className={`${cfg.color} text-sm font-mono font-bold`}>{Math.round(pct)}%</span>
+              </div>
+              {/* Progress bar */}
+              <div className="relative">
                 <div
-                  className="bg-emerald-400 h-full rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (activeCampaign.fundedCents / activeCampaign.goalCents) * 100)}%` }}
-                />
+                  className="bg-noir-700 rounded-full h-2.5 overflow-hidden"
+                  role="progressbar"
+                  aria-valuenow={Math.round(pct)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`Campaign ${Math.round(pct)}% funded`}
+                >
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ease-out ${
+                      campaignGoalReached ? 'bg-amber-500' : 'bg-emerald-400'
+                    }`}
+                    style={{ width: `${barPct}%` }}
+                  />
+                </div>
+                {overflowPct > 0 && (
+                  <div className="mt-1 bg-noir-700 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-purple-400 h-full rounded-full transition-all duration-700 ease-out"
+                      style={{ width: `${overflowPct}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+              {/* Funding amount */}
+              <div className="flex justify-between mt-2">
+                <span className="text-gray-500 text-xs">
+                  ${(activeCampaign.fundedCents / 100).toFixed(2)} raised
+                </span>
+                <span className="text-gray-500 text-xs">
+                  ${(activeCampaign.goalCents / 100).toFixed(2)} goal
+                </span>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Two-Column Grid: Venue + Stats */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">

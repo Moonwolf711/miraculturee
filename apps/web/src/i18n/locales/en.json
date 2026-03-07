@@ -1,0 +1,51 @@
+{
+  "nav": {
+    "events": "Events",
+    "howItWorks": "How It Works",
+    "forArtists": "For Artists",
+    "dashboard": "My Dashboard",
+    "login": "Log in",
+    "signup": "Sign up",
+    "logout": "Log out"
+  },
+  "home": {
+    "tagline": "WHERE FANS POWER THE SHOW",
+    "subtitle": "Fan-powered ticket redistribution. No scalpers, no bots — just real fans supporting real music.",
+    "browseEvents": "Browse Events",
+    "newsletter": {
+      "heading": "Stay in the loop",
+      "placeholder": "your@email.com",
+      "submit": "Notify Me",
+      "submitting": "Signing up...",
+      "success": "You're on the list! We'll keep you posted.",
+      "disclaimer": "No spam. Unsubscribe anytime."
+    }
+  },
+  "campaign": {
+    "active": "Campaign Active",
+    "goalReached": "Goal Reached!",
+    "ticketsOpen": "Local Tickets Open",
+    "overflow": "Surplus Growing",
+    "raffleMode": "Raffle Mode",
+    "surplusResolved": "Surplus Resolved",
+    "ended": "Campaign Ended",
+    "ticketsFunded": "{{funded}}/{{total}} tickets funded",
+    "moreToGo": "{{count}} more to go",
+    "surplusActive": "{{percent}}% of goal (surplus active)",
+    "raised": "${{amount}} raised",
+    "goal": "${{amount}} goal"
+  },
+  "footer": {
+    "tagline": "Fan-powered ticket redistribution. No scalpers, no bots — just real fans supporting real music.",
+    "navigate": "Navigate",
+    "legal": "Legal",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "copyright": "© {{year}} MiraCulture. All rights reserved."
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Try again"
+  }
+}

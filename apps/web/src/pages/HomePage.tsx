@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { useInView } from '../hooks/useInView.js';
 import SEO, { getOrganizationSchema } from '../components/SEO.js';
+import { api } from '../lib/api.js';
 
 /* -------------------------------------------------------
    Decorative Ticker Data
@@ -264,6 +265,68 @@ function BackToTop() {
   );
 }
 
+
+/* -------------------------------------------------------
+   Newsletter Signup (wired to POST /newsletter/subscribe)
+   ------------------------------------------------------- */
+function NewsletterForm() {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      await api.post('/newsletter/subscribe', { email: email.trim() });
+      setStatus('success');
+      setEmail('');
+    } catch (err) {
+      setStatus('error');
+      setErrorMsg(err instanceof Error ? err.message : 'Something went wrong');
+    }
+  };
+
+  return (
+    <div className="mt-14 max-w-md mx-auto">
+      <p className="font-body text-gray-400 text-xs tracking-widest uppercase mb-3">
+        Stay in the loop
+      </p>
+      {status === 'success' ? (
+        <p className="text-emerald-400 text-sm font-body">You're on the list! We'll keep you posted.</p>
+      ) : (
+        <>
+          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              aria-label="Email address"
+              required
+              className="flex-1 px-4 py-2.5 bg-noir-900 border border-noir-700 rounded-sm text-sm font-body text-gray-200 placeholder:text-gray-600 focus:border-amber-500/50 focus:outline-none transition-colors duration-200"
+            />
+            <button
+              type="submit"
+              disabled={status === 'loading'}
+              className="btn-amber px-5 py-2.5 text-sm whitespace-nowrap disabled:opacity-50"
+            >
+              {status === 'loading' ? 'Signing up...' : 'Notify Me'}
+            </button>
+          </form>
+          {status === 'error' && (
+            <p className="font-body text-red-400 text-xs mt-2">{errorMsg}</p>
+          )}
+        </>
+      )}
+      <p className="font-body text-gray-500 text-xs mt-2">
+        No spam. Unsubscribe anytime.
+      </p>
+    </div>
+  );
+}
 
 /* -------------------------------------------------------
    HomePage
@@ -968,31 +1031,7 @@ export default function HomePage() {
           </p>
 
           {/* Newsletter capture */}
-          <div className="mt-14 max-w-md mx-auto">
-            <p className="font-body text-gray-400 text-xs tracking-widest uppercase mb-3">
-              Stay in the loop
-            </p>
-            <form
-              onSubmit={(e) => e.preventDefault()}
-              className="flex flex-col sm:flex-row gap-2"
-            >
-              <input
-                type="email"
-                placeholder="your@email.com"
-                aria-label="Email address"
-                className="flex-1 px-4 py-2.5 bg-noir-900 border border-noir-700 rounded-sm text-sm font-body text-gray-200 placeholder:text-gray-600 focus:border-amber-500/50 focus:outline-none transition-colors duration-200"
-              />
-              <button
-                type="submit"
-                className="btn-amber px-5 py-2.5 text-sm whitespace-nowrap"
-              >
-                Notify Me
-              </button>
-            </form>
-            <p className="font-body text-gray-500 text-xs mt-2">
-              No spam. Unsubscribe anytime.
-            </p>
-          </div>
+          <NewsletterForm />
 
           {/* Decorative bottom element */}
           <div className="mt-16 flex items-center justify-center gap-3" aria-hidden="true">

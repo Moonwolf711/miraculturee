@@ -26,6 +26,18 @@ export interface EventUpdatedMessage {
   changes: Record<string, unknown>;
 }
 
+export interface CampaignStateMessage {
+  type: 'campaign:state';
+  campaignId: string;
+  eventId: string;
+  from: string;
+  to: string;
+  fundedCents: number;
+  goalCents: number;
+  goalReached: boolean;
+  bonusCents: number;
+}
+
 export interface HeartbeatMessage {
   type: 'heartbeat';
   ts: number;
@@ -35,6 +47,7 @@ export type WSMessage =
   | RaffleNewEntryMessage
   | TicketSupportedMessage
   | EventUpdatedMessage
+  | CampaignStateMessage
   | HeartbeatMessage;
 
 /* ============== Connection State ============== */
@@ -55,6 +68,7 @@ const MESSAGE_EVENTS = [
   'raffle:new_entry',
   'ticket:supported',
   'event:updated',
+  'campaign:state',
   'heartbeat',
 ] as const;
 

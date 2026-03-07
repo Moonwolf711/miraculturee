@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './hooks/useAuth.js';
 import App from './App.js';
+import './i18n/index.js';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
