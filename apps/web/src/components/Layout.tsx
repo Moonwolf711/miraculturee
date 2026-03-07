@@ -290,8 +290,8 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Main content */}
       <main id="main-content" className="flex-1">{children}</main>
 
-      {/* Chat assistant widget */}
-      <ChatWidget />
+      {/* Chat assistant widget — hidden on admin pages where DevChat renders */}
+      {!location.pathname.startsWith('/admin') && <ChatWidget />}
 
       {/* Footer */}
       <footer className="relative border-t border-noir-800/40">
