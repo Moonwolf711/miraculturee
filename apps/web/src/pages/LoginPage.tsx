@@ -27,7 +27,7 @@ export default function LoginPage() {
   const redirectTo = (location.state as { from?: string })?.from || '/events';
 
   useEffect(() => {
-    api.get('/auth/providers').then((res) => setProviders(res.data)).catch(() => {});
+    api.get<SocialProviders>('/auth/providers').then(setProviders).catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
