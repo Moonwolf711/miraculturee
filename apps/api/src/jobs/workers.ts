@@ -158,16 +158,43 @@ export async function initWorkers() {
           return;
         }
 
-        const shuffled = [...entries];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = randomInt(0, i + 1);
-          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        // Count unique entrants
+        const uniqueUserIds: string[] = Array.from(new Set<string>(entries.map((e: any) => e.userId)));
+        const isAutoWin = uniqueUserIds.length <= 10;
+
+        const winnerUserIds: string[] = [];
+        const winnerEntries: any[] = [];
+
+        if (isAutoWin) {
+          // <= 10 unique entrants: everyone gets a ticket
+          const winnerCount = Math.min(uniqueUserIds.length, availableTickets.length);
+          for (let i = 0; i < winnerCount; i++) {
+            const userId = uniqueUserIds[i];
+            const entry = entries.find((e: any) => e.userId === userId);
+            winnerUserIds.push(userId);
+            winnerEntries.push(entry);
+          }
+        } else {
+          // > 10 unique entrants: cryptographic shuffle (each entry = one chance)
+          const shuffled = [...entries];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = randomInt(0, i + 1);
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+
+          // One ticket per unique user
+          const wonUsers = new Set<string>();
+          for (const entry of shuffled) {
+            if (winnerEntries.length >= availableTickets.length) break;
+            if (wonUsers.has(entry.userId)) continue;
+            wonUsers.add(entry.userId);
+            winnerUserIds.push(entry.userId);
+            winnerEntries.push(entry);
+          }
         }
 
-        const winnerCount = Math.min(shuffled.length, availableTickets.length);
-
-        for (let i = 0; i < winnerCount; i++) {
-          const entry = shuffled[i];
+        for (let i = 0; i < winnerEntries.length; i++) {
+          const entry = winnerEntries[i];
           const ticket = availableTickets[i];
 
           await tx.raffleEntry.update({
@@ -185,25 +212,30 @@ export async function initWorkers() {
             poolId,
             ticketId: ticket.id,
             eventId: pool.eventId,
+            autoWin: isAutoWin,
           });
         }
 
-        // Queue loser notifications for non-winners
-        const losers = shuffled.slice(winnerCount);
-        for (const loser of losers) {
-          await getNotificationQueue().add('loser', {
-            userId: loser.userId,
-            poolId,
-            eventId: pool.eventId,
-          });
+        // Queue loser notifications for non-winners (only when draw was used)
+        if (!isAutoWin) {
+          const wonSet = new Set(winnerUserIds);
+          const loserUserIds = [...new Set(entries.filter((e: any) => !wonSet.has(e.userId)).map((e: any) => e.userId))];
+          for (const userId of loserUserIds) {
+            await getNotificationQueue().add('loser', {
+              userId,
+              poolId,
+              eventId: pool.eventId,
+            });
+          }
+          console.info(`[RaffleDraw] Drew ${winnerEntries.length} winners, ${loserUserIds.length} non-winners for pool ${poolId}`);
+        } else {
+          console.info(`[RaffleDraw] Auto-win: all ${winnerEntries.length} unique entrants get tickets for pool ${poolId}`);
         }
 
         await tx.rafflePool.update({
           where: { id: poolId },
           data: { status: 'COMPLETED', drawnAt: new Date() },
         });
-
-        console.info(`[RaffleDraw] Drew ${winnerCount} winners, ${losers.length} non-winners for pool ${poolId}`);
       }, { isolationLevel: 'Serializable' });
     },
     { connection: getConnection(), concurrency: 1 },

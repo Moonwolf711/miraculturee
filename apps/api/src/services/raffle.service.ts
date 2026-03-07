@@ -39,12 +39,14 @@ export class RaffleService {
       );
     }
 
-    // Check for duplicate entry
+    // Check for duplicate entry today (one entry per user per day)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const existing = await this.prisma.raffleEntry.findUnique({
-      where: { poolId_userId: { poolId, userId } },
+      where: { poolId_userId_entryDate: { poolId, userId, entryDate: today } },
     });
     if (existing) {
-      throw Object.assign(new Error('Already entered this raffle'), { statusCode: 409 });
+      throw Object.assign(new Error('Already entered this raffle today. Come back tomorrow!'), { statusCode: 409 });
     }
 
     // Process entry fee via POS
@@ -59,9 +61,11 @@ export class RaffleService {
       },
     });
 
-    // Create raffle entry
+    // Create raffle entry with today's date
+    const entryDate = new Date();
+    entryDate.setHours(0, 0, 0, 0);
     const entry = await this.prisma.raffleEntry.create({
-      data: { poolId, userId },
+      data: { poolId, userId, entryDate },
     });
 
     // Create transaction
@@ -149,42 +153,71 @@ export class RaffleService {
         return { poolId, winners: [], totalDrawn: 0 };
       }
 
-      // Deterministic Fisher-Yates shuffle using seedrandom
-      const rng = seedrandom(seed);
-      const shuffled = [...entries];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
+      // Count unique entrants (a user with multiple daily entries counts as 1)
+      const uniqueUserIds = [...new Set(entries.map((e) => e.userId))];
+      const isAutoWin = uniqueUserIds.length <= 10;
 
-      const winnerCount = Math.min(shuffled.length, availableTickets.length);
-      const winners: { userId: string; ticketId: string }[] = [];
-
-      // Build winner pairs for batched updates
+      let winners: { userId: string; ticketId: string }[] = [];
       const winnerEntryIds: string[] = [];
       const notifications: { userId: string; title: string; body: string; metadata: any }[] = [];
 
-      for (let i = 0; i < winnerCount; i++) {
-        const entry = shuffled[i];
-        const ticket = availableTickets[i];
-        winnerEntryIds.push(entry.id);
-        winners.push({ userId: entry.userId, ticketId: ticket.id });
-        notifications.push({
-          userId: entry.userId,
-          title: 'You won a ticket!',
-          body: 'Congratulations! You won a ticket in the raffle draw.',
-          metadata: { poolId, ticketId: ticket.id, eventId: pool.eventId },
-        });
+      if (isAutoWin) {
+        // <= 10 unique entrants: EVERYONE gets a ticket (no draw needed)
+        const winnerCount = Math.min(uniqueUserIds.length, availableTickets.length);
+
+        for (let i = 0; i < winnerCount; i++) {
+          const userId = uniqueUserIds[i];
+          const ticket = availableTickets[i];
+          // Pick first entry for this user to mark as winner
+          const userEntry = entries.find((e) => e.userId === userId)!;
+          winnerEntryIds.push(userEntry.id);
+          winners.push({ userId, ticketId: ticket.id });
+          notifications.push({
+            userId,
+            title: 'You got a ticket!',
+            body: 'Everyone who entered the raffle got a ticket — enjoy the show!',
+            metadata: { poolId, ticketId: ticket.id, eventId: pool.eventId, autoWin: true },
+          });
+        }
+      } else {
+        // > 10 unique entrants: cryptographic draw (each entry = one chance)
+        const rng = seedrandom(seed);
+        const shuffled = [...entries];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        // Pick winners, but only one ticket per unique user
+        const wonUsers = new Set<string>();
+        let ticketIdx = 0;
+
+        for (const entry of shuffled) {
+          if (ticketIdx >= availableTickets.length) break;
+          if (wonUsers.has(entry.userId)) continue;
+          wonUsers.add(entry.userId);
+
+          const ticket = availableTickets[ticketIdx++];
+          winnerEntryIds.push(entry.id);
+          winners.push({ userId: entry.userId, ticketId: ticket.id });
+          notifications.push({
+            userId: entry.userId,
+            title: 'You won a ticket!',
+            body: 'Congratulations! You won a ticket in the raffle draw.',
+            metadata: { poolId, ticketId: ticket.id, eventId: pool.eventId },
+          });
+        }
       }
 
       // Batch: mark all winning entries at once
-      await tx.raffleEntry.updateMany({
-        where: { id: { in: winnerEntryIds } },
-        data: { won: true },
-      });
+      if (winnerEntryIds.length > 0) {
+        await tx.raffleEntry.updateMany({
+          where: { id: { in: winnerEntryIds } },
+          data: { won: true },
+        });
+      }
 
       // Individual ticketId assignment (updateMany can't set per-row values)
-      // Use Promise.all to run concurrently within the transaction
       await Promise.all(
         winners.map((w, i) =>
           tx.raffleEntry.update({
@@ -205,9 +238,11 @@ export class RaffleService {
       );
 
       // Batch: create all notifications at once
-      await tx.notification.createMany({
-        data: notifications,
-      });
+      if (notifications.length > 0) {
+        await tx.notification.createMany({
+          data: notifications,
+        });
+      }
 
       // Reveal the seed and mark as completed
       await tx.rafflePool.update({
@@ -217,11 +252,13 @@ export class RaffleService {
 
       this.io.to(`event:${pool.eventId}`).emit('draw:complete', {
         poolId,
-        winnerCount,
+        winnerCount: winners.length,
         totalEntries: entries.length,
+        totalUniqueEntrants: uniqueUserIds.length,
+        autoWin: isAutoWin,
       });
 
-      return { poolId, winners, totalDrawn: winnerCount };
+      return { poolId, winners, totalDrawn: winners.length };
     }, { isolationLevel: 'Serializable' });
   }
 

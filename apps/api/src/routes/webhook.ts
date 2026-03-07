@@ -174,9 +174,10 @@ async function confirmRaffleEntry(
   userId: string,
   stripePaymentId: string,
 ): Promise<void> {
-  // Find the raffle entry for this user + pool
-  const entry = await app.prisma.raffleEntry.findUnique({
-    where: { poolId_userId: { poolId, userId } },
+  // Find the most recent raffle entry for this user + pool
+  const entry = await app.prisma.raffleEntry.findFirst({
+    where: { poolId, userId },
+    orderBy: { createdAt: 'desc' },
   });
 
   if (!entry) {
