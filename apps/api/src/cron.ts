@@ -82,11 +82,7 @@ export function setupCronJobs(app: FastifyInstance) {
         const events = await app.prisma.event.findMany({
           where: {
             date: { gte: new Date() },
-            OR: [
-              { priceSource: 'unknown' },
-              { priceSource: 'default' },
-              { ticketPriceCents: 0 },
-            ],
+            priceSource: { not: 'ticketmaster' }, // Reprice anything not already from TM
           },
           include: { artist: { select: { stageName: true, isPlaceholder: true } } },
         });
