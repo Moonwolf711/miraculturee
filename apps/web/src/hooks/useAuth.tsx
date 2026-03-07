@@ -53,17 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Handle social OAuth callback tokens from URL
-    const params = new URLSearchParams(window.location.search);
-    const accessToken = params.get('accessToken');
-    const refreshToken = params.get('refreshToken');
-    if (accessToken && refreshToken && window.location.pathname === '/auth/callback') {
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      // Clean the URL and redirect
-      window.history.replaceState({}, '', '/events');
-    }
-
     fetchUser();
   }, [fetchUser]);
 

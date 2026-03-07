@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.js';
 import Layout from './components/Layout.js';
 import ErrorBoundary, { PageErrorFallback } from './components/ErrorBoundary.js';
@@ -90,6 +90,24 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function OAuthCallback() {
+  const navigate = useNavigate();
+  const { refreshUser } = useAuth();
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const accessToken = params.get('accessToken');
+    const refreshToken = params.get('refreshToken');
+    if (accessToken && refreshToken) {
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      refreshUser().then(() => navigate('/events', { replace: true }));
+    } else {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate, refreshUser]);
+  return <PageFallback />;
+}
+
 export default function App() {
   return (
     <Layout>
@@ -128,7 +146,7 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
-            <Route path="/auth/callback" element={<Navigate to="/events" />} />
+            <Route path="/auth/callback" element={<OAuthCallback />} />
             <Route
               path="/artist/dashboard"
               element={
