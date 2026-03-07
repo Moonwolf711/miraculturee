@@ -58,18 +58,8 @@ export async function connectRoutes(app: FastifyInstance) {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 1. CREATE CONNECTED ACCOUNT
   //
-  // Creates a new Stripe Connected Account using the V2 API.
-  // This stores the account in our DB linked to the authenticated user.
-  //
-  // IMPORTANT: We use the V2 accounts API (stripeClient.v2.core.accounts.create).
-  // Do NOT pass `type: 'express'` or `type: 'standard'` — V2 accounts do not use
-  // top-level type. Instead, we configure capabilities via the `configuration` object.
-  //
-  // The account is created with:
-  //   - dashboard: 'full' — the connected account gets access to the full Stripe dashboard
-  //   - fees_collector/losses_collector: 'stripe' — Stripe handles fees and losses
-  //   - card_payments capability requested on the merchant configuration
-  //   - customer configuration enabled (for subscriptions)
+  // Creates a new Stripe Connected Account using the V1 Accounts API.
+  // Uses Express account type with card_payments and transfers capabilities.
   //
   // POST /connect/accounts
   // Body: { displayName: string, contactEmail: string }
@@ -95,51 +85,20 @@ export async function connectRoutes(app: FastifyInstance) {
       });
     }
 
-    // ─── Create the V2 Connected Account ───
-    // Uses the V2 API with the exact properties specified.
-    // Note: Do NOT add `type: 'express'` or any top-level type — V2 accounts
-    // use configuration objects instead of the legacy type field.
-    const account = await (stripeClient as any).v2.core.accounts.create({
-      // Display name shown to the connected account's customers
-      display_name: displayName,
-
-      // Contact email for the connected account
-      contact_email: contactEmail,
-
-      // Identity configuration — sets the country for the account
-      identity: {
-        country: 'us',
+    const account = await stripeClient.accounts.create({
+      type: 'express',
+      country: 'US',
+      email: contactEmail,
+      business_profile: {
+        name: displayName,
       },
-
-      // Give the connected account access to the full Stripe dashboard
-      dashboard: 'full',
-
-      // Platform defaults — Stripe collects fees and handles losses
-      defaults: {
-        responsibilities: {
-          fees_collector: 'stripe',
-          losses_collector: 'stripe',
-        },
-      },
-
-      // Configuration for the account's capabilities
-      configuration: {
-        // Enable customer features (needed for subscriptions)
-        customer: {},
-
-        // Enable merchant features with card_payments capability
-        merchant: {
-          capabilities: {
-            card_payments: {
-              requested: true,
-            },
-          },
-        },
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
       },
     });
 
-    // ─── Store the mapping in our database ───
-    // This links the MiraCulture user to their Stripe Connected Account ID.
+    // Store the mapping in our database
     const connectedAccount = await app.prisma.connectedAccount.create({
       data: {
         userId: req.user.id,
@@ -158,13 +117,7 @@ export async function connectRoutes(app: FastifyInstance) {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 2. CREATE ACCOUNT LINK (ONBOARDING)
   //
-  // Generates a Stripe Account Link URL that redirects the connected account
-  // to Stripe's hosted onboarding flow. After completing onboarding, they are
-  // redirected back to our return_url.
-  //
-  // Uses the V2 account links API (stripeClient.v2.core.accountLinks.create).
-  // The use_case specifies 'account_onboarding' with both merchant and customer
-  // configurations, so the user completes onboarding for both in one flow.
+  // Generates a Stripe Account Link URL for the hosted onboarding flow.
   //
   // POST /connect/accounts/:accountId/onboarding-link
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -172,26 +125,11 @@ export async function connectRoutes(app: FastifyInstance) {
     const { accountId } = req.params as { accountId: string };
     const baseUrl = getBaseUrl();
 
-    // Create the V2 account link for onboarding
-    const accountLink = await (stripeClient as any).v2.core.accountLinks.create({
-      // The connected account ID to onboard
+    const accountLink = await stripeClient.accountLinks.create({
       account: accountId,
-
-      use_case: {
-        // Type of link — 'account_onboarding' starts the onboarding flow
-        type: 'account_onboarding',
-
-        account_onboarding: {
-          // Which configurations to onboard — both merchant (payments) and customer (subscriptions)
-          configurations: ['merchant', 'customer'],
-
-          // Where to redirect if the link expires or the user needs to restart
-          refresh_url: `${baseUrl}/connect/dashboard?accountId=${accountId}&refresh=true`,
-
-          // Where to redirect after successful onboarding completion
-          return_url: `${baseUrl}/connect/dashboard?accountId=${accountId}`,
-        },
-      },
+      type: 'account_onboarding',
+      refresh_url: `${baseUrl}/connect/dashboard?accountId=${accountId}&refresh=true`,
+      return_url: `${baseUrl}/connect/dashboard?accountId=${accountId}`,
     });
 
     return reply.send({
@@ -202,39 +140,22 @@ export async function connectRoutes(app: FastifyInstance) {
   // ═══════════════════════════════════════════════════════════════════════════════
   // 3. CHECK ACCOUNT STATUS
   //
-  // Retrieves the current status of a connected account directly from the Stripe API.
-  // For this demo, we always fetch fresh status from the API (not from DB cache).
-  //
-  // This checks:
-  //   - Whether card_payments capability is active (ready to process payments)
-  //   - Whether onboarding requirements are satisfied (no currently_due or past_due)
+  // Retrieves the current status of a connected account from the Stripe API.
   //
   // GET /connect/accounts/:accountId/status
   // ═══════════════════════════════════════════════════════════════════════════════
   app.get('/accounts/:accountId/status', async (req, reply) => {
     const { accountId } = req.params as { accountId: string };
 
-    // Retrieve the V2 account with expanded configuration and requirements.
-    // The `include` parameter tells Stripe to return the full merchant config
-    // and requirements details in the response.
-    const account = await (stripeClient as any).v2.core.accounts.retrieve(accountId, {
-      include: ['configuration.merchant', 'requirements'],
-    });
+    const account = await stripeClient.accounts.retrieve(accountId);
 
-    // ─── Check if card_payments capability is active ───
-    // This means the account can accept card payments from customers.
     const readyToProcessPayments =
-      account?.configuration?.merchant?.capabilities?.card_payments?.status === 'active';
+      account.capabilities?.card_payments === 'active';
 
-    // ─── Check onboarding completion ───
-    // Requirements have a summary with a minimum_deadline status.
-    // If the status is 'currently_due' or 'past_due', onboarding is incomplete
-    // and the account needs to provide more information.
-    const requirementsStatus = account.requirements?.summary?.minimum_deadline?.status;
     const onboardingComplete =
-      requirementsStatus !== 'currently_due' && requirementsStatus !== 'past_due';
+      (account.requirements?.currently_due?.length ?? 0) === 0 &&
+      (account.requirements?.past_due?.length ?? 0) === 0;
 
-    // Update our local DB with the latest status
     await app.prisma.connectedAccount.updateMany({
       where: { stripeAccountId: accountId },
       data: {
@@ -247,8 +168,6 @@ export async function connectRoutes(app: FastifyInstance) {
       accountId,
       readyToProcessPayments,
       onboardingComplete,
-      requirementsStatus: requirementsStatus ?? 'none',
-      // Include raw requirements for debugging
       requirements: account.requirements ?? null,
     });
   });
