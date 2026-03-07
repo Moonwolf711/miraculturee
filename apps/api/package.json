@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "cd ../.. && pnpm --filter @miraculturee/shared build && pnpm --filter @miraculturee/pos build && cd apps/api && npx prisma generate && tsc",
-    "start": "npx prisma migrate deploy && node dist/server.js",
+    "start": "npx prisma migrate deploy && npx tsx prisma/setup-admin.ts && node dist/server.js",
     "test": "vitest run",
     "lint": "tsc --noEmit",
     "prisma:migrate": "prisma migrate dev",
