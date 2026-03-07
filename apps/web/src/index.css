@@ -658,7 +658,7 @@
   /* Reduced-motion accessibility — slow ticker instead of stopping */
   @media (prefers-reduced-motion: reduce) {
     .ticker-strip-inner {
-      animation-duration: 90s !important;
+      animation: scrollLeft 90s linear infinite !important;
     }
 
     .shimmer-overlay {
