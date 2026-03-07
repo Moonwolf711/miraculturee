@@ -42,20 +42,32 @@ function buildTickerText(ev: EventSummary): string {
   return text;
 }
 
+/** Estimated show duration in ms — used to filter out ended events */
+const SHOW_DURATION_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+/** Check if an event has ended (start + 6h < now) */
+function hasEventEnded(ev: EventSummary): boolean {
+  return new Date(ev.date).getTime() + SHOW_DURATION_MS < Date.now();
+}
+
 /** Fetch live events for the ticker, refresh every 60s */
 function useTickerEvents() {
   const [events, setEvents] = useState<{ text: string; status: TickerStatus }[]>([]);
 
   const fetchEvents = useCallback(async () => {
     try {
+      // dateFrom = 6h ago so the API still returns in-progress shows
+      const sixHoursAgo = new Date(Date.now() - SHOW_DURATION_MS).toISOString();
       const res = await api.get<PaginatedResponse<EventSummary>>(
-        '/events?page=1&limit=12&sort=popular,date',
+        `/events?page=1&limit=12&sort=popular,date&dateFrom=${sixHoursAgo}`,
       );
       setEvents(
-        res.data.map((ev) => ({
-          text: buildTickerText(ev),
-          status: deriveTickerStatus(ev),
-        })),
+        res.data
+          .filter((ev) => !hasEventEnded(ev))
+          .map((ev) => ({
+            text: buildTickerText(ev),
+            status: deriveTickerStatus(ev),
+          })),
       );
     } catch {
       // Silently fail — ticker is decorative
