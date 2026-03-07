@@ -133,10 +133,13 @@ function renderInline(text: string) {
 // Tool call indicator
 // ---------------------------------------------------------------------------
 
+const DEV_TOOLS = ['read_file', 'write_file', 'list_directory', 'search_code', 'get_prisma_schema'];
+
 function ToolCallBadge({ name, status }: { name: string; status: string }) {
   const label = name.replace(/_/g, ' ');
+  const isDev = DEV_TOOLS.includes(name);
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-noir-800/50 border border-noir-700/50 text-xs text-gray-400 my-1">
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs my-1 ${isDev ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300' : 'bg-noir-800/50 border-noir-700/50 text-gray-400'}`}>
       {status === 'running' ? (
         <svg className="w-3 h-3 animate-spin text-amber-500" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -149,6 +152,11 @@ function ToolCallBadge({ name, status }: { name: string; status: string }) {
       ) : (
         <svg className="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      )}
+      {isDev && (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
         </svg>
       )}
       <span className="uppercase tracking-wider">{label}</span>
@@ -456,10 +464,10 @@ export default function DevChat() {
               </div>
               <p className="text-warm-50 font-display text-sm tracking-wider mb-1">MiraCulture Dev Assistant</p>
               <p className="text-gray-600 text-xs max-w-[280px] mx-auto leading-relaxed">
-                Ask about the codebase, query live data, request features, or get code snippets. I can access your database.
+                Query live data, browse the codebase, and implement features. I can read/write files and commit directly.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
-                {['How many users do we have?', 'Show active campaigns', 'Build a feature'].map((q) => (
+                {['How many users do we have?', 'Show the project structure', 'Read the Prisma schema', 'Add a new API endpoint'].map((q) => (
                   <button
                     key={q}
                     onClick={() => { setInput(q); inputRef.current?.focus(); }}

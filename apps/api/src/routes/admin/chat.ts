@@ -1,10 +1,14 @@
 /**
  * Admin AI dev-chat route — Base44-style AI assistant with tool calling.
  * Streams Claude responses via SSE. The AI can query the MiraCulture database
- * to answer questions about users, events, campaigns, revenue, etc.
+ * AND read/write files in the GitHub repo to implement features end-to-end.
  */
 
 import type { FastifyInstance } from 'fastify';
+
+const REPO_OWNER = 'Moonwolf711';
+const REPO_NAME = 'miraculturee';
+const REPO_BRANCH = 'master';
 
 const SYSTEM_PROMPT = `You are MiraCulture's AI development assistant, embedded in the admin panel.
 You help admins and developers build, debug, and improve the MiraCulture platform.
@@ -46,13 +50,46 @@ Passkey, SocialLogin, ConnectedAccount, DonorConnection
 - Frontend: apps/web/src/pages/ and apps/web/src/components/
 
 ## Tools
-You have access to tools that let you query the live database. Use them when asked about
-platform statistics, user data, event info, campaign status, or any data question.
-When providing code, give complete, copy-paste-ready implementations.
+You have TWO categories of tools:
+
+### Database Tools
+Query the live database for platform statistics, user data, event info, campaign status, revenue.
+
+### Development Tools (GitHub API)
+You can READ and WRITE files directly in the GitHub repository to implement features:
+- read_file: Read any file from the codebase
+- write_file: Create or update files (commits directly to master)
+- list_directory: Browse the project structure
+- search_code: Find code patterns across the codebase
+- get_prisma_schema: Read the full database schema
+
+When implementing features:
+1. First read existing files to understand context
+2. Plan your changes
+3. Write files with clear commit messages
+4. Explain what you changed and why
+
+Always give complete, working implementations. Follow existing patterns in the codebase.
 Format code blocks with the language identifier.`;
+
+// GitHub API helper
+async function githubAPI(path: string, options: RequestInit = {}): Promise<Response> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) throw new Error('GITHUB_TOKEN not configured');
+  return fetch(`https://api.github.com${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'MiraCulture-DevChat',
+      ...options.headers,
+    },
+  });
+}
 
 // Tool definitions for Claude API
 const TOOLS = [
+  // === Database Tools ===
   {
     name: 'query_analytics',
     description: 'Get platform-wide analytics: user counts by role, event counts, campaign stats, support ticket revenue, raffle entries, recent signups.',
@@ -109,6 +146,59 @@ const TOOLS = [
     description: 'Get revenue statistics: total support ticket revenue, transaction counts, average transaction amount.',
     input_schema: { type: 'object' as const, properties: {}, required: [] as string[] },
   },
+  // === Development Tools (GitHub API) ===
+  {
+    name: 'read_file',
+    description: 'Read a file from the MiraCulture codebase (GitHub repo). Returns the file contents. Use this to understand existing code before making changes.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'File path relative to repo root, e.g. "apps/api/src/routes/auth.ts" or "apps/web/src/pages/EventDetailPage.tsx"' },
+      },
+      required: ['path'],
+    },
+  },
+  {
+    name: 'write_file',
+    description: 'Create or update a file in the MiraCulture codebase. Commits directly to the master branch. Use this to implement features, fix bugs, or add new files.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'File path relative to repo root, e.g. "apps/web/src/components/NewComponent.tsx"' },
+        content: { type: 'string', description: 'The full file content to write' },
+        message: { type: 'string', description: 'Git commit message describing the change' },
+      },
+      required: ['path', 'content', 'message'],
+    },
+  },
+  {
+    name: 'list_directory',
+    description: 'List files and directories in a path of the MiraCulture codebase. Use to explore the project structure.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'Directory path relative to repo root, e.g. "apps/web/src/pages" or "apps/api/src/routes". Use empty string or "/" for root.' },
+      },
+      required: ['path'],
+    },
+  },
+  {
+    name: 'search_code',
+    description: 'Search for code patterns across the MiraCulture codebase using GitHub code search. Finds function definitions, imports, class names, variables, etc.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'Code search query, e.g. "requireRole" or "stripe.paymentIntents" or "className=\\"bg-amber"' },
+        extension: { type: 'string', description: 'Optional file extension filter, e.g. "ts", "tsx", "prisma"' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'get_prisma_schema',
+    description: 'Read the full Prisma database schema. Shows all models, enums, relations, and fields. Essential for understanding the data layer before making changes.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] as string[] },
+  },
 ];
 
 interface ChatMessage {
@@ -124,9 +214,10 @@ interface ContentBlock {
   input?: any;
 }
 
-// Execute a tool call against the database
+// Execute a tool call against the database or GitHub API
 async function executeTool(name: string, input: any, prisma: any): Promise<any> {
   switch (name) {
+    // === Database Tools ===
     case 'query_analytics': {
       const [
         userTotal, usersByRole, eventTotal, eventsUpcoming,
@@ -192,6 +283,119 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
         transactions: { totalCents: txAgg._sum.amountCents || 0, avgCents: Math.round(txAgg._avg.amountCents || 0), count: txCount },
       };
     }
+
+    // === Development Tools (GitHub API) ===
+    case 'read_file': {
+      const filePath = input.path.replace(/^\//, '');
+      const res = await githubAPI(`/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}?ref=${REPO_BRANCH}`);
+      if (!res.ok) {
+        const err = await res.json();
+        return { error: `Failed to read ${filePath}: ${err.message || res.status}` };
+      }
+      const data = await res.json();
+      if (data.type !== 'file') return { error: `${filePath} is a ${data.type}, not a file` };
+      const content = Buffer.from(data.content, 'base64').toString('utf-8');
+      return { path: filePath, size: data.size, content };
+    }
+
+    case 'write_file': {
+      const filePath = input.path.replace(/^\//, '');
+      const content = input.content;
+      const message = input.message || `Update ${filePath}`;
+
+      // Check if file exists to get its SHA (required for updates)
+      let sha: string | undefined;
+      const checkRes = await githubAPI(`/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}?ref=${REPO_BRANCH}`);
+      if (checkRes.ok) {
+        const existing = await checkRes.json();
+        sha = existing.sha;
+      }
+
+      const body: any = {
+        message,
+        content: Buffer.from(content).toString('base64'),
+        branch: REPO_BRANCH,
+      };
+      if (sha) body.sha = sha;
+
+      const res = await githubAPI(`/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        return { error: `Failed to write ${filePath}: ${err.message || res.status}` };
+      }
+
+      const result = await res.json();
+      return {
+        success: true,
+        path: filePath,
+        sha: result.content.sha,
+        commit: result.commit.sha,
+        message,
+        action: sha ? 'updated' : 'created',
+      };
+    }
+
+    case 'list_directory': {
+      const dirPath = (input.path || '').replace(/^\//, '') || '';
+      const url = dirPath
+        ? `/repos/${REPO_OWNER}/${REPO_NAME}/contents/${dirPath}?ref=${REPO_BRANCH}`
+        : `/repos/${REPO_OWNER}/${REPO_NAME}/contents?ref=${REPO_BRANCH}`;
+      const res = await githubAPI(url);
+      if (!res.ok) {
+        const err = await res.json();
+        return { error: `Failed to list ${dirPath || '/'}: ${err.message || res.status}` };
+      }
+      const items = await res.json();
+      if (!Array.isArray(items)) return { error: `${dirPath} is not a directory` };
+      return {
+        path: dirPath || '/',
+        items: items.map((item: any) => ({
+          name: item.name,
+          type: item.type, // 'file' or 'dir'
+          size: item.size,
+          path: item.path,
+        })),
+      };
+    }
+
+    case 'search_code': {
+      const q = input.query;
+      let searchQuery = `${q} repo:${REPO_OWNER}/${REPO_NAME}`;
+      if (input.extension) searchQuery += ` extension:${input.extension}`;
+
+      const res = await githubAPI(`/search/code?q=${encodeURIComponent(searchQuery)}&per_page=15`);
+      if (!res.ok) {
+        const err = await res.json();
+        return { error: `Search failed: ${err.message || res.status}` };
+      }
+      const data = await res.json();
+      return {
+        total_count: data.total_count,
+        results: (data.items || []).map((item: any) => ({
+          path: item.path,
+          name: item.name,
+          url: item.html_url,
+          matches: item.text_matches?.map((m: any) => m.fragment) || [],
+        })),
+      };
+    }
+
+    case 'get_prisma_schema': {
+      const res = await githubAPI(`/repos/${REPO_OWNER}/${REPO_NAME}/contents/apps/api/prisma/schema.prisma?ref=${REPO_BRANCH}`);
+      if (!res.ok) {
+        const err = await res.json();
+        return { error: `Failed to read schema: ${err.message || res.status}` };
+      }
+      const data = await res.json();
+      const content = Buffer.from(data.content, 'base64').toString('utf-8');
+      return { path: 'apps/api/prisma/schema.prisma', content };
+    }
+
     default:
       return { error: `Unknown tool: ${name}` };
   }
@@ -289,7 +493,7 @@ export default async function chatRoutes(app: FastifyInstance) {
         content: typeof m.content === 'string' ? m.content : m.content,
       }));
 
-      let maxRounds = 5; // Safety limit for tool-calling loops
+      let maxRounds = 10; // Higher limit for multi-step dev tasks
 
       while (maxRounds-- > 0) {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -301,7 +505,7 @@ export default async function chatRoutes(app: FastifyInstance) {
           },
           body: JSON.stringify({
             model: 'claude-sonnet-4-20250514',
-            max_tokens: 4096,
+            max_tokens: 8192,
             system: SYSTEM_PROMPT,
             tools: TOOLS,
             stream: true,
