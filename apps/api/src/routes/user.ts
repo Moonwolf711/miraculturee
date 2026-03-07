@@ -216,6 +216,256 @@ export async function userRoutes(app: FastifyInstance) {
     }));
   });
 
+  // --- Activity Feed ---
+
+  app.get('/activity-feed', async (req) => {
+    const userId = req.user.id;
+
+    // Gather recent actions from multiple sources
+    const [supports, raffleEntries, directTickets] = await Promise.all([
+      app.prisma.supportTicket.findMany({
+        where: { userId, confirmed: true },
+        select: {
+          id: true,
+          totalAmountCents: true,
+          createdAt: true,
+          event: { select: { id: true, title: true, artist: { select: { stageName: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+      app.prisma.raffleEntry.findMany({
+        where: { userId },
+        select: {
+          id: true,
+          won: true,
+          createdAt: true,
+          pool: {
+            select: {
+              tierCents: true,
+              status: true,
+              event: { select: { id: true, title: true, artist: { select: { stageName: true } } } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+      app.prisma.directTicket.findMany({
+        where: { ownerId: userId },
+        select: {
+          id: true,
+          priceCents: true,
+          status: true,
+          createdAt: true,
+          event: { select: { id: true, title: true, artist: { select: { stageName: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+    ]);
+
+    type FeedItem = {
+      id: string;
+      type: 'support' | 'raffle_entry' | 'raffle_win' | 'ticket_purchase';
+      message: string;
+      eventId: string;
+      eventTitle: string;
+      artistName: string;
+      amountCents: number | null;
+      createdAt: Date;
+    };
+
+    const items: FeedItem[] = [];
+
+    for (const s of supports) {
+      items.push({
+        id: `support-${s.id}`,
+        type: 'support',
+        message: `You supported ${s.event.artist.stageName} with $${(s.totalAmountCents / 100).toFixed(2)}`,
+        eventId: s.event.id,
+        eventTitle: s.event.title,
+        artistName: s.event.artist.stageName,
+        amountCents: s.totalAmountCents,
+        createdAt: s.createdAt,
+      });
+    }
+
+    for (const r of raffleEntries) {
+      if (r.won) {
+        items.push({
+          id: `raffle-win-${r.id}`,
+          type: 'raffle_win',
+          message: `You won a raffle for ${r.pool.event.title}!`,
+          eventId: r.pool.event.id,
+          eventTitle: r.pool.event.title,
+          artistName: r.pool.event.artist.stageName,
+          amountCents: null,
+          createdAt: r.createdAt,
+        });
+      } else {
+        items.push({
+          id: `raffle-${r.id}`,
+          type: 'raffle_entry',
+          message: `You entered the raffle for ${r.pool.event.title}`,
+          eventId: r.pool.event.id,
+          eventTitle: r.pool.event.title,
+          artistName: r.pool.event.artist.stageName,
+          amountCents: r.pool.tierCents,
+          createdAt: r.createdAt,
+        });
+      }
+    }
+
+    for (const t of directTickets) {
+      items.push({
+        id: `ticket-${t.id}`,
+        type: 'ticket_purchase',
+        message: `You purchased a ticket for ${t.event.title}`,
+        eventId: t.event.id,
+        eventTitle: t.event.title,
+        artistName: t.event.artist.stageName,
+        amountCents: t.priceCents,
+        createdAt: t.createdAt,
+      });
+    }
+
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return items.slice(0, 20);
+  });
+
+  // --- Artist Relationships ---
+
+  app.get('/artist-relationships', async (req) => {
+    const userId = req.user.id;
+
+    // Get all support tickets grouped by event → artist
+    const supportTickets = await app.prisma.supportTicket.findMany({
+      where: { userId, confirmed: true },
+      select: {
+        totalAmountCents: true,
+        createdAt: true,
+        event: {
+          select: {
+            id: true,
+            title: true,
+            date: true,
+            artistId: true,
+            artist: { select: { id: true, stageName: true, genre: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Also get direct tickets for these artists
+    const directTickets = await app.prisma.directTicket.findMany({
+      where: { ownerId: userId, status: { not: 'REFUNDED' } },
+      select: {
+        priceCents: true,
+        createdAt: true,
+        event: {
+          select: {
+            artistId: true,
+            artist: { select: { id: true, stageName: true, genre: true } },
+          },
+        },
+      },
+    });
+
+    // Aggregate by artist
+    const artistMap = new Map<string, {
+      artistId: string;
+      stageName: string;
+      genre: string | null;
+      supportCount: number;
+      ticketCount: number;
+      totalSupportedCents: number;
+      totalTicketCents: number;
+      eventIds: Set<string>;
+      firstSupport: Date;
+      lastSupport: Date;
+    }>();
+
+    for (const st of supportTickets) {
+      const artist = st.event.artist;
+      const existing = artistMap.get(artist.id);
+      if (existing) {
+        existing.supportCount++;
+        existing.totalSupportedCents += st.totalAmountCents;
+        existing.eventIds.add(st.event.id);
+        if (st.createdAt < existing.firstSupport) existing.firstSupport = st.createdAt;
+        if (st.createdAt > existing.lastSupport) existing.lastSupport = st.createdAt;
+      } else {
+        artistMap.set(artist.id, {
+          artistId: artist.id,
+          stageName: artist.stageName,
+          genre: artist.genre,
+          supportCount: 1,
+          ticketCount: 0,
+          totalSupportedCents: st.totalAmountCents,
+          totalTicketCents: 0,
+          eventIds: new Set([st.event.id]),
+          firstSupport: st.createdAt,
+          lastSupport: st.createdAt,
+        });
+      }
+    }
+
+    for (const dt of directTickets) {
+      const artist = dt.event.artist;
+      const existing = artistMap.get(artist.id);
+      if (existing) {
+        existing.ticketCount++;
+        existing.totalTicketCents += dt.priceCents;
+      } else {
+        artistMap.set(artist.id, {
+          artistId: artist.id,
+          stageName: artist.stageName,
+          genre: artist.genre,
+          supportCount: 0,
+          ticketCount: 1,
+          totalSupportedCents: 0,
+          totalTicketCents: dt.priceCents,
+          eventIds: new Set(),
+          firstSupport: dt.createdAt,
+          lastSupport: dt.createdAt,
+        });
+      }
+    }
+
+    // Fan level: Bronze(1), Silver(3+), Gold(5+), Platinum(10+)
+    const getLevelInfo = (count: number) => {
+      if (count >= 10) return { level: 'PLATINUM', label: 'Platinum Fan' };
+      if (count >= 5) return { level: 'GOLD', label: 'Gold Fan' };
+      if (count >= 3) return { level: 'SILVER', label: 'Silver Fan' };
+      return { level: 'BRONZE', label: 'Bronze Fan' };
+    };
+
+    return Array.from(artistMap.values())
+      .map((a) => {
+        const totalInteractions = a.supportCount + a.ticketCount;
+        const level = getLevelInfo(totalInteractions);
+        return {
+          artistId: a.artistId,
+          stageName: a.stageName,
+          genre: a.genre,
+          supportCount: a.supportCount,
+          ticketCount: a.ticketCount,
+          totalSupportedCents: a.totalSupportedCents,
+          totalTicketCents: a.totalTicketCents,
+          totalInteractions,
+          uniqueEvents: a.eventIds.size,
+          fanLevel: level.level,
+          fanLevelLabel: level.label,
+          firstSupport: a.firstSupport,
+          lastSupport: a.lastSupport,
+        };
+      })
+      .sort((a, b) => b.totalInteractions - a.totalInteractions);
+  });
+
   // --- Notifications ---
 
   app.get('/notifications', async (req) => {

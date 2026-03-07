@@ -68,6 +68,33 @@ interface SupportedCampaign {
   } | null;
 }
 
+interface ActivityFeedItem {
+  id: string;
+  type: 'support' | 'raffle_entry' | 'raffle_win' | 'ticket_purchase';
+  message: string;
+  eventId: string;
+  eventTitle: string;
+  artistName: string;
+  amountCents: number | null;
+  createdAt: string;
+}
+
+interface ArtistRelationship {
+  artistId: string;
+  stageName: string;
+  genre: string | null;
+  supportCount: number;
+  ticketCount: number;
+  totalSupportedCents: number;
+  totalTicketCents: number;
+  totalInteractions: number;
+  uniqueEvents: number;
+  fanLevel: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
+  fanLevelLabel: string;
+  firstSupport: string;
+  lastSupport: string;
+}
+
 interface Notification {
   id: string;
   title: string;
@@ -202,18 +229,32 @@ export default function DashboardPage() {
   const [supportedCampaigns, setSupportedCampaigns] = useState<SupportedCampaign[]>([]);
   const [scLoading, setScLoading] = useState(true);
 
+  // --- Activity Feed ---
+  const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([]);
+  const [feedLoading, setFeedLoading] = useState(true);
+
+  // --- Artist Relationships ---
+  const [artistRelationships, setArtistRelationships] = useState<ArtistRelationship[]>([]);
+  const [arLoading, setArLoading] = useState(true);
+
   useEffect(() => {
     setDashLoading(true);
     setImpactLoading(true);
     setScLoading(true);
+    setFeedLoading(true);
+    setArLoading(true);
     Promise.all([
       api.get<DashboardData>('/user/dashboard').then(setDashboard).catch(() => {}),
       api.get<ImpactData>('/user/impact').then(setImpact).catch(() => {}),
       api.get<SupportedCampaign[]>('/user/supported-campaigns').then(setSupportedCampaigns).catch(() => {}),
+      api.get<ActivityFeedItem[]>('/user/activity-feed').then(setActivityFeed).catch(() => {}),
+      api.get<ArtistRelationship[]>('/user/artist-relationships').then(setArtistRelationships).catch(() => {}),
     ]).finally(() => {
       setDashLoading(false);
       setImpactLoading(false);
       setScLoading(false);
+      setFeedLoading(false);
+      setArLoading(false);
     });
   }, []);
 
@@ -343,6 +384,16 @@ export default function DashboardPage() {
 
         {activeTab === 'overview' && (
           <div className="space-y-8">
+            {/* Onboarding Checklist (shown when user has no activity) */}
+            {!dashLoading && !impactLoading && !feedLoading && (
+              (() => {
+                const stats = dashboard?.stats;
+                const hasNoActivity = stats && stats.totalRaffleEntries === 0 && stats.ticketsOwned === 0 && stats.supportPurchases === 0;
+                if (!hasNoActivity) return null;
+                return <OnboardingChecklist setTab={setTab} />;
+              })()
+            )}
+
             {/* Quick Actions */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <QuickAction to="/events" icon={<SearchIcon />} label="Find Events" sublabel="Near Me" />
@@ -369,7 +420,21 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Upcoming Events with Countdowns */}
+            {/* Artist Relationships */}
+            {arLoading ? (
+              <LoadingList />
+            ) : artistRelationships.length > 0 && (
+              <div>
+                <h2 className="text-lg font-semibold text-warm-50 mb-4">Your Artists</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {artistRelationships.slice(0, 6).map((ar) => (
+                    <ArtistRelationshipCard key={ar.artistId} data={ar} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Upcoming Events with Contextual States */}
             <div>
               <h2 className="text-lg font-semibold text-warm-50 mb-4">Upcoming Events</h2>
               {dashLoading ? (
@@ -377,7 +442,7 @@ export default function DashboardPage() {
               ) : dashboard && dashboard.upcomingTickets.length > 0 ? (
                 <div className="space-y-3">
                   {dashboard.upcomingTickets.map((t) => (
-                    <CountdownEventCard key={t.id} ticket={t} />
+                    <ContextualEventCard key={t.id} ticket={t} />
                   ))}
                 </div>
               ) : (
@@ -385,7 +450,17 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Campaigns You've Backed */}
+            {/* Activity Feed */}
+            {feedLoading ? (
+              <LoadingList />
+            ) : activityFeed.length > 0 && (
+              <div>
+                <h2 className="text-lg font-semibold text-warm-50 mb-4">Recent Activity</h2>
+                <ActivityFeed items={activityFeed} />
+              </div>
+            )}
+
+            {/* Campaigns You've Backed — with Ticket Visualization */}
             {!scLoading && supportedCampaigns.length > 0 && (
               <div>
                 <h2 className="text-lg font-semibold text-warm-50 mb-4">Campaigns You've Backed</h2>
@@ -542,7 +617,7 @@ export default function DashboardPage() {
             ) : dashboard && dashboard.upcomingTickets.length > 0 ? (
               <div className="space-y-3">
                 {dashboard.upcomingTickets.map((t) => (
-                  <CountdownEventCard key={t.id} ticket={t} />
+                  <ContextualEventCard key={t.id} ticket={t} />
                 ))}
               </div>
             ) : (
@@ -785,59 +860,11 @@ function QuickAction({ to, icon, label, sublabel, onClick }: { to: string; icon:
   );
 }
 
-// --- Countdown Event Card ---
-
-function CountdownEventCard({ ticket }: { ticket: UpcomingTicket }) {
-  const [countdown, setCountdown] = useState(getCountdown(ticket.eventDate));
-
-  useEffect(() => {
-    const timer = setInterval(() => setCountdown(getCountdown(ticket.eventDate)), 60000);
-    return () => clearInterval(timer);
-  }, [ticket.eventDate]);
-
-  const urgency = countdown.days <= 1 && !countdown.past;
-
-  return (
-    <Link
-      to={`/events/${ticket.eventId}`}
-      className={`block bg-noir-900 border rounded-xl p-4 hover:border-noir-600 transition-all ${
-        urgency ? 'border-amber-500/40 shadow-lg shadow-amber-500/5' : 'border-noir-800'
-      }`}
-    >
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-warm-50 font-medium truncate">{ticket.eventTitle}</p>
-          <p className="text-gray-500 text-sm">{ticket.venueName} &middot; {ticket.venueCity}</p>
-          <p className="text-gray-500 text-xs mt-1">{formatDate(ticket.eventDate)}</p>
-        </div>
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-            ticket.type === 'raffle' ? 'bg-amber-500/10 text-amber-400' : 'bg-green-500/10 text-green-400'
-          }`}>
-            {ticket.type === 'raffle' ? 'Raffle Win' : 'Purchased'}
-          </span>
-          {/* Countdown */}
-          {!countdown.past ? (
-            <div className={`text-right ${urgency ? 'animate-pulse' : ''}`}>
-              <span className={`text-xs font-mono font-medium ${urgency ? 'text-amber-400' : 'text-gray-400'}`}>
-                {countdown.days > 0 ? `${countdown.days}d ` : ''}{countdown.hours}h {countdown.mins}m
-              </span>
-              <span className="text-[9px] text-gray-600 block">until show</span>
-            </div>
-          ) : (
-            <span className="text-[10px] text-gray-500 uppercase">{ticket.status}</span>
-          )}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-// --- Supported Campaign Card ---
+// --- Supported Campaign Card with Ticket Visualization ---
 
 function SupportedCampaignCard({ data }: { data: SupportedCampaign }) {
   const c = data.campaign;
-  const pct = c && c.goalCents > 0 ? Math.min(100, Math.round((c.fundedCents / c.goalCents) * 100)) : 0;
+  const ticketsFunded = c && c.goalCents > 0 ? Math.min(10, Math.round((c.fundedCents / c.goalCents) * 10)) : 0;
 
   return (
     <Link
@@ -856,24 +883,40 @@ function SupportedCampaignCard({ data }: { data: SupportedCampaign }) {
 
       {c && c.goalCents > 0 && (
         <div className="mt-2">
-          <div className="flex items-center justify-between text-[10px] mb-1">
+          <div className="flex items-center justify-between text-[10px] mb-2">
             <span className="text-gray-500">
-              ${(c.fundedCents / 100).toFixed(0)} / ${(c.goalCents / 100).toFixed(0)}
+              {ticketsFunded} of 10 tickets funded
             </span>
             {c.goalReached ? (
-              <span className="text-green-400 font-semibold">Goal Reached</span>
+              <span className="text-green-400 font-semibold">Goal Reached!</span>
             ) : (
-              <span className="text-gray-500">{pct}%</span>
+              <span className="text-gray-500">${(c.fundedCents / 100).toFixed(0)} / ${(c.goalCents / 100).toFixed(0)}</span>
             )}
           </div>
-          <div className="w-full h-1.5 bg-noir-800 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${c.goalReached ? 'bg-green-500' : 'bg-amber-500'}`}
-              style={{ width: `${pct}%` }}
-            />
+          {/* Ticket icon visualization */}
+          <div className="flex gap-1">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div
+                key={i}
+                className={`flex-1 h-6 rounded transition-all duration-500 flex items-center justify-center ${
+                  i < ticketsFunded
+                    ? c.goalReached ? 'bg-green-500/20 border border-green-500/40' : 'bg-amber-500/20 border border-amber-500/40'
+                    : 'bg-noir-800 border border-noir-700'
+                }`}
+                style={{ transitionDelay: `${i * 50}ms` }}
+              >
+                <svg className={`w-3 h-3 ${
+                  i < ticketsFunded
+                    ? c.goalReached ? 'text-green-400' : 'text-amber-400'
+                    : 'text-noir-700'
+                }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                </svg>
+              </div>
+            ))}
           </div>
           {c.bonusCents > 0 && (
-            <p className="text-amber-400/70 text-[10px] mt-1">
+            <p className="text-amber-400/70 text-[10px] mt-2">
               Artist bonus: ${(c.bonusCents / 100).toFixed(2)}
             </p>
           )}
@@ -919,6 +962,335 @@ function TicketIcon() {
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
     </svg>
+  );
+}
+
+// ========================================================
+// PHASE 2 COMPONENTS: Activity Feed, Artist Relationships,
+// Contextual Events, Onboarding
+// ========================================================
+
+// --- Activity Feed ---
+
+const FEED_ICONS: Record<ActivityFeedItem['type'], { icon: string; color: string }> = {
+  support: { icon: '♥', color: 'text-pink-400 bg-pink-500/10' },
+  raffle_entry: { icon: '🎲', color: 'text-amber-400 bg-amber-500/10' },
+  raffle_win: { icon: '🏆', color: 'text-green-400 bg-green-500/10' },
+  ticket_purchase: { icon: '🎟', color: 'text-cyan-400 bg-cyan-500/10' },
+};
+
+function ActivityFeed({ items }: { items: ActivityFeedItem[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, 5);
+
+  return (
+    <div className="bg-noir-900 border border-noir-800 rounded-xl overflow-hidden">
+      <div className="divide-y divide-noir-800">
+        {visible.map((item) => {
+          const style = FEED_ICONS[item.type];
+          return (
+            <Link
+              key={item.id}
+              to={`/events/${item.eventId}`}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-noir-800/50 transition-colors"
+            >
+              <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${style.color}`}>
+                {style.icon}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-gray-300 text-sm truncate">{item.message}</p>
+                <p className="text-gray-600 text-xs">{timeAgo(item.createdAt)}</p>
+              </div>
+              {item.amountCents !== null && (
+                <span className="text-gray-500 text-xs font-medium flex-shrink-0">
+                  {formatCents(item.amountCents)}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+      {items.length > 5 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full py-2.5 text-xs text-gray-500 hover:text-amber-400 border-t border-noir-800 transition-colors"
+        >
+          {expanded ? 'Show less' : `Show ${items.length - 5} more`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function timeAgo(iso: string): string {
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return formatDate(iso);
+}
+
+// --- Artist Relationship Card ---
+
+const FAN_LEVEL_COLORS: Record<string, { badge: string; accent: string }> = {
+  PLATINUM: { badge: 'bg-purple-500/15 text-purple-300 border-purple-500/30', accent: 'text-purple-400' },
+  GOLD: { badge: 'bg-amber-500/15 text-amber-300 border-amber-400/30', accent: 'text-amber-400' },
+  SILVER: { badge: 'bg-gray-400/15 text-gray-300 border-gray-400/30', accent: 'text-gray-300' },
+  BRONZE: { badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20', accent: 'text-orange-400' },
+};
+
+function ArtistRelationshipCard({ data }: { data: ArtistRelationship }) {
+  const levelStyle = FAN_LEVEL_COLORS[data.fanLevel] ?? FAN_LEVEL_COLORS.BRONZE;
+  const totalCents = data.totalSupportedCents + data.totalTicketCents;
+
+  return (
+    <div className="bg-noir-900 border border-noir-800 rounded-xl p-4 hover:border-noir-700 transition-colors">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {/* Artist initial avatar */}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${levelStyle.badge}`}>
+              {data.stageName.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-warm-50 font-medium text-sm truncate">{data.stageName}</p>
+              {data.genre && <p className="text-gray-600 text-[10px] uppercase tracking-wider">{data.genre}</p>}
+            </div>
+          </div>
+        </div>
+        <span className={`px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider font-semibold border ${levelStyle.badge}`}>
+          {data.fanLevelLabel}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div>
+          <p className={`text-lg font-semibold ${levelStyle.accent}`}>{data.totalInteractions}</p>
+          <p className="text-gray-600 text-[9px] uppercase tracking-wider">Interactions</p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold text-warm-50">{data.uniqueEvents}</p>
+          <p className="text-gray-600 text-[9px] uppercase tracking-wider">Events</p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold text-warm-50">${(totalCents / 100).toFixed(0)}</p>
+          <p className="text-gray-600 text-[9px] uppercase tracking-wider">Total</p>
+        </div>
+      </div>
+
+      {/* Level progress bar */}
+      <div className="mt-3">
+        <ArtistLevelProgress level={data.fanLevel} interactions={data.totalInteractions} />
+      </div>
+    </div>
+  );
+}
+
+function ArtistLevelProgress({ level, interactions }: { level: string; interactions: number }) {
+  const thresholds = [
+    { level: 'BRONZE', min: 1, next: 3 },
+    { level: 'SILVER', min: 3, next: 5 },
+    { level: 'GOLD', min: 5, next: 10 },
+    { level: 'PLATINUM', min: 10, next: 10 },
+  ];
+  const current = thresholds.find((t) => t.level === level) ?? thresholds[0];
+  const progress = level === 'PLATINUM' ? 1 : Math.min(1, (interactions - current.min) / (current.next - current.min));
+  const nextLabel = level === 'PLATINUM' ? null : thresholds[thresholds.indexOf(current) + 1]?.level.toLowerCase();
+
+  return (
+    <div>
+      <div className="w-full h-1 bg-noir-800 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-amber-500 rounded-full transition-all duration-700"
+          style={{ width: `${progress * 100}%` }}
+        />
+      </div>
+      {nextLabel && (
+        <p className="text-gray-600 text-[9px] mt-1 text-right">
+          {current.next - interactions} more to {nextLabel}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// --- Contextual Event Card (pre-event / day-of / post-event) ---
+
+function ContextualEventCard({ ticket }: { ticket: UpcomingTicket }) {
+  const [countdown, setCountdown] = useState(getCountdown(ticket.eventDate));
+
+  useEffect(() => {
+    const timer = setInterval(() => setCountdown(getCountdown(ticket.eventDate)), 60000);
+    return () => clearInterval(timer);
+  }, [ticket.eventDate]);
+
+  const eventDate = new Date(ticket.eventDate);
+  const now = new Date();
+  const hoursUntil = (eventDate.getTime() - now.getTime()) / 3600000;
+  const isDayOf = hoursUntil >= 0 && hoursUntil <= 24;
+  const isPast = hoursUntil < 0;
+  const isUrgent = hoursUntil > 0 && hoursUntil <= 24;
+
+  // Day-of state
+  if (isDayOf) {
+    return (
+      <Link
+        to={`/events/${ticket.eventId}`}
+        className="block bg-gradient-to-r from-amber-500/10 to-noir-900 border border-amber-500/30 rounded-xl p-4 shadow-lg shadow-amber-500/5 transition-all hover:border-amber-500/50"
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          <span className="text-amber-400 text-xs font-semibold uppercase tracking-wider">Today's Show</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-warm-50 font-semibold truncate">{ticket.eventTitle}</p>
+            <p className="text-gray-400 text-sm">{ticket.venueName} &middot; {ticket.venueCity}</p>
+            <p className="text-amber-400 text-xs mt-1 font-medium">
+              {eventDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+              ticket.type === 'raffle' ? 'bg-amber-500/10 text-amber-400' : 'bg-green-500/10 text-green-400'
+            }`}>
+              {ticket.type === 'raffle' ? 'Raffle Win' : 'Purchased'}
+            </span>
+            {!countdown.past && (
+              <span className="text-amber-400 font-mono text-sm font-bold animate-pulse">
+                {countdown.hours}h {countdown.mins}m
+              </span>
+            )}
+          </div>
+        </div>
+      </Link>
+    );
+  }
+
+  // Post-event state
+  if (isPast) {
+    return (
+      <Link
+        to={`/events/${ticket.eventId}`}
+        className="block bg-noir-900 border border-noir-800 rounded-xl p-4 hover:border-noir-700 transition-colors opacity-80"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-warm-50 font-medium truncate">{ticket.eventTitle}</p>
+            <p className="text-gray-500 text-sm">{ticket.venueName} &middot; {ticket.venueCity}</p>
+            <p className="text-gray-500 text-xs mt-1">{formatDate(ticket.eventDate)}</p>
+          </div>
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-noir-800 text-gray-500 uppercase tracking-wider">
+              {ticket.status === 'REDEEMED' ? 'Attended' : 'Past Event'}
+            </span>
+          </div>
+        </div>
+      </Link>
+    );
+  }
+
+  // Pre-event state (default — with urgency glow for <1 day)
+  return (
+    <Link
+      to={`/events/${ticket.eventId}`}
+      className={`block bg-noir-900 border rounded-xl p-4 hover:border-noir-600 transition-all ${
+        isUrgent ? 'border-amber-500/40 shadow-lg shadow-amber-500/5' : 'border-noir-800'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-warm-50 font-medium truncate">{ticket.eventTitle}</p>
+          <p className="text-gray-500 text-sm">{ticket.venueName} &middot; {ticket.venueCity}</p>
+          <p className="text-gray-500 text-xs mt-1">{formatDate(ticket.eventDate)}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+            ticket.type === 'raffle' ? 'bg-amber-500/10 text-amber-400' : 'bg-green-500/10 text-green-400'
+          }`}>
+            {ticket.type === 'raffle' ? 'Raffle Win' : 'Purchased'}
+          </span>
+          <div className={isUrgent ? 'animate-pulse' : ''}>
+            <span className={`text-xs font-mono font-medium ${isUrgent ? 'text-amber-400' : 'text-gray-400'}`}>
+              {countdown.days > 0 ? `${countdown.days}d ` : ''}{countdown.hours}h {countdown.mins}m
+            </span>
+            <span className="text-[9px] text-gray-600 block text-right">until show</span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// --- Onboarding Checklist (empty state for new users) ---
+
+function OnboardingChecklist({ setTab }: { setTab: (tab: Tab) => void }) {
+  return (
+    <div className="bg-gradient-to-br from-noir-900 to-noir-950 border border-amber-500/20 rounded-xl p-6">
+      <div className="text-center mb-5">
+        <h2 className="text-warm-50 font-display text-xl tracking-wider mb-2">Welcome to MiraCulture</h2>
+        <p className="text-gray-400 text-sm">Where fans power the show. Get started with your first action.</p>
+      </div>
+
+      <div className="space-y-2">
+        <OnboardingStep
+          number={1}
+          title="Discover an event near you"
+          description="Browse upcoming shows and find artists you love"
+          to="/events"
+        />
+        <OnboardingStep
+          number={2}
+          title="Support your first campaign"
+          description="Help fund tickets so fans who can't afford them get in"
+          to="/events"
+        />
+        <OnboardingStep
+          number={3}
+          title="Enter a raffle"
+          description="Win tickets through provably fair drawings"
+          to="/events"
+        />
+        <button
+          onClick={() => setTab('security')}
+          className="w-full flex items-center gap-3 px-4 py-3 bg-noir-800/50 border border-noir-700 rounded-lg hover:border-amber-500/20 transition-colors text-left"
+        >
+          <span className="w-6 h-6 rounded-full bg-noir-700 flex items-center justify-center text-xs text-gray-500 font-semibold flex-shrink-0">4</span>
+          <div>
+            <p className="text-gray-300 text-sm font-medium">Secure your account</p>
+            <p className="text-gray-600 text-xs">Set up 2FA or a passkey for extra protection</p>
+          </div>
+        </button>
+      </div>
+
+      <div className="mt-4 text-center">
+        <p className="text-gray-600 text-xs">
+          Join fans who have supported live music through MiraCulture
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function OnboardingStep({ number, title, description, to }: { number: number; title: string; description: string; to: string }) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3 px-4 py-3 bg-noir-800/50 border border-noir-700 rounded-lg hover:border-amber-500/20 transition-colors"
+    >
+      <span className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center text-xs text-amber-400 font-semibold flex-shrink-0">{number}</span>
+      <div>
+        <p className="text-gray-300 text-sm font-medium">{title}</p>
+        <p className="text-gray-600 text-xs">{description}</p>
+      </div>
+      <svg className="w-4 h-4 text-gray-600 flex-shrink-0 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    </Link>
   );
 }
 
