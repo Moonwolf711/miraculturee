@@ -4,6 +4,7 @@ import { useScrollSpy } from '../hooks/useScrollSpy.js';
 import ConnectionStatus from './ConnectionStatus.js';
 import NotificationBell from './NotificationBell.js';
 import EmailVerifyBanner from './EmailVerifyBanner.js';
+import ChatWidget from './ChatWidget.js';
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 
 function HamburgerIcon({ open }: { open: boolean }) {
@@ -288,6 +289,9 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <main id="main-content" className="flex-1">{children}</main>
+
+      {/* Chat assistant widget */}
+      <ChatWidget />
 
       {/* Footer */}
       <footer className="relative border-t border-noir-800/40">
