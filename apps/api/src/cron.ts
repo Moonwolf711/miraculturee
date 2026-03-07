@@ -23,12 +23,13 @@ export function setupCronJobs(app: FastifyInstance) {
   // Run sync function
   const runSync = async () => {
     app.log.info('Starting scheduled event sync');
-    
+
     try {
       const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
-      
-      if (!ticketmasterApiKey) {
-        app.log.error('TICKETMASTER_API_KEY not configured, skipping sync');
+      const edmtrainApiKey = process.env.EDMTRAIN_API_KEY;
+
+      if (!ticketmasterApiKey && !edmtrainApiKey) {
+        app.log.error('No event API keys configured, skipping sync');
         return;
       }
 
@@ -36,20 +37,30 @@ export function setupCronJobs(app: FastifyInstance) {
         app.prisma,
         app.log,
         {
-          ticketmaster: {
-            apiKey: ticketmasterApiKey,
-            countryCode: 'US',
-            classificationName: 'music',
-            daysAhead: 90,
-            // Denver, Los Angeles, New York, Chicago
-            dmaIds: ['751', '803', '501', '602'],
-          },
+          ...(ticketmasterApiKey && {
+            ticketmaster: {
+              apiKey: ticketmasterApiKey,
+              countryCode: 'US',
+              classificationName: 'music',
+              daysAhead: 90,
+              dmaIds: ['751', '803', '501', '602'],
+            },
+          }),
+          ...(edmtrainApiKey && {
+            edmtrain: {
+              clientKey: edmtrainApiKey,
+              locationIds: [76, 70, 73, 71, 72, 87, 84, 102],
+            },
+          }),
         },
       );
 
       const results = await ingestionService.syncAll();
-      
-      app.log.info({ results }, 'Scheduled event sync completed');
+
+      // Auto-publish discovered events to main Event table
+      const publishResult = await ingestionService.publishExternalEvents();
+
+      app.log.info({ results, published: publishResult }, 'Scheduled event sync completed');
     } catch (error) {
       app.log.error({ error }, 'Scheduled event sync failed');
     }
