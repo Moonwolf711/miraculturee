@@ -414,7 +414,7 @@ export default function HomePage() {
               className="font-display text-sm sm:text-base tracking-[0.4em] text-amber-500/70 mb-5 animate-fade-in-up"
               style={{ animationDelay: '0ms' }}
             >
-              MIRA<svg className="inline-block h-[1.5em] w-[0.9em] mx-1 relative -top-[0.12em]" viewBox="0 0 20 32" fill="none" aria-hidden="true"><path d="M6,0H14V16H17V14H20V24H18V26H16V28H15V30H7V28H6V26H4V24H2V20H0V16H2V14H4V16H6Z" fill="#1a1a1a"/><path d="M7,1H13V16H16V15H19V23H17V25H15V27H14V29H8V27H7V25H5V23H3V21H1V17H3V15H5V17H7Z" fill="currentColor"/><path d="M8,2H12V14H8Z" fill="#fbbf24" opacity="0.3"/></svg>CULTURE
+              M<svg className="inline-block h-[1.5em] w-[0.85em] relative -top-[0.1em]" viewBox="0 0 20 32" fill="none" aria-hidden="true"><path d="M6,0H14V16H17V14H20V24H18V26H16V28H15V30H7V28H6V26H4V24H2V20H0V16H2V14H4V16H6Z" fill="#1a1a1a"/><path d="M7,1H13V16H16V15H19V23H17V25H15V27H14V29H8V27H7V25H5V23H3V21H1V17H3V15H5V17H7Z" fill="currentColor"/><path d="M8,2H12V14H8Z" fill="#fbbf24" opacity="0.3"/></svg>RACULTURE
             </p>
 
             {/* Main tagline — 3D extruded text with glow pulse */}
