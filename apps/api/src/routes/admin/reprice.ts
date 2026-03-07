@@ -95,10 +95,10 @@ export default async function repriceRoutes(app: FastifyInstance) {
     let updated = 0;
     let notFound = 0;
     let alreadyCorrect = 0;
+    let delayMs = 350;
 
     for (const event of events) {
-      // Rate limit: 4 req/sec
-      await new Promise((r) => setTimeout(r, 260));
+      await new Promise((r) => setTimeout(r, delayMs));
 
       try {
         const artistName = event.artist.isPlaceholder
@@ -124,7 +124,14 @@ export default async function repriceRoutes(app: FastifyInstance) {
         const city = event.venueCity.split(',')[0].trim();
         if (city) params.set('city', city);
 
-        const res = await fetch(`${TM_BASE_URL}/events.json?${params}`);
+        let res = await fetch(`${TM_BASE_URL}/events.json?${params}`);
+        if (res.status === 429) {
+          // Backoff and retry once
+          delayMs = Math.min(delayMs * 2, 10000);
+          app.log.warn({ delay: delayMs, event: event.title }, 'TM rate limited, backing off');
+          await new Promise((r) => setTimeout(r, delayMs));
+          res = await fetch(`${TM_BASE_URL}/events.json?${params}`);
+        }
         if (!res.ok) {
           app.log.warn({ status: res.status, event: event.title }, 'TM search failed');
           results.push({
@@ -138,6 +145,8 @@ export default async function repriceRoutes(app: FastifyInstance) {
           });
           continue;
         }
+        // Success — gradually recover delay
+        delayMs = Math.max(350, delayMs * 0.9);
 
         const data = (await res.json()) as TmSearchResponse;
         const tmEvents = data._embedded?.events ?? [];

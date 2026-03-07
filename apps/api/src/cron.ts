@@ -88,8 +88,10 @@ export function setupCronJobs(app: FastifyInstance) {
         });
         app.log.info(`Repricing ${events.length} events with bad pricing`);
         let updated = 0;
+        let rateLimited = 0;
+        let delayMs = 350; // Start conservative (< 3 req/sec)
         for (const event of events) {
-          await new Promise((r) => setTimeout(r, 260));
+          await new Promise((r) => setTimeout(r, delayMs));
           const artistName = event.artist.isPlaceholder
             ? event.title.split(' at ')[0].split(' @ ')[0].split(' - ')[0].trim()
             : event.artist.stageName;
@@ -110,7 +112,44 @@ export function setupCronJobs(app: FastifyInstance) {
           if (city) params.set('city', city);
           try {
             const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params}`);
+            if (res.status === 429) {
+              rateLimited++;
+              delayMs = Math.min(delayMs * 2, 10000); // Exponential backoff, max 10s
+              app.log.warn(`TM rate limited (${rateLimited}x), backing off to ${delayMs}ms`);
+              await new Promise((r) => setTimeout(r, delayMs));
+              // Retry once after backoff
+              const retry = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params}`);
+              if (!retry.ok) continue;
+              const retryData = (await retry.json()) as any;
+              const retryEvents = retryData._embedded?.events ?? [];
+              let matched: any = null;
+              const kw2 = artistName.split(',')[0].trim().toLowerCase();
+              for (const tm of retryEvents) {
+                const tmA = (tm._embedded?.attractions?.[0]?.name ?? tm.name).toLowerCase();
+                if (tmA.includes(kw2) || kw2.includes(tmA)) { matched = tm; break; }
+              }
+              if (!matched && retryEvents.length === 1 && retryEvents[0].priceRanges?.length) matched = retryEvents[0];
+              if (matched?.priceRanges?.length) {
+                const r2 = matched.priceRanges[0];
+                const minC = Math.round(r2.min * 100);
+                const maxC = Math.round(r2.max * 100);
+                await app.prisma.event.update({
+                  where: { id: event.id },
+                  data: {
+                    ticketPriceCents: minC,
+                    maxPriceCents: maxC !== minC ? maxC : null,
+                    priceSource: 'ticketmaster',
+                    feesIncluded: false,
+                  },
+                });
+                updated++;
+                delayMs = Math.max(350, delayMs * 0.8); // Slowly recover
+              }
+              continue;
+            }
             if (!res.ok) continue;
+            // Success — gradually reduce delay back to baseline
+            delayMs = Math.max(350, delayMs * 0.9);
             const data = (await res.json()) as any;
             const tmEvents = data._embedded?.events ?? [];
             let matched: any = null;
@@ -137,7 +176,7 @@ export function setupCronJobs(app: FastifyInstance) {
             }
           } catch { /* skip individual errors */ }
         }
-        app.log.info(`Reprice complete: ${updated}/${events.length} events updated`);
+        app.log.info(`Reprice complete: ${updated}/${events.length} events updated, ${rateLimited} rate limits hit`);
       } catch (err) {
         app.log.error({ err }, 'Reprice on startup failed');
       }
