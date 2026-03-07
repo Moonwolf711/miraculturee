@@ -34,7 +34,7 @@ describe('Layout', () => {
     // Desktop and mobile navs both render the same links.
     // Scope to desktop nav (aria-label="Main navigation").
     const desktopNav = screen.getByLabelText('Main navigation');
-    expect(within(desktopNav).getByText('Shows')).toBeInTheDocument();
+    expect(within(desktopNav).getByText('Events')).toBeInTheDocument();
     expect(within(desktopNav).getByText('How It Works')).toBeInTheDocument();
     expect(within(desktopNav).getByText('For Artists')).toBeInTheDocument();
   });
@@ -120,7 +120,7 @@ describe('Layout', () => {
       </Layout>,
     );
 
-    const dashboardLinks = await screen.findAllByText('Dashboard');
+    const dashboardLinks = await screen.findAllByText('My Dashboard');
     expect(dashboardLinks.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -189,7 +189,9 @@ describe('Layout', () => {
       </Layout>,
     );
 
-    expect(screen.getByText('Browse Shows')).toBeInTheDocument();
+    // Footer nav column lists "Events" link
+    const footer = document.querySelector('footer')!;
+    expect(within(footer).getByText('Events')).toBeInTheDocument();
   });
 
   it('renders social media links', () => {

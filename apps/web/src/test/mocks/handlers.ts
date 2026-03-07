@@ -65,6 +65,8 @@ export const mockEventDetail = {
   totalTickets: 200,
   supportedTickets: 75,
   localRadiusKm: 50,
+  currentProcessingFeeCents: 500,
+  sourceUrl: null,
   status: 'PUBLISHED',
   rafflePools: [
     {
@@ -76,6 +78,7 @@ export const mockEventDetail = {
       drawTime: '2026-07-14T18:00:00Z',
     },
   ],
+  campaigns: [],
 };
 
 export const mockTokens = {
@@ -116,18 +119,28 @@ export const handlers = [
   http.get(`${BASE}/events`, ({ request }) => {
     const url = new URL(request.url);
     const city = url.searchParams.get('city');
+    const q = url.searchParams.get('q');
+    let data = mockEvents.data;
     if (city) {
-      const filtered = mockEvents.data.filter((e) =>
+      data = data.filter((e) =>
         e.venueCity.toLowerCase().includes(city.toLowerCase()),
       );
-      return HttpResponse.json({
-        data: filtered,
-        total: filtered.length,
-        page: 1,
-        totalPages: 1,
-      });
     }
-    return HttpResponse.json(mockEvents);
+    if (q) {
+      const query = q.toLowerCase();
+      data = data.filter((e) =>
+        e.title.toLowerCase().includes(query) ||
+        e.artistName.toLowerCase().includes(query) ||
+        e.venueName.toLowerCase().includes(query) ||
+        e.venueCity.toLowerCase().includes(query),
+      );
+    }
+    return HttpResponse.json({
+      data,
+      total: data.length,
+      page: 1,
+      totalPages: data.length > 0 ? 1 : 0,
+    });
   }),
 
   http.get(`${BASE}/events/:id`, ({ params }) => {

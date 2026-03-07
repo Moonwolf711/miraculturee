@@ -70,8 +70,8 @@ describe('EventsPage', () => {
 
     await screen.findByText('Summer Vibes Tour');
 
-    expect(screen.getByText('75/200 supported')).toBeInTheDocument();
-    expect(screen.getByText('120/150 supported')).toBeInTheDocument();
+    expect(screen.getByText('75/200')).toBeInTheDocument();
+    expect(screen.getByText('120/150')).toBeInTheDocument();
 
     const progressBars = screen.getAllByRole('progressbar');
     expect(progressBars.length).toBe(2);
@@ -97,9 +97,9 @@ describe('EventsPage', () => {
 
       await screen.findByText('Summer Vibes Tour');
 
-      const searchInput = screen.getByLabelText('Search events by city');
-      await user.type(searchInput, 'Austin');
-      await user.click(screen.getByText('Search'));
+      // Use the search input and submit via Enter key
+      const searchInput = screen.getByLabelText('Search events');
+      await user.type(searchInput, 'Austin{Enter}');
 
       // After search, only Austin event should remain
       await waitFor(() => {
@@ -116,12 +116,11 @@ describe('EventsPage', () => {
 
       await screen.findByText('Summer Vibes Tour');
 
-      const searchInput = screen.getByLabelText('Search events by city');
-      await user.type(searchInput, 'Nonexistent City');
-      await user.click(screen.getByText('Search'));
+      const searchInput = screen.getByLabelText('Search events');
+      await user.type(searchInput, 'Nonexistent City{Enter}');
 
       await waitFor(() => {
-        expect(screen.getByText('NO UPCOMING SHOWS')).toBeInTheDocument();
+        expect(screen.getByText('NO EVENTS FOUND')).toBeInTheDocument();
       });
     });
   });
@@ -181,7 +180,7 @@ describe('EventsPage', () => {
       });
 
       await screen.findByText('Summer Vibes Tour');
-      expect(screen.getByText('75/200 supported')).toBeInTheDocument();
+      expect(screen.getByText('75/200')).toBeInTheDocument();
 
       // Get the onMessage callback that was passed to useWebSocket.
       // The component wraps handleWSMessage with useCallback, so
@@ -203,7 +202,7 @@ describe('EventsPage', () => {
       });
 
       // Verify DOM updates with the new values
-      expect(screen.getByText('100/200 supported')).toBeInTheDocument();
+      expect(screen.getByText('100/200')).toBeInTheDocument();
     });
   });
 });

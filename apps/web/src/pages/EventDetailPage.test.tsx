@@ -104,15 +104,44 @@ describe('EventDetailPage', () => {
   /* ---------- Raffle Pools ---------- */
 
   describe('raffle pools', () => {
-    it('displays raffle pool information', async () => {
+    it('displays raffle pool information when campaign goal is reached', async () => {
+      localStorage.setItem('accessToken', 'mock-token');
+
+      // Override mock to include a campaign with goalReached = true
+      const { http, HttpResponse } = await import('msw');
+      const { server } = await import('../test/mocks/server.js');
+      const { mockEventDetail } = await import('../test/mocks/handlers.js');
+      server.use(
+        http.get('/api/events/:id', () => {
+          return HttpResponse.json({
+            ...mockEventDetail,
+            campaigns: [{
+              id: 'camp-1',
+              headline: 'Test Campaign',
+              message: 'Help us!',
+              status: 'TICKETS_OPEN',
+              goalCents: 50000,
+              fundedCents: 50000,
+              goalReached: true,
+              discountCents: 500,
+              maxLocalTickets: 10,
+              bonusCents: 0,
+              fundingPercent: 100,
+            }],
+          });
+        }),
+      );
+
       renderWithProviders(<EventDetailPage />, {
         routerProps: { initialEntries: ['/events/evt-1'] },
       });
 
       await screen.findByText('Summer Vibes Tour');
 
-      expect(screen.getByText('RAFFLE POOLS')).toBeInTheDocument();
-      expect(screen.getByText('$5.00')).toBeInTheDocument(); // pool tier
+      expect(screen.getByText('Raffle Open')).toBeInTheDocument();
+      // $5.00 appears as both face value and raffle tier
+      const priceElements = screen.getAllByText('$5.00');
+      expect(priceElements.length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText(/45 entries/)).toBeInTheDocument();
       expect(screen.getByText(/10 tickets available/)).toBeInTheDocument();
     });
@@ -144,13 +173,38 @@ describe('EventDetailPage', () => {
 
       await screen.findByText('Summer Vibes Tour');
 
-      expect(screen.getByText('SUPPORT THIS ARTIST')).toBeInTheDocument();
+      expect(screen.getByText('GET YOUR TICKETS')).toBeInTheDocument();
       expect(screen.getByLabelText('Tickets')).toBeInTheDocument();
       expect(screen.getByLabelText('Message (optional)')).toBeInTheDocument();
     });
 
-    it('shows raffle enter button when logged in', async () => {
+    it('shows raffle enter button when campaign goal is reached', async () => {
       localStorage.setItem('accessToken', 'mock-token');
+
+      // Override mock to include a campaign with goalReached = true
+      const { http, HttpResponse } = await import('msw');
+      const { server } = await import('../test/mocks/server.js');
+      const { mockEventDetail } = await import('../test/mocks/handlers.js');
+      server.use(
+        http.get('/api/events/:id', () => {
+          return HttpResponse.json({
+            ...mockEventDetail,
+            campaigns: [{
+              id: 'camp-1',
+              headline: 'Test',
+              message: 'Test',
+              status: 'TICKETS_OPEN',
+              goalCents: 50000,
+              fundedCents: 50000,
+              goalReached: true,
+              discountCents: 500,
+              maxLocalTickets: 10,
+              bonusCents: 0,
+              fundingPercent: 100,
+            }],
+          });
+        }),
+      );
 
       renderWithProviders(<EventDetailPage />, {
         routerProps: { initialEntries: ['/events/evt-1'] },
@@ -170,8 +224,9 @@ describe('EventDetailPage', () => {
 
       await screen.findByText('Summer Vibes Tour');
 
-      expect(screen.getByText('GET YOUR TICKET')).toBeInTheDocument();
-      expect(screen.getByText('Buy Ticket')).toBeInTheDocument();
+      expect(screen.getByText('GET YOUR TICKETS')).toBeInTheDocument();
+      // Buy button shows dynamic price: "Buy $55.00" (ticket + fee)
+      expect(screen.getByText(/Buy \$/)).toBeInTheDocument();
     });
   });
 
