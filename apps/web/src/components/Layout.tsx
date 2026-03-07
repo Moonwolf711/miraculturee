@@ -121,7 +121,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             scrolled ? 'py-2.5' : 'py-4'
           }`}
         >
-          {/* Logo */}
+          {/* Logo — M☝raCulture (Deadhead miracle ticket finger) */}
           <Link
             to="/"
             className="group flex items-baseline gap-0 font-display text-2xl tracking-ultra-wide uppercase"
@@ -129,9 +129,10 @@ export default function Layout({ children }: { children: ReactNode }) {
           >
             <span className="text-amber-500 transition-colors duration-300 group-hover:text-amber-400">
               M
+              <svg className="inline h-[1.35em] w-[0.25em] relative -top-[0.15em]" viewBox="0 0 5 28" fill="currentColor" aria-hidden="true"><rect width="5" height="28" rx="2.5"/></svg>
             </span>
             <span className="text-gray-100 transition-colors duration-300 group-hover:text-white">
-              iraCulture
+              raCulture
             </span>
           </Link>
 
@@ -304,7 +305,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             {/* Brand column */}
             <div>
               <div className="font-display text-lg tracking-ultra-wide uppercase text-gray-400 mb-3">
-                <span className="text-amber-500/70">M</span>iraCulture
+                <span className="text-amber-500/70">M<svg className="inline h-[1.3em] w-[0.22em] relative -top-[0.12em]" viewBox="0 0 5 28" fill="currentColor" aria-hidden="true"><rect width="5" height="28" rx="2.5"/></svg></span>raCulture
               </div>
               <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
                 Fan-powered ticket redistribution. No scalpers, no bots — just

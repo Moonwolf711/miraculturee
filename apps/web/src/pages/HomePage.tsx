@@ -414,7 +414,7 @@ export default function HomePage() {
               className="font-display text-sm sm:text-base tracking-[0.4em] text-amber-500/70 mb-5 animate-fade-in-up"
               style={{ animationDelay: '0ms' }}
             >
-              MIRACULTUREE
+              M<svg className="inline h-[1.35em] w-[0.25em] relative -top-[0.15em]" viewBox="0 0 5 28" fill="currentColor" aria-hidden="true"><rect width="5" height="28" rx="2.5"/></svg>RACULTURE
             </p>
 
             {/* Main tagline — 3D extruded text with glow pulse */}
