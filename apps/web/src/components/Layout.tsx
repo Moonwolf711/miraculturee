@@ -121,18 +121,22 @@ export default function Layout({ children }: { children: ReactNode }) {
             scrolled ? 'py-2.5' : 'py-4'
           }`}
         >
-          {/* Logo — M☝raCulture (Deadhead miracle ticket finger) */}
+          {/* Logo — Mira☝Culture (Deadhead miracle ticket finger) */}
           <Link
             to="/"
-            className="group flex items-baseline gap-0 font-display text-2xl tracking-ultra-wide uppercase"
+            className="group flex items-center gap-0 font-display text-2xl tracking-ultra-wide uppercase"
             onClick={closeMobile}
           >
             <span className="text-amber-500 transition-colors duration-300 group-hover:text-amber-400">
-              M
-              <svg className="inline h-[1.35em] w-[0.25em] relative -top-[0.15em]" viewBox="0 0 5 28" fill="currentColor" aria-hidden="true"><rect width="5" height="28" rx="2.5"/></svg>
+              Mira
             </span>
+            <svg className="inline-block h-[1.6em] w-[1em] mx-0.5 relative -top-[0.15em] shrink-0" viewBox="0 0 20 32" aria-hidden="true">
+              <path d="M6,0H14V16H17V14H20V24H18V26H16V28H15V30H7V28H6V26H4V24H2V20H0V16H2V14H4V16H6Z" fill="#1a1a1a"/>
+              <path d="M7,1H13V16H16V15H19V23H17V25H15V27H14V29H8V27H7V25H5V23H3V21H1V17H3V15H5V17H7Z" className="fill-amber-500 transition-colors duration-300 group-hover:fill-amber-400"/>
+              <path d="M8,2H12V14H8Z" fill="#fbbf24" opacity="0.4"/>
+            </svg>
             <span className="text-gray-100 transition-colors duration-300 group-hover:text-white">
-              raCulture
+              Culture
             </span>
           </Link>
 
@@ -305,7 +309,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             {/* Brand column */}
             <div>
               <div className="font-display text-lg tracking-ultra-wide uppercase text-gray-400 mb-3">
-                <span className="text-amber-500/70">M<svg className="inline h-[1.3em] w-[0.22em] relative -top-[0.12em]" viewBox="0 0 5 28" fill="currentColor" aria-hidden="true"><rect width="5" height="28" rx="2.5"/></svg></span>raCulture
+                <span className="text-amber-500/70">Mira</span><svg className="inline-block h-[1.4em] w-[0.9em] mx-0.5 relative -top-[0.1em]" viewBox="0 0 20 32" aria-hidden="true"><path d="M6,0H14V16H17V14H20V24H18V26H16V28H15V30H7V28H6V26H4V24H2V20H0V16H2V14H4V16H6Z" fill="#1a1a1a"/><path d="M7,1H13V16H16V15H19V23H17V25H15V27H14V29H8V27H7V25H5V23H3V21H1V17H3V15H5V17H7Z" fill="#f59e0b" opacity="0.7"/><path d="M8,2H12V14H8Z" fill="#fbbf24" opacity="0.3"/></svg>Culture
               </div>
               <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
                 Fan-powered ticket redistribution. No scalpers, no bots — just

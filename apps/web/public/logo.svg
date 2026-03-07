@@ -1,28 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 180">
-  <rect width="480" height="180" fill="#0a0a0a"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 180">
+  <rect width="520" height="180" fill="#0a0a0a"/>
 
   <!-- Concert Poster Noir corner brackets -->
   <path d="M12,12 H32 M12,12 V32" stroke="#f59e0b" stroke-width="1" fill="none" opacity="0.3"/>
-  <path d="M468,12 H448 M468,12 V32" stroke="#f59e0b" stroke-width="1" fill="none" opacity="0.3"/>
+  <path d="M508,12 H488 M508,12 V32" stroke="#f59e0b" stroke-width="1" fill="none" opacity="0.3"/>
   <path d="M12,168 H32 M12,168 V148" stroke="#f59e0b" stroke-width="1" fill="none" opacity="0.3"/>
-  <path d="M468,168 H448 M468,168 V148" stroke="#f59e0b" stroke-width="1" fill="none" opacity="0.3"/>
+  <path d="M508,168 H488 M508,168 V148" stroke="#f59e0b" stroke-width="1" fill="none" opacity="0.3"/>
 
-  <!-- Monogram: M with finger pointing up -->
-  <g transform="translate(190, 10) scale(0.65)">
-    <g fill="#f59e0b">
-      <!-- M letterform -->
-      <path d="M0,80 V14 L75,56 L150,14 V80 H126 V30 L75,62 L24,30 V80 Z"/>
-      <!-- Finger rising from center valley -->
-      <rect x="60" y="0" width="30" height="56" rx="15"/>
-    </g>
+  <!-- Pixel-art hand monogram centered -->
+  <g transform="translate(230, 10) scale(1.8)">
+    <path d="M6,0H14V16H17V14H20V24H18V26H16V28H15V30H7V28H6V26H4V24H2V20H0V16H2V14H4V16H6Z" fill="#1a1a1a"/>
+    <path d="M7,1H13V16H16V15H19V23H17V25H15V27H14V29H8V27H7V25H5V23H3V21H1V17H3V15H5V17H7Z" fill="#f59e0b"/>
+    <path d="M8,2H12V14H8Z" fill="#fbbf24" opacity="0.4"/>
   </g>
 
-  <!-- Wordmark: MIRACULTURE -->
-  <text x="240" y="114" text-anchor="middle" font-family="'Oswald', 'Bebas Neue', 'Impact', system-ui, sans-serif" font-weight="700" font-size="30" letter-spacing="12" fill="#f59e0b">MIRACULTURE</text>
+  <!-- Wordmark: MIRA [hand] CULTURE -->
+  <text x="170" y="130" font-family="'Oswald', 'Bebas Neue', 'Impact', system-ui, sans-serif" font-weight="700" font-size="30" letter-spacing="10" fill="#f59e0b">MIRA</text>
+  <text x="310" y="130" font-family="'Oswald', 'Bebas Neue', 'Impact', system-ui, sans-serif" font-weight="700" font-size="30" letter-spacing="10" fill="#e5e7eb">CULTURE</text>
 
   <!-- Divider line -->
-  <line x1="155" y1="126" x2="325" y2="126" stroke="#f59e0b" stroke-width="0.5" opacity="0.4"/>
+  <line x1="140" y1="142" x2="380" y2="142" stroke="#f59e0b" stroke-width="0.5" opacity="0.4"/>
 
   <!-- Tagline -->
-  <text x="240" y="148" text-anchor="middle" font-family="'Inter', 'Helvetica Neue', system-ui, sans-serif" font-weight="400" font-size="11" letter-spacing="5" fill="#9ca3af">WHERE FANS POWER THE SHOW</text>
+  <text x="260" y="162" text-anchor="middle" font-family="'Inter', 'Helvetica Neue', system-ui, sans-serif" font-weight="400" font-size="11" letter-spacing="5" fill="#9ca3af">WHERE FANS POWER THE SHOW</text>
 </svg>
