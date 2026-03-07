@@ -20,6 +20,7 @@ interface ResolvedPrice {
 export class PriceResolver {
   private apiKey: string;
   private log: FastifyBaseLogger;
+  private delayMs = 350;
 
   constructor(log: FastifyBaseLogger) {
     this.apiKey = process.env.TICKETMASTER_API_KEY || '';
@@ -90,9 +91,9 @@ export class PriceResolver {
       const resolved = await this.resolvePrice(event);
       results.set(event.externalId, resolved);
 
-      // Rate limit: 5 req/sec max for TM free tier
+      // Rate limit with adaptive delay
       if (resolved.priceSource !== 'none' || this.apiKey) {
-        await new Promise((r) => setTimeout(r, 250));
+        await new Promise((r) => setTimeout(r, this.delayMs));
       }
     }
 
@@ -126,12 +127,22 @@ export class PriceResolver {
     }
 
     const url = `${TM_BASE_URL}/events.json?${params}`;
-    const res = await fetch(url);
+    let res = await fetch(url);
+
+    if (res.status === 429) {
+      this.delayMs = Math.min(this.delayMs * 2, 10000);
+      this.log.warn({ delay: this.delayMs }, 'TM rate limited, backing off');
+      await new Promise((r) => setTimeout(r, this.delayMs));
+      res = await fetch(url);
+    }
 
     if (!res.ok) {
       this.log.warn({ status: res.status }, 'Ticketmaster search failed');
       return null;
     }
+
+    // Success — gradually recover delay
+    this.delayMs = Math.max(350, this.delayMs * 0.9);
 
     const data = (await res.json()) as {
       _embedded?: {
