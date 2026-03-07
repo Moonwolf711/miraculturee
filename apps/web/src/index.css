@@ -655,10 +655,10 @@
     -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
   }
 
-  /* Reduced-motion accessibility */
+  /* Reduced-motion accessibility — slow ticker instead of stopping */
   @media (prefers-reduced-motion: reduce) {
     .ticker-strip-inner {
-      animation: none !important;
+      animation-duration: 90s !important;
     }
 
     .shimmer-overlay {
