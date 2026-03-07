@@ -67,20 +67,27 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-noir-950 flex items-center justify-center px-4 py-16">
+    <div className="min-h-screen bg-noir-950 flex items-center justify-center px-4 py-16 relative overflow-hidden">
       <SEO
         title="Sign In"
         description="Sign in to MiraCulture to support artists, enter fair ticket raffles, and manage your account."
         noindex
       />
-      <div className="w-full max-w-md">
-        <div className="bg-noir-900 border border-noir-800 rounded-2xl p-8 shadow-2xl">
-          <h1 className="font-display text-3xl tracking-wider text-warm-50 text-center mb-8">
+
+      {/* Ambient background elements */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/[0.03] rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-amber-500/[0.02] rounded-full blur-3xl animate-float" style={{ animationDelay: '3s' }} />
+      </div>
+
+      <div className="w-full max-w-md relative animate-fade-in-up">
+        <div className="bg-noir-900/80 backdrop-blur-sm border border-noir-800/60 rounded-2xl p-8 shadow-2xl animate-glow-pulse">
+          <h1 className="font-display text-3xl tracking-wider text-warm-50 text-center mb-8 animate-pulse-glow">
             SIGN IN
           </h1>
 
           {error && (
-            <div role="alert" className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">
+            <div role="alert" className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm animate-fade-in">
               {error}
             </div>
           )}
@@ -120,7 +127,7 @@ export default function LoginPage() {
             /* Standard login form */
             <>
               <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
+                <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
                   <label htmlFor="login-email" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                     Email
                   </label>
@@ -131,12 +138,12 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                    className="w-full px-4 py-3 bg-noir-800/70 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all duration-300 placeholder-gray-600 hover:border-noir-600"
                     placeholder="you@example.com"
                   />
                 </div>
 
-                <div>
+                <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
                   <label htmlFor="login-password" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                     Password
                   </label>
@@ -147,38 +154,41 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     autoComplete="current-password"
-                    className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                    className="w-full px-4 py-3 bg-noir-800/70 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all duration-300 placeholder-gray-600 hover:border-noir-600"
                     placeholder="Enter your password"
                   />
                 </div>
 
-                <div className="flex justify-end">
-                  <Link to="/forgot-password" className="text-xs text-gray-500 hover:text-amber-400 transition-colors">
+                <div className="flex justify-end animate-fade-in" style={{ animationDelay: '0.3s' }}>
+                  <Link to="/forgot-password" className="text-xs text-gray-500 hover:text-amber-400 transition-colors duration-300">
                     Forgot password?
                   </Link>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors mt-2"
-                >
-                  {loading ? 'Signing in...' : 'Sign In'}
-                </button>
+                <div className="animate-fade-in-up" style={{ animationDelay: '0.35s' }}>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 bg-amber-500 hover:bg-amber-400 hover:shadow-lg hover:shadow-amber-500/20 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-all duration-300 mt-2"
+                  >
+                    {loading ? 'Signing in...' : 'Sign In'}
+                  </button>
+                </div>
               </form>
 
               {/* Divider */}
-              <div className="flex items-center gap-3 my-6">
-                <div className="flex-1 h-px bg-noir-700" />
+              <div className="flex items-center gap-3 my-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-noir-700 to-transparent" />
                 <span className="text-gray-600 text-xs uppercase tracking-wider">or</span>
-                <div className="flex-1 h-px bg-noir-700" />
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-noir-700 to-transparent" />
               </div>
 
               {/* Passkey login */}
+              <div className="animate-fade-in-up" style={{ animationDelay: '0.45s' }}>
               <button
                 onClick={handlePasskeyLogin}
                 disabled={loading}
-                className="w-full py-3 bg-noir-800 hover:bg-noir-700 border border-noir-700 text-gray-300 font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2 mb-3"
+                className="w-full py-3 bg-noir-800/70 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 text-gray-300 font-medium rounded-lg disabled:opacity-50 transition-all duration-300 flex items-center justify-center gap-2 mb-3"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z" />
@@ -186,13 +196,14 @@ export default function LoginPage() {
                 </svg>
                 Sign in with Passkey
               </button>
+              </div>
 
               {/* Social login buttons */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
                 <button
                   onClick={() => handleSocialLogin('google')}
                   disabled={loading}
-                  className="py-2.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 text-gray-300 text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  className="py-2.5 bg-noir-800/70 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 text-gray-300 text-sm font-medium rounded-lg disabled:opacity-50 transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02]"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -205,7 +216,7 @@ export default function LoginPage() {
                 <button
                   onClick={() => handleSocialLogin('facebook')}
                   disabled={loading}
-                  className="py-2.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 text-gray-300 text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  className="py-2.5 bg-noir-800/70 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 text-gray-300 text-sm font-medium rounded-lg disabled:opacity-50 transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02]"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#1877F2">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
@@ -215,7 +226,7 @@ export default function LoginPage() {
                 <button
                   onClick={() => handleSocialLogin('apple')}
                   disabled={loading}
-                  className="py-2.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 text-gray-300 text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  className="py-2.5 bg-noir-800/70 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 text-gray-300 text-sm font-medium rounded-lg disabled:opacity-50 transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02]"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
@@ -225,7 +236,7 @@ export default function LoginPage() {
                 <button
                   onClick={() => handleSocialLogin('microsoft')}
                   disabled={loading}
-                  className="py-2.5 bg-noir-800 hover:bg-noir-700 border border-noir-700 text-gray-300 text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  className="py-2.5 bg-noir-800/70 hover:bg-noir-700 border border-noir-700 hover:border-noir-600 text-gray-300 text-sm font-medium rounded-lg disabled:opacity-50 transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02]"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
                     <rect x="1" y="1" width="10" height="10" fill="#F25022" />
@@ -239,9 +250,9 @@ export default function LoginPage() {
             </>
           )}
 
-          <p className="text-sm text-gray-400 mt-6 text-center">
+          <p className="text-sm text-gray-400 mt-6 text-center animate-fade-in" style={{ animationDelay: '0.6s' }}>
             Don't have an account?{' '}
-            <Link to="/register" className="text-amber-400 hover:text-amber-300 transition-colors">
+            <Link to="/register" className="text-amber-400 hover:text-amber-300 transition-colors duration-300">
               Join the movement
             </Link>
           </p>
