@@ -15,7 +15,9 @@ import type { TokenPair, UserPayload, PasskeySummary } from '@miraculturee/share
 
 const RP_NAME = 'MiraCulture';
 const RP_ID = process.env.WEBAUTHN_RP_ID || 'mira-culture.com';
-const ORIGIN = process.env.WEBAUTHN_ORIGIN || 'https://mira-culture.com';
+const EXPECTED_ORIGINS = (process.env.WEBAUTHN_ORIGIN || 'https://www.mira-culture.com,https://mira-culture.com')
+  .split(',')
+  .map((o) => o.trim());
 
 /** TTL for pending challenges: 5 minutes. */
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
@@ -83,7 +85,7 @@ export class WebAuthnService {
     const verification = await verifyRegistrationResponse({
       response: body,
       expectedChallenge: pending,
-      expectedOrigin: ORIGIN,
+      expectedOrigin: EXPECTED_ORIGINS,
       expectedRPID: RP_ID,
     });
 
@@ -171,7 +173,7 @@ export class WebAuthnService {
     const verification = await verifyAuthenticationResponse({
       response: body,
       expectedChallenge: challenge,
-      expectedOrigin: ORIGIN,
+      expectedOrigin: EXPECTED_ORIGINS,
       expectedRPID: RP_ID,
       credential: {
         id: passkey.credentialId,
