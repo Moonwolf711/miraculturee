@@ -321,7 +321,7 @@ export default function ArtistDashboardPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-warm-50 font-display text-lg">
-                      {event.supportedTickets}/{event.totalTickets}
+                      {event.supportedTickets}
                     </div>
                     <div className="text-xs uppercase tracking-wider text-gray-400">supported</div>
                   </div>

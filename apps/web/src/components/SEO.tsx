@@ -1,10 +1,11 @@
 import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router-dom';
+import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
 
 const SITE_NAME = 'MiraCulture';
 const DEFAULT_TITLE = 'MiraCulture — Fan-Powered Tickets';
 const DEFAULT_DESCRIPTION =
-  'Fans worldwide buy tickets at face value to support artists. Local fans win those tickets through fair, cryptographic raffles for just $5. No scalpers. No bots.';
+  'Fans worldwide buy tickets to support artists they love. Local fans win those tickets through fair, cryptographic raffles for just $5. No scalpers. No bots.';
 const DEFAULT_IMAGE = '/og-image.png';
 const BASE_URL = 'https://mira-culture.com';
 
@@ -154,7 +155,7 @@ export function getEventSchema(event: {
       '@type': 'Offer',
       url: `${BASE_URL}/events/${event.id}`,
       priceCurrency: 'USD',
-      price: (event.ticketPriceCents / 100).toFixed(2),
+      price: ((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) / 100).toFixed(2),
       availability: 'https://schema.org/InStock',
     },
     organizer: {

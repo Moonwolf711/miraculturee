@@ -826,7 +826,7 @@ export default function EventDetailPage() {
               {/* Unified Purchase Flow */}
               <div>
                 <p className="text-sm text-gray-400 mb-5 font-body">
-                  Buy tickets at face value to support {event.artistName}. 100% goes to the artist.
+                  Buy tickets to support {event.artistName}. 100% of the ticket price goes to the artist.
                   A {formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)}/ticket processing fee applies.
                 </p>
 

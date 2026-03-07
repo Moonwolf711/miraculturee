@@ -309,7 +309,7 @@ export default function ArtistVerifyPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-warm-50 font-display text-lg">
-                        {event.supportedTickets}/{event.totalTickets}
+                        {event.supportedTickets}
                       </div>
                       <div className="text-[10px] uppercase tracking-wider text-gray-500">supported</div>
                     </div>
