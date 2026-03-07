@@ -598,3 +598,12 @@ model DeveloperInvite {
   @@index([email])
   @@index([status])
 }
+
+model NewsletterSubscriber {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([active])
+}
