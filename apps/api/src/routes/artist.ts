@@ -67,7 +67,18 @@ export async function artistRoutes(app: FastifyInstance) {
     const [campaigns, total] = await Promise.all([
       app.prisma.campaign.findMany({
         where,
-        include: { event: { select: { title: true, date: true, venueName: true } } },
+        include: {
+          event: { select: { title: true, date: true, venueName: true } },
+          agentCampaign: {
+            select: {
+              id: true,
+              status: true,
+              revenueSharePct: true,
+              artistRating: true,
+              agent: { select: { id: true, displayName: true, city: true, state: true, rating: true, profileImageUrl: true } },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         take: query.limit,
         skip: query.offset,
@@ -92,6 +103,13 @@ export async function artistRoutes(app: FastifyInstance) {
         goalReached: c.goalReached,
         bonusCents: c.bonusCents,
         createdAt: c.createdAt.toISOString(),
+        agentCampaign: c.agentCampaign ? {
+          id: c.agentCampaign.id,
+          status: c.agentCampaign.status,
+          revenueSharePct: c.agentCampaign.revenueSharePct,
+          artistRating: c.agentCampaign.artistRating,
+          agent: c.agentCampaign.agent,
+        } : null,
       })),
       total,
     };

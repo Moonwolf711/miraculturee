@@ -7,7 +7,7 @@ export const RegisterSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
   name: z.string().min(1).max(100),
-  role: z.enum(['FAN', 'LOCAL_FAN', 'ARTIST']).default('FAN'),
+  role: z.enum(['FAN', 'LOCAL_FAN', 'ARTIST', 'AGENT']).default('FAN'),
 });
 
 /** Validates user login input. */
@@ -262,6 +262,60 @@ export const RequestPayoutSchema = z.object({
 export const DeveloperInviteSchema = z.object({
   email: z.string().email(),
   permission: z.enum(['FULL', 'LIMITED']).default('LIMITED'),
+});
+
+// --- Promoter Agent Marketplace ---
+
+/** Validates promoter agent profile creation. */
+export const CreateAgentProfileSchema = z.object({
+  displayName: z.string().min(1).max(100),
+  bio: z.string().max(2000).optional(),
+  state: z.string().min(2).max(2).toUpperCase(),
+  city: z.string().min(1).max(100),
+  profileImageUrl: z.string().url().optional(),
+  venueExperience: z.string().max(2000).optional(),
+  promotionHistory: z.string().max(2000).optional(),
+  socialLinks: z.object({
+    instagram: z.string().max(100).optional(),
+    twitter: z.string().max(100).optional(),
+    website: z.string().url().optional(),
+  }).optional(),
+});
+
+/** Validates promoter agent profile update. */
+export const UpdateAgentProfileSchema = z.object({
+  displayName: z.string().min(1).max(100).optional(),
+  bio: z.string().max(2000).optional(),
+  state: z.string().min(2).max(2).toUpperCase().optional(),
+  city: z.string().min(1).max(100).optional(),
+  profileImageUrl: z.string().url().optional(),
+  venueExperience: z.string().max(2000).optional(),
+  promotionHistory: z.string().max(2000).optional(),
+  socialLinks: z.object({
+    instagram: z.string().max(100).optional(),
+    twitter: z.string().max(100).optional(),
+    website: z.string().url().optional(),
+  }).optional(),
+});
+
+/** Validates agent marketplace search. */
+export const AgentSearchSchema = z.object({
+  state: z.string().min(2).max(2).optional(),
+  city: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+/** Validates assigning an agent to a campaign. */
+export const AssignAgentSchema = z.object({
+  agentId: z.string().uuid(),
+  campaignId: z.string().uuid(),
+});
+
+/** Validates agent rating from artist. */
+export const RateAgentSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  review: z.string().max(500).optional(),
 });
 
 // --- Shared param schemas ---

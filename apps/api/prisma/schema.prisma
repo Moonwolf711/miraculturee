@@ -11,6 +11,7 @@ enum Role {
   FAN
   LOCAL_FAN
   ARTIST
+  AGENT
   ADMIN
   DEVELOPER
 }
@@ -125,6 +126,7 @@ model User {
   freeRaffleUsed       Boolean   @default(false)
   devInvitesSent       DeveloperInvite[] @relation("DevInvitesSent")
   devInvitesAccepted   DeveloperInvite[] @relation("DevInvitesAccepted")
+  promoterAgent        PromoterAgent?
 }
 
 model Artist {
@@ -209,8 +211,9 @@ model Campaign {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  artist        Artist         @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  agentCampaign AgentCampaign?
 
   @@index([artistId])
   @@index([eventId, status])
@@ -605,6 +608,63 @@ model DeveloperInvite {
 
   @@index([email])
   @@index([status])
+}
+
+// ─── Promoter Agent Marketplace ───
+
+enum AgentVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model PromoterAgent {
+  id                 String                  @id @default(uuid())
+  userId             String                  @unique
+  displayName        String
+  bio                String?
+  state              String                  // US state abbreviation (e.g. "NY", "CA")
+  city               String
+  profileImageUrl    String?
+  venueExperience    String?                 // venues they've worked with
+  promotionHistory   String?                 // past shows/events promoted
+  socialLinks        Json?                   // { instagram, twitter, website }
+  verificationStatus AgentVerificationStatus @default(PENDING)
+  verificationNote   String?                 // admin note on approval/rejection
+  verifiedAt         DateTime?
+  revenueSharePct    Int                     @default(50)  // % of campaign proceeds
+  totalCampaigns     Int                     @default(0)
+  totalEarnedCents   Int                     @default(0)
+  rating             Float?                  // average rating from artists
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns AgentCampaign[]
+
+  @@index([state])
+  @@index([verificationStatus])
+  @@index([state, verificationStatus])
+}
+
+model AgentCampaign {
+  id              String   @id @default(uuid())
+  agentId         String
+  campaignId      String   @unique  // one agent per campaign
+  status          String   @default("ACTIVE")  // ACTIVE, COMPLETED, CANCELLED
+  revenueSharePct Int      @default(50)
+  earnedCents     Int      @default(0)
+  paidOut         Boolean  @default(false)
+  artistRating    Int?     // 1-5 star rating from artist
+  artistReview    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  agent    PromoterAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  campaign Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([campaignId])
 }
 
 model NewsletterSubscriber {

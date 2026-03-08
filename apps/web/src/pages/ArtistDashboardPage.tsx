@@ -30,6 +30,23 @@ interface Dashboard {
   discountCents: number;
 }
 
+interface AgentInfo {
+  id: string;
+  displayName: string;
+  city: string;
+  state: string;
+  rating: number | null;
+  profileImageUrl: string | null;
+}
+
+interface AgentCampaignInfo {
+  id: string;
+  status: string;
+  revenueSharePct: number;
+  artistRating: number | null;
+  agent: AgentInfo;
+}
+
 interface CampaignItem {
   id: string;
   eventId: string;
@@ -39,6 +56,18 @@ interface CampaignItem {
   headline: string;
   status: string;
   createdAt: string;
+  agentCampaign: AgentCampaignInfo | null;
+}
+
+interface MarketplaceAgent {
+  id: string;
+  displayName: string;
+  bio: string | null;
+  state: string;
+  city: string;
+  profileImageUrl: string | null;
+  totalCampaigns: number;
+  rating: number | null;
 }
 
 const PROMO_TEMPLATES = [
@@ -76,6 +105,11 @@ export default function ArtistDashboardPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [promotingCampaign, setPromotingCampaign] = useState<CampaignItem | null>(null);
   const [copiedIdx, setCopiedIdx] = useState(-1);
+  const [agentPickerCampaign, setAgentPickerCampaign] = useState<CampaignItem | null>(null);
+  const [availableAgents, setAvailableAgents] = useState<MarketplaceAgent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+  const [assigningAgentId, setAssigningAgentId] = useState<string | null>(null);
+  const [agentError, setAgentError] = useState('');
 
   const fetchDashboard = useCallback(() => {
     setLoading(true);
@@ -96,6 +130,39 @@ export default function ArtistDashboardPage() {
 
   useEffect(() => {
     fetchDashboard();
+  }, [fetchDashboard]);
+
+  const openAgentPicker = useCallback((campaign: CampaignItem) => {
+    setAgentPickerCampaign(campaign);
+    setAgentError('');
+    setAgentsLoading(true);
+    api.get<{ agents: MarketplaceAgent[] }>('/agents?limit=50')
+      .then((data) => setAvailableAgents(data.agents))
+      .catch(() => setAvailableAgents([]))
+      .finally(() => setAgentsLoading(false));
+  }, []);
+
+  const assignAgent = useCallback(async (agentId: string, campaignId: string) => {
+    setAssigningAgentId(agentId);
+    setAgentError('');
+    try {
+      await api.post('/agents/assign', { agentId, campaignId });
+      setAgentPickerCampaign(null);
+      fetchDashboard();
+    } catch (err) {
+      setAgentError(err instanceof Error ? err.message : 'Failed to assign agent');
+    } finally {
+      setAssigningAgentId(null);
+    }
+  }, [fetchDashboard]);
+
+  const removeAgent = useCallback(async (agentCampaignId: string) => {
+    try {
+      await api.delete(`/agents/assign/${agentCampaignId}`);
+      fetchDashboard();
+    } catch (err) {
+      // silently ignore; dashboard will refresh
+    }
   }, [fetchDashboard]);
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -395,6 +462,48 @@ export default function ArtistDashboardPage() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Agent assignment row */}
+                    <div className="mt-3 pt-3 border-t border-noir-700/50">
+                      {c.agentCampaign ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-noir-700 flex items-center justify-center text-amber-400 text-xs font-bold shrink-0">
+                              {c.agentCampaign.agent.profileImageUrl ? (
+                                <img src={c.agentCampaign.agent.profileImageUrl} alt="" className="w-full h-full rounded-full object-cover" />
+                              ) : (
+                                c.agentCampaign.agent.displayName.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-warm-50 text-sm font-medium">{c.agentCampaign.agent.displayName}</span>
+                              <span className="text-gray-500 text-xs ml-2">
+                                {c.agentCampaign.agent.city}, {c.agentCampaign.agent.state}
+                              </span>
+                              <span className="text-gray-600 text-xs ml-2">{c.agentCampaign.revenueSharePct}% split</span>
+                            </div>
+                          </div>
+                          {c.agentCampaign.status !== 'COMPLETED' && (
+                            <button
+                              onClick={() => removeAgent(c.agentCampaign!.id)}
+                              className="px-2.5 py-1 text-red-400/70 hover:text-red-400 hover:bg-red-500/10 rounded-lg text-xs transition-colors"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => openAgentPicker(c)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-noir-700/50 hover:bg-noir-700 border border-noir-600/50 hover:border-amber-500/30 rounded-lg text-xs text-gray-400 hover:text-amber-400 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                          </svg>
+                          Add Promoter Agent
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -475,6 +584,94 @@ export default function ArtistDashboardPage() {
           </div>
         );
       })()}
+
+      {/* Agent picker modal */}
+      {agentPickerCampaign && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setAgentPickerCampaign(null)}
+        >
+          <div
+            className="bg-noir-900 border border-noir-800 rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-display text-xl tracking-wider text-warm-50">
+                SELECT AGENT
+              </h2>
+              <button
+                onClick={() => setAgentPickerCampaign(null)}
+                className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-gray-500 text-sm font-body mb-5">
+              Choose a verified promoter agent for "{agentPickerCampaign.headline}"
+            </p>
+
+            {agentError && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm mb-4">
+                {agentError}
+              </div>
+            )}
+
+            {agentsLoading ? (
+              <div className="text-center text-gray-500 py-8">Loading agents...</div>
+            ) : availableAgents.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-2">No verified agents available yet.</p>
+                <Link
+                  to="/agents"
+                  className="text-amber-400 text-sm hover:underline"
+                  onClick={() => setAgentPickerCampaign(null)}
+                >
+                  Browse Agent Marketplace
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {availableAgents.map((agent) => (
+                  <div
+                    key={agent.id}
+                    className="flex items-center justify-between bg-noir-800 border border-noir-700/50 rounded-xl p-4 hover:border-amber-500/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-noir-700 flex items-center justify-center text-amber-400 text-sm font-bold shrink-0">
+                        {agent.profileImageUrl ? (
+                          <img src={agent.profileImageUrl} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          agent.displayName.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-warm-50 text-sm font-medium truncate">{agent.displayName}</div>
+                        <div className="text-gray-500 text-xs">
+                          {agent.city}, {agent.state}
+                          {agent.rating !== null && (
+                            <span className="ml-2 text-amber-400">{agent.rating.toFixed(1)} stars</span>
+                          )}
+                          <span className="ml-2">{agent.totalCampaigns} campaigns</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => assignAgent(agent.id, agentPickerCampaign.id)}
+                      disabled={assigningAgentId === agent.id}
+                      className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs uppercase tracking-wide font-semibold transition-colors disabled:opacity-50 shrink-0 ml-3"
+                    >
+                      {assigningAgentId === agent.id ? 'Assigning...' : 'Select'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -151,6 +151,9 @@ export default function Layout({ children }: { children: ReactNode }) {
             <Link to="/artist/verify" className={`nav-link ${location.pathname === '/artist/verify' ? 'nav-link-active' : ''}`}>
               For Artists
             </Link>
+            <Link to="/agents" className={`nav-link ${location.pathname.startsWith('/agents') ? 'nav-link-active' : ''}`}>
+              Agents
+            </Link>
             {user && (
               <Link to="/dashboard" className="nav-link">
                 My Dashboard
@@ -232,6 +235,13 @@ export default function Layout({ children }: { children: ReactNode }) {
               className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
             >
               For Artists
+            </Link>
+            <Link
+              to="/agents"
+              onClick={closeMobile}
+              className="py-3 text-gray-400 hover:text-amber-500 transition-colors duration-200 text-sm tracking-wide uppercase font-body"
+            >
+              Agents
             </Link>
             {user && (
               <Link
@@ -333,6 +343,11 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <li>
                   <Link to="/artist/verify" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
                     For Artists
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/agents" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
+                    Agent Marketplace
                   </Link>
                 </li>
                 <li>

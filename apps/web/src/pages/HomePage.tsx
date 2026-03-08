@@ -970,6 +970,71 @@ export default function HomePage() {
         </div>
       </Section>
 
+      {/* ===== 7b. FOR PROMOTER AGENTS ===== */}
+      <Section id="for-agents" className="py-20 px-6 bg-noir-950">
+        <div className="max-w-4xl mx-auto">
+          <div className="glass-card fresnel-border rounded-2xl p-8 md:p-12 relative overflow-hidden">
+            {/* Subtle accent glow */}
+            <div
+              className="absolute -top-20 -right-20 w-64 h-64 bg-amber-500 rounded-full pointer-events-none"
+              style={{ opacity: 0.03, filter: 'blur(80px)' }}
+              aria-hidden="true"
+            />
+
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+              <div className="flex-1">
+                <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
+                  FOR PROMOTERS
+                </p>
+                <h2 className="font-display text-2xl sm:text-3xl tracking-widest text-warm-50 mb-4 text-3d">
+                  BECOME A PROMOTER AGENT
+                </h2>
+                <p className="font-body text-gray-400 text-sm leading-relaxed max-w-lg mb-4">
+                  Know your local scene? Have venue connections? Earn 50% of campaign
+                  proceeds by helping artists run MiraCulture campaigns in your city.
+                  Get verified, get matched with artists, and get paid.
+                </p>
+                <div className="flex flex-wrap gap-4 text-xs font-body">
+                  {[
+                    { stat: '50%', label: 'revenue share' },
+                    { stat: 'Verified', label: 'profiles' },
+                    { stat: 'Direct', label: 'artist payment' },
+                  ].map((b) => (
+                    <div
+                      key={b.label}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-noir-700 bg-noir-800/50"
+                    >
+                      <span className="font-display text-sm text-amber-500">{b.stat}</span>
+                      <span className="tracking-wider uppercase text-gray-400">{b.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 shrink-0">
+                <Link
+                  to="/agents/register"
+                  className="btn-amber px-8 py-3.5 text-sm inline-flex items-center gap-2 group text-center justify-center"
+                >
+                  <span>APPLY NOW</span>
+                  <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
+                <Link
+                  to="/agents"
+                  className="btn-ghost px-8 py-3.5 text-sm text-center"
+                >
+                  BROWSE AGENTS
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <hr className="section-divider" />
+
       {/* ===== 8. TRUST BADGES ===== */}
       <Section className="border-y border-noir-800/40 py-12 px-6">
         <div className="max-w-4xl mx-auto">
