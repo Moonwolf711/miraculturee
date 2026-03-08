@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { api } from '../lib/api.js';
@@ -64,6 +64,25 @@ export default function AgentRegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // Check if user already has an agent profile
+  useEffect(() => {
+    if (!user) { setChecking(false); return; }
+    api.get<{ id: string; subscriptionStatus?: string }>('/agents/profile/me')
+      .then((agent) => {
+        setHasProfile(true);
+        // If already has profile, skip to subscribe step or redirect
+        if (agent.subscriptionStatus === 'active') {
+          navigate('/agents/dashboard', { replace: true });
+        } else {
+          setStep(4); // Jump to subscribe step
+        }
+      })
+      .catch(() => setHasProfile(false))
+      .finally(() => setChecking(false));
+  }, [user, navigate]);
 
   if (!user) {
     return (
@@ -72,6 +91,14 @@ export default function AgentRegisterPage() {
           <p className="text-gray-400 mb-4">You must be logged in to become an agent.</p>
           <a href="/login" className="text-amber-400 hover:underline">Log in</a>
         </div>
+      </div>
+    );
+  }
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-noir-950 flex items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
       </div>
     );
   }
@@ -101,10 +128,28 @@ export default function AgentRegisterPage() {
     return checks.reduce((s, [ok, w]) => s + (ok ? w : 0), 0);
   };
 
+  const handleSubscribe = async () => {
+    setError('');
+    setSubmitting(true);
+    try {
+      const { url } = await api.post<{ url: string }>('/agents/subscribe');
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Subscription failed');
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setError('');
     setSubmitting(true);
     try {
+      // If already has profile, go straight to subscribe
+      if (hasProfile) {
+        await handleSubscribe();
+        return;
+      }
+
       const payload = {
         displayName: form.displayName,
         headline: form.headline || undefined,
@@ -518,11 +563,11 @@ export default function AgentRegisterPage() {
             </button>
           ) : (
             <button
-              onClick={handleSubmit}
-              disabled={submitting || !form.displayName || !form.state || !form.city}
+              onClick={hasProfile ? handleSubscribe : handleSubmit}
+              disabled={submitting || (!hasProfile && (!form.displayName || !form.state || !form.city))}
               className="flex-1 py-3 bg-amber-500 text-noir-950 rounded-xl font-semibold hover:bg-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {submitting ? 'Submitting...' : 'Subscribe & Submit Application — $19.99/mo'}
+              {submitting ? 'Redirecting to Stripe...' : hasProfile ? 'Subscribe Now — $19.99/mo' : 'Subscribe & Submit Application — $19.99/mo'}
             </button>
           )}
         </div>
