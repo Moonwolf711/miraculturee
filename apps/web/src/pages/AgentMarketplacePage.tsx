@@ -5,15 +5,23 @@ import { api } from '../lib/api.js';
 interface AgentProfile {
   id: string;
   displayName: string;
+  headline: string | null;
   bio: string | null;
   state: string;
   city: string;
   profileImageUrl: string | null;
+  yearsExperience: number | null;
+  promoterType: string | null;
+  genres: string[];
+  skills: string[];
   venueExperience: string | null;
   promotionHistory: string | null;
-  socialLinks: { instagram?: string; twitter?: string; website?: string } | null;
+  socialLinks: { instagram?: string; twitter?: string; tiktok?: string; website?: string } | null;
   totalCampaigns: number;
   rating: number | null;
+  ratingCount: number;
+  verificationStatus: string;
+  profileStrength: number;
   createdAt: string;
 }
 
@@ -151,17 +159,37 @@ export default function AgentMarketplacePage() {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-warm-50 font-semibold truncate">{agent.displayName}</h3>
-                      <p className="text-gray-500 text-sm">{agent.city}, {US_STATES[agent.state] || agent.state}</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-warm-50 font-semibold truncate">{agent.displayName}</h3>
+                        {agent.verificationStatus === 'APPROVED' && (
+                          <svg className="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                        )}
+                      </div>
+                      {agent.headline ? (
+                        <p className="text-gray-400 text-xs truncate">{agent.headline}</p>
+                      ) : (
+                        <p className="text-gray-500 text-sm">{agent.city}, {US_STATES[agent.state] || agent.state}</p>
+                      )}
                       <StarRating rating={agent.rating} />
                     </div>
                   </div>
-                  {agent.bio && (
-                    <p className="text-gray-400 text-sm mt-3 line-clamp-2">{agent.bio}</p>
+                  {!agent.headline && <p className="text-gray-500 text-xs mt-1">{agent.city}, {US_STATES[agent.state] || agent.state}</p>}
+                  {agent.headline && <p className="text-gray-500 text-xs mt-2">{agent.city}, {US_STATES[agent.state] || agent.state}</p>}
+                  {agent.genres.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {agent.genres.slice(0, 4).map((g) => (
+                        <span key={g} className="px-2 py-0.5 bg-noir-800 text-gray-400 rounded-full text-[10px]">{g}</span>
+                      ))}
+                      {agent.genres.length > 4 && <span className="text-gray-600 text-[10px] self-center">+{agent.genres.length - 4}</span>}
+                    </div>
                   )}
-                  <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
+                  {agent.bio && (
+                    <p className="text-gray-400 text-sm mt-2 line-clamp-2">{agent.bio}</p>
+                  )}
+                  <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
                     <span>{agent.totalCampaigns} campaign{agent.totalCampaigns !== 1 ? 's' : ''}</span>
-                    {agent.venueExperience && <span>Venue experience</span>}
+                    {agent.promoterType && <span className="text-amber-400/70">{agent.promoterType}</span>}
+                    {agent.yearsExperience !== null && agent.yearsExperience > 0 && <span>{agent.yearsExperience} yrs</span>}
                   </div>
                 </button>
               ))}
@@ -182,16 +210,54 @@ export default function AgentMarketplacePage() {
                   )}
                 </div>
                 <div>
-                  <h2 className="text-warm-50 text-xl font-semibold">{selectedAgent.displayName}</h2>
-                  <p className="text-gray-400">{selectedAgent.city}, {US_STATES[selectedAgent.state] || selectedAgent.state}</p>
-                  <StarRating rating={selectedAgent.rating} />
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-warm-50 text-xl font-semibold">{selectedAgent.displayName}</h2>
+                    {selectedAgent.verificationStatus === 'APPROVED' && (
+                      <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                    )}
+                  </div>
+                  {selectedAgent.headline && <p className="text-gray-400 text-sm">{selectedAgent.headline}</p>}
+                  <p className="text-gray-500 text-sm">{selectedAgent.city}, {US_STATES[selectedAgent.state] || selectedAgent.state}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <StarRating rating={selectedAgent.rating} />
+                    {selectedAgent.ratingCount > 0 && <span className="text-gray-600 text-xs">({selectedAgent.ratingCount})</span>}
+                  </div>
                 </div>
+              </div>
+
+              {/* Quick stats */}
+              <div className="flex gap-3 mb-4">
+                {selectedAgent.promoterType && (
+                  <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded text-xs">{selectedAgent.promoterType}</span>
+                )}
+                {selectedAgent.yearsExperience !== null && selectedAgent.yearsExperience > 0 && (
+                  <span className="px-2 py-0.5 bg-noir-800 text-gray-400 rounded text-xs">{selectedAgent.yearsExperience} yrs exp</span>
+                )}
+                <span className="px-2 py-0.5 bg-noir-800 text-gray-400 rounded text-xs">{selectedAgent.totalCampaigns} campaigns</span>
               </div>
 
               {selectedAgent.bio && (
                 <div className="mb-4">
                   <h3 className="text-gray-300 text-sm font-medium mb-1">About</h3>
                   <p className="text-gray-400 text-sm">{selectedAgent.bio}</p>
+                </div>
+              )}
+
+              {selectedAgent.genres.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-gray-300 text-sm font-medium mb-2">Genres</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedAgent.genres.map((g) => <span key={g} className="px-2 py-0.5 bg-noir-800 text-gray-300 rounded-full text-xs">{g}</span>)}
+                  </div>
+                </div>
+              )}
+
+              {selectedAgent.skills.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-gray-300 text-sm font-medium mb-2">Skills</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedAgent.skills.map((s) => <span key={s} className="px-2 py-0.5 bg-green-500/10 text-green-400 rounded-full text-xs">{s}</span>)}
+                  </div>
                 </div>
               )}
 
@@ -209,7 +275,7 @@ export default function AgentMarketplacePage() {
                 </div>
               )}
 
-              {selectedAgent.socialLinks && (
+              {selectedAgent.socialLinks && Object.values(selectedAgent.socialLinks).some(Boolean) && (
                 <div className="mb-4">
                   <h3 className="text-gray-300 text-sm font-medium mb-1">Links</h3>
                   <div className="flex gap-3 text-sm">
@@ -219,6 +285,9 @@ export default function AgentMarketplacePage() {
                     {selectedAgent.socialLinks.twitter && (
                       <a href={`https://twitter.com/${selectedAgent.socialLinks.twitter}`} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">Twitter</a>
                     )}
+                    {selectedAgent.socialLinks.tiktok && (
+                      <a href={`https://tiktok.com/@${selectedAgent.socialLinks.tiktok}`} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">TikTok</a>
+                    )}
                     {selectedAgent.socialLinks.website && (
                       <a href={selectedAgent.socialLinks.website} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">Website</a>
                     )}
@@ -226,11 +295,7 @@ export default function AgentMarketplacePage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-4 text-sm text-gray-500 mb-6">
-                <span>{selectedAgent.totalCampaigns} campaign{selectedAgent.totalCampaigns !== 1 ? 's' : ''} completed</span>
-              </div>
-
-              <div className="flex gap-3">
+              <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setSelectedAgent(null)}
                   className="flex-1 px-4 py-2 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors"
