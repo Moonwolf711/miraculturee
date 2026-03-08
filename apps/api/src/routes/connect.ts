@@ -133,8 +133,17 @@ export async function connectRoutes(app: FastifyInstance) {
   //
   // POST /connect/accounts/:accountId/onboarding-link
   // ═══════════════════════════════════════════════════════════════════════════════
-  app.post('/accounts/:accountId/onboarding-link', async (req, reply) => {
+  app.post('/accounts/:accountId/onboarding-link', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { accountId } = req.params as { accountId: string };
+
+    // Verify the authenticated user owns this connected account
+    const owned = await app.prisma.connectedAccount.findFirst({
+      where: { stripeAccountId: accountId, userId: req.user.id },
+    });
+    if (!owned) {
+      return reply.code(403).send({ error: 'You do not own this connected account' });
+    }
+
     const baseUrl = getBaseUrl();
 
     const accountLink = await stripeClient.accountLinks.create({
@@ -156,8 +165,16 @@ export async function connectRoutes(app: FastifyInstance) {
   //
   // GET /connect/accounts/:accountId/status
   // ═══════════════════════════════════════════════════════════════════════════════
-  app.get('/accounts/:accountId/status', async (req, reply) => {
+  app.get('/accounts/:accountId/status', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { accountId } = req.params as { accountId: string };
+
+    // Verify the authenticated user owns this connected account
+    const owned = await app.prisma.connectedAccount.findFirst({
+      where: { stripeAccountId: accountId, userId: req.user.id },
+    });
+    if (!owned) {
+      return reply.code(403).send({ error: 'You do not own this connected account' });
+    }
 
     const account = await stripeClient.accounts.retrieve(accountId);
 
@@ -194,8 +211,17 @@ export async function connectRoutes(app: FastifyInstance) {
   // POST /connect/accounts/:accountId/products
   // Body: { name: string, description?: string, priceInCents: number, currency?: string }
   // ═══════════════════════════════════════════════════════════════════════════════
-  app.post('/accounts/:accountId/products', async (req, reply) => {
+  app.post('/accounts/:accountId/products', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { accountId } = req.params as { accountId: string };
+
+    // Verify the authenticated user owns this connected account
+    const owned = await app.prisma.connectedAccount.findFirst({
+      where: { stripeAccountId: accountId, userId: req.user.id },
+    });
+    if (!owned) {
+      return reply.code(403).send({ error: 'You do not own this connected account' });
+    }
+
     const { name, description, priceInCents, currency } = req.body as {
       name: string;
       description?: string;
@@ -386,8 +412,17 @@ export async function connectRoutes(app: FastifyInstance) {
   //
   // POST /connect/accounts/:accountId/subscribe
   // ═══════════════════════════════════════════════════════════════════════════════
-  app.post('/accounts/:accountId/subscribe', async (req, reply) => {
+  app.post('/accounts/:accountId/subscribe', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { accountId } = req.params as { accountId: string };
+
+    // Verify the authenticated user owns this connected account
+    const owned = await app.prisma.connectedAccount.findFirst({
+      where: { stripeAccountId: accountId, userId: req.user.id },
+    });
+    if (!owned) {
+      return reply.code(403).send({ error: 'You do not own this connected account' });
+    }
+
     const priceId = getSubscriptionPriceId();
     const baseUrl = getBaseUrl();
 
@@ -431,8 +466,17 @@ export async function connectRoutes(app: FastifyInstance) {
   //
   // POST /connect/accounts/:accountId/billing-portal
   // ═══════════════════════════════════════════════════════════════════════════════
-  app.post('/accounts/:accountId/billing-portal', async (req, reply) => {
+  app.post('/accounts/:accountId/billing-portal', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { accountId } = req.params as { accountId: string };
+
+    // Verify the authenticated user owns this connected account
+    const owned = await app.prisma.connectedAccount.findFirst({
+      where: { stripeAccountId: accountId, userId: req.user.id },
+    });
+    if (!owned) {
+      return reply.code(403).send({ error: 'You do not own this connected account' });
+    }
+
     const baseUrl = getBaseUrl();
 
     // Create a Billing Portal session for the connected account.
@@ -456,8 +500,16 @@ export async function connectRoutes(app: FastifyInstance) {
   //
   // GET /connect/accounts/:accountId/subscription
   // ═══════════════════════════════════════════════════════════════════════════════
-  app.get('/accounts/:accountId/subscription', async (req, reply) => {
+  app.get('/accounts/:accountId/subscription', { preHandler: [app.authenticate] }, async (req, reply) => {
     const { accountId } = req.params as { accountId: string };
+
+    // Verify the authenticated user owns this connected account
+    const owned = await app.prisma.connectedAccount.findFirst({
+      where: { stripeAccountId: accountId, userId: req.user.id },
+    });
+    if (!owned) {
+      return reply.code(403).send({ error: 'You do not own this connected account' });
+    }
 
     const connectedAccount = await app.prisma.connectedAccount.findUnique({
       where: { stripeAccountId: accountId },

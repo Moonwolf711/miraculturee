@@ -76,6 +76,19 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send({ message: 'Verification email sent.' });
   });
 
+  // --- Logout (server-side refresh token invalidation) ---
+
+  app.post('/logout', async (req, reply) => {
+    const { refreshToken } = req.body as { refreshToken?: string };
+    if (refreshToken) {
+      await app.prisma.user.updateMany({
+        where: { refreshToken },
+        data: { refreshToken: null },
+      });
+    }
+    return reply.send({ message: 'Logged out' });
+  });
+
   // Public endpoint: which social login providers are configured
   app.get('/providers', async () => ({
     google: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
