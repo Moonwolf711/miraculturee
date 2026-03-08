@@ -101,6 +101,18 @@ function VerificationBadge({ status }: { status: string }) {
   );
 }
 
+interface SubscriptionStatus {
+  status: string;
+  currentPeriodEnd: string | null;
+  raffleCreditCents: number;
+  raffleCreditDollars: string;
+  creditExpiresAt: string | null;
+  priceCents: number;
+  priceDollars: string;
+  monthlyCreditCents: number;
+  monthlyCreditDollars: string;
+}
+
 export default function AgentDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -108,13 +120,37 @@ export default function AgentDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'overview' | 'campaigns' | 'reviews'>('overview');
+  const [sub, setSub] = useState<SubscriptionStatus | null>(null);
+  const [subscribing, setSubscribing] = useState(false);
 
   useEffect(() => {
-    api.get<AgentProfile>('/agents/profile/me')
-      .then(setAgent)
+    Promise.all([
+      api.get<AgentProfile>('/agents/profile/me').then(setAgent),
+      api.get<SubscriptionStatus>('/agents/subscription').then(setSub).catch(() => {}),
+    ])
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load profile'))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleSubscribe = async () => {
+    setSubscribing(true);
+    try {
+      const { url } = await api.post<{ url: string }>('/agents/subscribe');
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Subscription failed');
+      setSubscribing(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    try {
+      const { url } = await api.post<{ url: string }>('/agents/portal');
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to open billing portal');
+    }
+  };
 
   if (!user) return null;
 
@@ -218,25 +254,48 @@ export default function AgentDashboardPage() {
         </div>
 
         {/* Subscription & Raffle Credits */}
-        <div className="bg-gradient-to-r from-amber-500/5 to-green-500/5 border border-amber-500/20 rounded-xl p-5 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-warm-50 font-semibold mb-1">Agent Pro Subscription</h3>
-              <p className="text-gray-400 text-sm">$19.99/mo &mdash; Active</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-center">
-                <p className="text-xl font-bold text-amber-400">$5.00</p>
-                <p className="text-gray-500 text-xs">Raffle Credits</p>
+        {sub?.status === 'active' ? (
+          <div className="bg-gradient-to-r from-amber-500/5 to-green-500/5 border border-amber-500/20 rounded-xl p-5 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-warm-50 font-semibold mb-1">Agent Pro Subscription</h3>
+                <p className="text-gray-400 text-sm">${sub.priceDollars}/mo &mdash; Active</p>
               </div>
-              <div className="h-8 w-px bg-noir-700" />
-              <div className="text-center">
-                <p className="text-xs text-gray-500">Expires end of month</p>
-                <p className="text-amber-400/70 text-xs">Use it or lose it</p>
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <p className="text-xl font-bold text-amber-400">${sub.raffleCreditDollars}</p>
+                  <p className="text-gray-500 text-xs">Raffle Credits</p>
+                </div>
+                <div className="h-8 w-px bg-noir-700" />
+                <div className="text-center">
+                  {sub.creditExpiresAt && (
+                    <p className="text-xs text-gray-500">Expires {new Date(sub.creditExpiresAt).toLocaleDateString()}</p>
+                  )}
+                  <p className="text-amber-400/70 text-xs">Use it or lose it</p>
+                </div>
               </div>
+              <button onClick={handleManageBilling} className="px-4 py-2 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors text-sm">
+                Manage Billing
+              </button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/30 rounded-xl p-5 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-warm-50 font-semibold mb-1">Agent Pro Subscription</h3>
+                <p className="text-gray-400 text-sm">$19.99/mo &mdash; Get $5/mo in raffle credits, 50% campaign revenue, verified badge</p>
+              </div>
+              <button
+                onClick={handleSubscribe}
+                disabled={subscribing}
+                className="px-6 py-2.5 bg-amber-500 text-noir-950 rounded-lg font-semibold hover:bg-amber-400 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {subscribing ? 'Redirecting...' : 'Subscribe — $19.99/mo'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tab nav */}
         <div className="flex gap-1 mb-6 bg-noir-900 rounded-lg p-1">

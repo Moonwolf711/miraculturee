@@ -150,15 +150,15 @@ export default function AgentRegisterPage() {
             and approve your profile within 24-48 hours.
           </p>
           <p className="text-amber-400/80 text-sm mb-6">
-            Once approved, your $19.99/mo subscription will activate and you'll receive
-            $5 in monthly raffle credits.
+            Once approved, you can activate your $19.99/mo subscription from your agent
+            dashboard to receive $5 in monthly raffle credits and start earning.
           </p>
           <div className="flex gap-3">
             <button onClick={() => navigate('/agents')} className="flex-1 px-4 py-2 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors">
               Browse Agents
             </button>
-            <button onClick={() => navigate('/dashboard')} className="flex-1 px-4 py-2 bg-amber-500 text-noir-950 rounded-lg hover:bg-amber-400 transition-colors font-medium">
-              Dashboard
+            <button onClick={() => navigate('/agents/dashboard')} className="flex-1 px-4 py-2 bg-amber-500 text-noir-950 rounded-lg hover:bg-amber-400 transition-colors font-medium">
+              Agent Dashboard
             </button>
           </div>
         </div>
