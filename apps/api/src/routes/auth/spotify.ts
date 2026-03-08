@@ -5,6 +5,34 @@ import { ArtistMatchingService } from '../../services/artist-matching.service.js
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://mira-culture.com';
 
+/**
+ * Normalize a name for comparison: lowercase, strip non-alphanumeric,
+ * collapse whitespace. E.g. "DJ Snake" → "dj snake"
+ */
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Check if a Spotify user's display name matches the claimed Spotify artist name.
+ * Uses exact match after normalization, plus substring containment as a fallback.
+ */
+function namesMatch(userDisplayName: string | null, artistName: string): boolean {
+  if (!userDisplayName) return false;
+  const normalUser = normalizeName(userDisplayName);
+  const normalArtist = normalizeName(artistName);
+  if (!normalUser || !normalArtist) return false;
+  // Exact match
+  if (normalUser === normalArtist) return true;
+  // One contains the other (handles "John Smith" vs "John Smith Music")
+  if (normalUser.includes(normalArtist) || normalArtist.includes(normalUser)) return true;
+  return false;
+}
+
 export async function spotifyOAuthRoutes(app: FastifyInstance) {
   const verificationService = new ArtistVerificationService(app.prisma);
   const matchingService = new ArtistMatchingService(app.prisma);
@@ -28,6 +56,14 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
 
+    // Spotify artist ID is REQUIRED — artist must provide their artist page URL
+    const spotifyArtistId = (req.query as { spotifyArtistId?: string }).spotifyArtistId;
+    if (!spotifyArtistId) {
+      return reply.code(400).send({
+        error: 'Spotify artist URL is required. Paste your Spotify artist page link to verify.',
+      });
+    }
+
     // Auto-create artist profile if one doesn't exist yet
     let artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
     if (!artist) {
@@ -38,9 +74,6 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
         app.prisma.artist.create({ data: { userId: user.id, stageName: user.name || 'Artist' } }),
       ]);
     }
-
-    // Accept optional Spotify artist ID from query param (parsed from artist URL on frontend)
-    const spotifyArtistId = (req.query as { spotifyArtistId?: string }).spotifyArtistId || '';
 
     const state = app.jwt.sign(
       { userId: req.user.id, artistId: artist.id, provider: 'spotify', spotifyArtistId } as any,
@@ -69,51 +102,75 @@ export async function spotifyOAuthRoutes(app: FastifyInstance) {
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=invalid_state`);
     }
 
+    // Artist ID is required for verification
+    if (!payload.spotifyArtistId) {
+      return reply.redirect(`${FRONTEND_URL}/artist/verify?error=missing_artist_url`);
+    }
+
     try {
       const tokens = await exchangeSpotifyCode(code);
       const userProfile = await getSpotifyProfile(tokens.access_token);
 
-      // If the user provided their Spotify artist ID, fetch that specific artist profile
-      let artistProfile: { id: string; name: string; external_urls: { spotify: string }; followers: { total: number }; images: { url: string }[]; genres: string[] } | null = null;
-      if (payload.spotifyArtistId) {
-        artistProfile = await getSpotifyArtistById(tokens.access_token, payload.spotifyArtistId);
+      // Fetch the claimed Spotify artist profile
+      const artistProfile = await getSpotifyArtistById(tokens.access_token, payload.spotifyArtistId);
+
+      if (!artistProfile) {
+        app.log.warn(`Spotify artist ID not found: ${payload.spotifyArtistId}`);
+        return reply.redirect(`${FRONTEND_URL}/artist/verify?error=artist_not_found`);
       }
 
-      // Use artist profile if available, otherwise fall back to personal profile
-      const providerUserId = artistProfile?.id || userProfile.id;
-      const providerUsername = artistProfile?.name || userProfile.display_name;
-      const profileUrl = artistProfile?.external_urls?.spotify || userProfile?.external_urls?.spotify || '';
-      const followerCount = artistProfile?.followers?.total ?? userProfile?.followers?.total ?? 0;
+      // ── Artist ownership verification ──
+      // The authenticated Spotify user's display name must match the artist name.
+      // This ensures the person logging in actually owns this artist page —
+      // Spotify artists log in with their personal account, which typically
+      // has the same display name as their artist profile.
+      const userEmail = userProfile.email?.toLowerCase().trim() || '';
+      const isNameMatch = namesMatch(userProfile.display_name, artistProfile.name);
 
+      // Also check if the Spotify user ID happens to be the artist ID (rare but possible)
+      const isIdMatch = userProfile.id === artistProfile.id;
+
+      if (!isNameMatch && !isIdMatch) {
+        app.log.warn(
+          `Spotify artist verification failed: user "${userProfile.display_name}" (${userProfile.id}) ` +
+          `does not match artist "${artistProfile.name}" (${artistProfile.id})`,
+        );
+        return reply.redirect(
+          `${FRONTEND_URL}/artist/verify?error=artist_mismatch` +
+          `&artistName=${encodeURIComponent(artistProfile.name)}` +
+          `&userName=${encodeURIComponent(userProfile.display_name || '')}`,
+        );
+      }
+
+      app.log.info(
+        `Spotify artist verified: user "${userProfile.display_name}" matched artist "${artistProfile.name}"`,
+      );
+
+      // Verification passed — save the connection
       await verificationService.connectSocialAccount(payload.artistId, {
         provider: 'SPOTIFY',
-        providerUserId,
-        providerUsername,
-        profileUrl,
-        followerCount,
+        providerUserId: artistProfile.id,
+        providerUsername: artistProfile.name,
+        profileUrl: artistProfile.external_urls?.spotify || '',
+        followerCount: artistProfile.followers?.total ?? 0,
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
         scopes: tokens.scope,
-        rawProfile: artistProfile ?? userProfile,
+        rawProfile: { user: userProfile, artist: artistProfile },
       });
 
-      // Update artist record with Spotify artist ID and name
-      const verifiedName = artistProfile?.name || '';
+      // Update artist record with verified Spotify artist ID and name
       await app.prisma.artist.update({
         where: { id: payload.artistId },
         data: {
-          spotifyArtistId: providerUserId,
-          ...(verifiedName ? { stageName: verifiedName } : {}),
+          spotifyArtistId: artistProfile.id,
+          stageName: artistProfile.name,
         },
       }).catch(() => {});
 
-      // Match events using verified artist name or existing stageName
-      const artist = await app.prisma.artist.findUnique({ where: { id: payload.artistId } });
-      const matchName = artist?.stageName || '';
-      const matches = matchName
-        ? await matchingService.findMatchingEvents(matchName, payload.artistId)
-        : [];
+      // Match events using the verified artist name
+      const matches = await matchingService.findMatchingEvents(artistProfile.name, payload.artistId);
 
       return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=spotify&matches=${matches.length}`);
     } catch (err) {

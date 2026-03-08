@@ -40,11 +40,15 @@ export default function SocialConnectButton({ provider, connected, onDisconnect 
     const token = localStorage.getItem('accessToken');
     let connectUrl = `${API_URL}/auth/${provider}/connect${token ? `?token=${token}` : ''}`;
 
-    // For Spotify, parse and include the artist ID if provided
-    if (provider === 'spotify' && artistUrl.trim()) {
+    // For Spotify, artist URL is REQUIRED to verify artist identity
+    if (provider === 'spotify') {
+      if (!artistUrl.trim()) {
+        setUrlError('Your Spotify artist URL is required to verify your identity.');
+        return;
+      }
       const artistId = parseSpotifyArtistId(artistUrl);
       if (!artistId) {
-        setUrlError('Invalid Spotify artist URL. Paste your artist page link.');
+        setUrlError('Invalid Spotify artist URL. Paste your artist page link (e.g. open.spotify.com/artist/...)');
         return;
       }
       setUrlError('');
@@ -77,7 +81,7 @@ export default function SocialConnectButton({ provider, connected, onDisconnect 
             type="text"
             value={artistUrl}
             onChange={(e) => { setArtistUrl(e.target.value); setUrlError(''); }}
-            placeholder="Paste your Spotify artist URL"
+            placeholder="Paste your Spotify artist URL (required)"
             className="w-full px-4 py-2.5 rounded-lg bg-noir-800 border border-noir-700 text-warm-50 text-sm font-body placeholder:text-gray-600 focus:outline-none focus:border-[#1DB954]/50 transition-colors"
           />
           {urlError && <p className="text-red-400 text-xs mt-1 font-body">{urlError}</p>}

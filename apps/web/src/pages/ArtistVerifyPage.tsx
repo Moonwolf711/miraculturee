@@ -89,12 +89,19 @@ export default function ArtistVerifyPage() {
       setSuccessMsg(`Successfully connected ${verified.charAt(0).toUpperCase() + verified.slice(1)}!${matchStr}`);
     }
     if (errorParam) {
+      const artistName = searchParams.get('artistName') || '';
+      const userName = searchParams.get('userName') || '';
       const messages: Record<string, string> = {
         spotify_denied: 'Spotify authorization was denied.',
         soundcloud_denied: 'SoundCloud authorization was denied.',
         invalid_state: 'Invalid OAuth state. Please try again.',
         spotify_failed: 'Failed to connect Spotify. Please try again.',
         soundcloud_failed: 'Failed to connect SoundCloud. Please try again.',
+        missing_artist_url: 'Please provide your Spotify artist URL before connecting.',
+        artist_not_found: 'The Spotify artist page was not found. Please check the URL and try again.',
+        artist_mismatch: artistName
+          ? `Verification failed: your Spotify account "${userName}" does not match the artist "${artistName}". You must log in with the Spotify account that owns this artist page.`
+          : 'Verification failed: your Spotify account does not match the claimed artist. Log in with the Spotify account that owns this artist page.',
       };
       setError(messages[errorParam] ?? 'Something went wrong. Please try again.');
     }
@@ -212,7 +219,8 @@ export default function ArtistVerifyPage() {
             )}
             {!connectedProviders.has('SPOTIFY') && (
               <p className="font-body text-gray-500 text-xs text-center mt-2">
-                Connect your Spotify account to verify your artist identity and unlock event matching.
+                Paste your Spotify artist page URL, then log in with the Spotify account
+                that owns that artist page. This proves you are the artist.
               </p>
             )}
           </div>
