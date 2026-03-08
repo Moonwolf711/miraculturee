@@ -27,7 +27,7 @@ export default function SecuritySettings() {
       const data = await api.post<{ qrCodeDataUrl: string; backupCodes: string[] }>('/auth/2fa/setup', {});
       setSetupData(data);
       setCodesSaved(false);
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); }
     finally { setLoading(false); }
   };
 
@@ -40,7 +40,7 @@ export default function SecuritySettings() {
       setVerifyCode('');
       setSuccess('Two-factor authentication enabled!');
       refreshUser();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); }
     finally { setLoading(false); }
   };
 
@@ -53,7 +53,7 @@ export default function SecuritySettings() {
       setDisableCode('');
       setSuccess('Two-factor authentication disabled.');
       refreshUser();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); }
     finally { setLoading(false); }
   };
 
@@ -61,15 +61,15 @@ export default function SecuritySettings() {
     setError(''); setSuccess(''); setLoading(true);
     try {
       const { startRegistration } = await import('@simplewebauthn/browser');
-      const options = await api.post<any>('/auth/passkeys/register/options', {});
-      const regResponse = await startRegistration({ optionsJSON: options });
+      const options = await api.post<Record<string, unknown>>('/auth/passkeys/register/options', {});
+      const regResponse = await startRegistration({ optionsJSON: options as unknown as Parameters<typeof startRegistration>[0]['optionsJSON'] });
       await api.post('/auth/passkeys/register/verify', { friendlyName: passkeyName || 'My Passkey', ...regResponse });
       setPasskeyName('');
       const updated = await api.get<{ id: string; friendlyName: string; createdAt: string }[]>('/auth/passkeys');
       setPasskeys(updated);
       setSuccess('Passkey registered!');
       refreshUser();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); }
     finally { setLoading(false); }
   };
 
@@ -78,7 +78,7 @@ export default function SecuritySettings() {
       await api.delete(`/auth/passkeys/${id}`);
       setPasskeys((prev) => prev.filter((p) => p.id !== id));
       refreshUser();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); }
   };
 
   const copyBackupCodes = () => {

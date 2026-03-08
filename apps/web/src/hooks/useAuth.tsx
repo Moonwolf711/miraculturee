@@ -81,11 +81,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithPasskey = async () => {
     const { startAuthentication } = await import('@simplewebauthn/browser');
+    // Server returns WebAuthn challenge options conforming to PublicKeyCredentialRequestOptionsJSON
     const options = await api.post<Record<string, unknown>>('/auth/passkeys/auth/options', {});
     // Hint the browser to prefer platform authenticators (Windows Hello PIN, Touch ID)
     // over cross-platform ones (USB security keys)
-    (options as Record<string, unknown>).hints = ['client-device'];
-    const authResponse = await startAuthentication({ optionsJSON: options });
+    options.hints = ['client-device'];
+    // The options object matches PublicKeyCredentialRequestOptionsJSON shape at runtime
+    const authResponse = await startAuthentication({ optionsJSON: options as unknown as Parameters<typeof startAuthentication>[0]['optionsJSON'] });
     const tokens = await api.post<{ accessToken: string; refreshToken: string }>(
       '/auth/passkeys/auth/verify',
       authResponse,

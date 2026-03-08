@@ -5,7 +5,7 @@
  */
 
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, Role } from '@prisma/client';
 
 const REPO_OWNER = 'Moonwolf711';
 const REPO_NAME = 'miraculturee';
@@ -296,7 +296,7 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
         prisma.event.count({ where: { date: { gte: new Date() } } }),
         prisma.campaign.count(),
         prisma.campaign.count({ where: { status: 'ACTIVE' } }),
-        prisma.supportTicket.aggregate({ _sum: { priceCents: true }, _count: true }),
+        prisma.supportTicket.aggregate({ _sum: { totalAmountCents: true }, _count: true }),
         prisma.raffleEntry.count(),
         prisma.user.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { name: true, email: true, role: true, createdAt: true } }),
       ]);
@@ -304,13 +304,13 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
         users: { total: userTotal, byRole: usersByRole },
         events: { total: eventTotal, upcoming: eventsUpcoming },
         campaigns: { total: campaignTotal, active: activeCampaigns },
-        support: { revenueCents: supportRevenue._sum.priceCents || 0, ticketCount: supportRevenue._count },
+        support: { revenueCents: supportRevenue._sum?.totalAmountCents || 0, ticketCount: supportRevenue._count },
         raffleEntries,
         recentSignups,
       };
     }
     case 'search_users': {
-      const q = input.query || '';
+      const q = (input.query as string) || '';
       return prisma.user.findMany({
         where: { OR: [{ email: { contains: q, mode: 'insensitive' } }, { name: { contains: q, mode: 'insensitive' } }] },
         select: { id: true, email: true, name: true, role: true, city: true, emailVerified: true, createdAt: true, _count: { select: { supportTickets: true, raffleEntries: true } } },
@@ -321,16 +321,16 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
       const where: Record<string, unknown> = {};
       if (input.upcoming) where.date = { gte: new Date() };
       return prisma.event.findMany({
-        where, take: input.limit || 10, orderBy: { date: 'desc' },
-        select: { id: true, name: true, date: true, venueName: true, city: true, state: true, ticketPrice: true, isSoldOut: true, _count: { select: { campaigns: true } } },
+        where, take: (input.limit as number) || 10, orderBy: { date: 'desc' },
+        select: { id: true, title: true, date: true, venueName: true, venueCity: true, ticketPriceCents: true, totalTickets: true, _count: { select: { campaigns: true } } },
       });
     }
     case 'get_campaign_details': {
       const where: Record<string, unknown> = {};
-      if (input.status) where.status = input.status;
+      if (input.status) where.status = input.status as string;
       return prisma.campaign.findMany({
-        where, take: input.limit || 10, orderBy: { createdAt: 'desc' },
-        select: { id: true, status: true, goalCents: true, currentCents: true, ticketPriceCents: true, createdAt: true, event: { select: { name: true, date: true } }, artist: { select: { stageName: true } } },
+        where, take: (input.limit as number) || 10, orderBy: { createdAt: 'desc' },
+        select: { id: true, status: true, goalCents: true, fundedCents: true, discountCents: true, createdAt: true, event: { select: { title: true, date: true } }, artist: { select: { stageName: true } } },
       });
     }
     case 'count_records': {
@@ -341,19 +341,19 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
     }
     case 'get_revenue_stats': {
       const [supportAgg, txAgg, txCount] = await Promise.all([
-        prisma.supportTicket.aggregate({ _sum: { priceCents: true }, _count: true }),
+        prisma.supportTicket.aggregate({ _sum: { totalAmountCents: true }, _count: true }),
         prisma.transaction.aggregate({ _sum: { amountCents: true }, _avg: { amountCents: true } }),
         prisma.transaction.count(),
       ]);
       return {
-        supportTickets: { totalRevenueCents: supportAgg._sum.priceCents || 0, count: supportAgg._count },
-        transactions: { totalCents: txAgg._sum.amountCents || 0, avgCents: Math.round(txAgg._avg.amountCents || 0), count: txCount },
+        supportTickets: { totalRevenueCents: supportAgg._sum?.totalAmountCents || 0, count: supportAgg._count },
+        transactions: { totalCents: txAgg._sum?.amountCents || 0, avgCents: Math.round(txAgg._avg?.amountCents || 0), count: txCount },
       };
     }
 
     // === Development Tools (GitHub API) ===
     case 'read_file': {
-      const filePath = input.path.replace(/^\//, '');
+      const filePath = (input.path as string).replace(/^\//, '');
       const res = await githubAPI(`/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}?ref=${REPO_BRANCH}`);
       if (!res.ok) {
         const err = await res.json();
@@ -366,9 +366,9 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
     }
 
     case 'write_file': {
-      const filePath = input.path.replace(/^\//, '');
-      const content = input.content;
-      const message = input.message || `Update ${filePath}`;
+      const filePath = (input.path as string).replace(/^\//, '');
+      const content = input.content as string;
+      const message = (input.message as string) || `Update ${filePath}`;
 
       // Check if file exists to get its SHA (required for updates)
       let sha: string | undefined;
@@ -408,7 +408,7 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
     }
 
     case 'list_directory': {
-      const dirPath = (input.path || '').replace(/^\//, '') || '';
+      const dirPath = ((input.path as string) || '').replace(/^\//, '') || '';
       const url = dirPath
         ? `/repos/${REPO_OWNER}/${REPO_NAME}/contents/${dirPath}?ref=${REPO_BRANCH}`
         : `/repos/${REPO_OWNER}/${REPO_NAME}/contents?ref=${REPO_BRANCH}`;
@@ -431,9 +431,9 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
     }
 
     case 'search_code': {
-      const q = input.query;
+      const q = input.query as string;
       let searchQuery = `${q} repo:${REPO_OWNER}/${REPO_NAME}`;
-      if (input.extension) searchQuery += ` extension:${input.extension}`;
+      if (input.extension) searchQuery += ` extension:${input.extension as string}`;
 
       const res = await githubAPI(`/search/code?q=${encodeURIComponent(searchQuery)}&per_page=15`);
       if (!res.ok) {
@@ -465,11 +465,13 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
 
     // === Admin Power Tools ===
     case 'run_prisma_query': {
-      const { model, operation, args } = input;
+      const model = input.model as string;
+      const operation = input.operation as string;
+      const args = input.args as Record<string, unknown> | undefined;
       // Dynamic model/operation access — runtime-validated, needs indexed access
       const prismaAny = prisma as unknown as Record<string, Record<string, (args?: unknown) => Promise<unknown>>>;
-      if (!prismaAny[model as string]) return { error: `Unknown model: ${model}` };
-      if (typeof prismaAny[model as string][operation as string] !== 'function') return { error: `Unknown operation: ${model}.${operation}` };
+      if (!prismaAny[model]) return { error: `Unknown model: ${model}` };
+      if (typeof prismaAny[model][operation] !== 'function') return { error: `Unknown operation: ${model}.${operation}` };
 
       // Parse date strings in args
       const processedArgs = args ? JSON.parse(JSON.stringify(args), (_key, value) => {
@@ -477,7 +479,7 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
         return value;
       }) : undefined;
 
-      const result = await prismaAny[model as string][operation as string](processedArgs);
+      const result = await prismaAny[model][operation](processedArgs);
       // Truncate large results
       const json = JSON.stringify(result);
       if (json.length > 20000) {
@@ -490,7 +492,7 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
     case 'manage_user': {
       const action = input.action as string;
       const email = input.email as string;
-      const role = input.role as string | undefined;
+      const role = input.role as Role | undefined;
       const user = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true, name: true, role: true, emailVerified: true, isBanned: true, createdAt: true, _count: { select: { supportTickets: true, raffleEntries: true, transactions: true, directTickets: true } } } });
       if (!user) return { error: `User not found: ${email}` };
 
@@ -517,7 +519,9 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
     }
 
     case 'call_api_endpoint': {
-      const { method, path: apiPath, body } = input;
+      const method = input.method as string;
+      const apiPath = input.path as string;
+      const body = input.body as Record<string, unknown> | undefined;
       const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
         ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
         : `http://0.0.0.0:${process.env.PORT || 3000}`;
@@ -535,7 +539,8 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
     }
 
     case 'run_raw_sql': {
-      const { query, params } = input;
+      const query = input.query as string;
+      const params = input.params as unknown[] | undefined;
       // Safety: block dangerous operations without WHERE clause
       const upper = query.trim().toUpperCase();
       if ((upper.startsWith('DROP') || upper.startsWith('TRUNCATE') || upper.startsWith('ALTER')) && !upper.includes('--FORCE')) {
@@ -720,7 +725,7 @@ export default async function chatRoutes(app: FastifyInstance) {
           reply.raw.write(`data: ${JSON.stringify({ tool_call: { name: tc.name, status: 'running' } })}\n\n`);
 
           try {
-            const result = await executeTool(tc.name!, tc.input, app.prisma);
+            const result = await executeTool(tc.name!, tc.input ?? {}, app.prisma);
             reply.raw.write(`data: ${JSON.stringify({ tool_call: { name: tc.name, status: 'done' } })}\n\n`);
             toolResults.push({
               type: 'tool_result',

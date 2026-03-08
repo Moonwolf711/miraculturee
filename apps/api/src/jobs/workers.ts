@@ -171,6 +171,7 @@ export async function initWorkers() {
           for (let i = 0; i < winnerCount; i++) {
             const userId = uniqueUserIds[i];
             const entry = entries.find((e: RaffleEntry) => e.userId === userId);
+            if (!entry) continue;
             winnerUserIds.push(userId);
             winnerEntries.push(entry);
           }
