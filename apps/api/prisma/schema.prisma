@@ -59,6 +59,8 @@ enum TransactionType {
   REFUND
   CREDIT_CONVERSION
   CREDIT_SPEND
+  AGENT_RAFFLE_CREDIT
+  AGENT_CREDIT_SPEND
 }
 
 enum DirectTicketStatus {
@@ -644,6 +646,14 @@ model PromoterAgent {
   rating             Float?                  // average rating from artists
   ratingCount        Int                     @default(0)
   profileStrength    Int                     @default(0)   // 0-100 completion percentage
+  // Subscription ($19.99/mo)
+  stripeCustomerId     String?               @unique
+  stripeSubscriptionId String?               @unique
+  subscriptionStatus   String                @default("none") // none, active, past_due, canceled, trialing
+  subscriptionEndAt    DateTime?             // current period end
+  // Raffle credits ($5/mo, use-it-or-lose-it)
+  raffleCreditCents    Int                   @default(0)
+  creditResetAt        DateTime?             // when credits expire (end of billing period)
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
 
