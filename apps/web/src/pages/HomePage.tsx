@@ -6,6 +6,53 @@ import { api } from '../lib/api.js';
 import type { EventSummary, PaginatedResponse } from '@miraculturee/shared';
 
 /* -------------------------------------------------------
+   Reduced Motion Hook — respects prefers-reduced-motion
+   (UX Guideline #9, #99)
+   ------------------------------------------------------- */
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return reduced;
+}
+
+/* -------------------------------------------------------
+   Animated Counter — counts up to target for social proof
+   ------------------------------------------------------- */
+function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: string }) {
+  const { ref, inView } = useInView();
+  const [count, setCount] = useState(0);
+  const reduced = usePrefersReducedMotion();
+
+  useEffect(() => {
+    if (!inView) return;
+    if (reduced) { setCount(target); return; }
+    let frame: number;
+    const duration = 1500;
+    const start = performance.now();
+    const step = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(eased * target));
+      if (progress < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [inView, target, reduced]);
+
+  return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
+}
+
+/* -------------------------------------------------------
    Ticker Status Config
    ------------------------------------------------------- */
 const STATUS_CONFIG = {
@@ -53,6 +100,7 @@ function hasEventEnded(ev: EventSummary): boolean {
 /** Fetch live events for the ticker, refresh every 60s */
 function useTickerEvents() {
   const [events, setEvents] = useState<{ text: string; status: TickerStatus }[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -71,6 +119,8 @@ function useTickerEvents() {
       );
     } catch {
       // Silently fail — ticker is decorative
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -80,7 +130,7 @@ function useTickerEvents() {
     return () => clearInterval(interval);
   }, [fetchEvents]);
 
-  return events;
+  return { events, loading };
 }
 
 
@@ -190,17 +240,26 @@ const FAQ_ITEMS = [
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
+  const triggerId = useId();
   return (
     <div>
       <h3>
         <button
+          id={triggerId}
           className="faq-trigger"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
           aria-controls={panelId}
         >
           <span>{q}</span>
-          <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            aria-hidden="true"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            className={`w-4 h-4 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
           </svg>
         </button>
@@ -208,7 +267,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
       <div
         id={panelId}
         role="region"
-        aria-labelledby={undefined}
+        aria-labelledby={triggerId}
         className="faq-panel"
         style={{ maxHeight: open ? '500px' : '0', opacity: open ? 1 : 0 }}
         hidden={!open}
@@ -235,12 +294,17 @@ function Section({
   id?: string;
 }) {
   const { ref, inView } = useInView();
+  const reduced = usePrefersReducedMotion();
   return (
     <section
       ref={ref}
       id={id}
-      className={`transition-all duration-700 ease-out ${
-        inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      className={`${
+        reduced
+          ? ''
+          : `transition-all duration-700 ease-out ${
+              inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            }`
       } ${className}`}
     >
       {children}
@@ -390,7 +454,7 @@ function NewsletterForm() {
    ------------------------------------------------------- */
 export default function HomePage() {
   const { offset } = useMouseParallax(0.015);
-  const tickerEvents = useTickerEvents();
+  const { events: tickerEvents, loading: tickerLoading } = useTickerEvents();
 
   return (
     <div className="bg-noir-950 min-h-screen">
@@ -398,6 +462,15 @@ export default function HomePage() {
         description="Fans worldwide buy tickets at face value to support artists. Local fans win those tickets through fair, cryptographic raffles for just $5. No scalpers. No bots."
         jsonLd={getOrganizationSchema()}
       />
+
+      {/* Skip to main content — accessibility (UX #45) */}
+      <a
+        href="#how-it-works"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-amber-500 focus:text-noir-950 focus:font-body focus:text-sm focus:rounded-sm"
+      >
+        Skip to main content
+      </a>
+
       {/* ===== 1. HERO SECTION ===== */}
       <section className="relative min-h-screen flex flex-col overflow-hidden">
         {/* Radial gradient background */}
@@ -448,19 +521,30 @@ export default function HomePage() {
           }}
         />
 
-        {/* Event ticker — live events, auto-refreshes every 60s */}
-        {tickerEvents.length > 0 && (
+        {/* Event ticker — live events, auto-refreshes every 60s (UX #10, #19) */}
+        {(tickerLoading || tickerEvents.length > 0) && (
           <div className="relative z-10 border-b border-noir-800/30 bg-noir-950/50 backdrop-blur-sm" aria-hidden="true">
-            <div className="ticker-strip py-2.5 text-xs tracking-widest uppercase font-body text-gray-500">
-              <div className="ticker-strip-inner">
-                {tickerEvents.map((ev, i) => (
-                  <TickerItem key={i} text={ev.text} status={ev.status} />
-                ))}
-                {tickerEvents.map((ev, i) => (
-                  <TickerItem key={`dup-${i}`} text={ev.text} status={ev.status} />
+            {tickerLoading ? (
+              <div className="py-2.5 flex items-center justify-center gap-6 px-6">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-noir-700 animate-pulse" />
+                    <div className="h-3 w-24 sm:w-32 bg-noir-800 rounded animate-pulse" />
+                  </div>
                 ))}
               </div>
-            </div>
+            ) : (
+              <div className="ticker-strip py-2.5 text-xs tracking-widest uppercase font-body text-gray-500">
+                <div className="ticker-strip-inner">
+                  {tickerEvents.map((ev, i) => (
+                    <TickerItem key={i} text={ev.text} status={ev.status} />
+                  ))}
+                  {tickerEvents.map((ev, i) => (
+                    <TickerItem key={`dup-${i}`} text={ev.text} status={ev.status} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -514,16 +598,16 @@ export default function HomePage() {
             >
               <Link
                 to="/events"
-                className="btn-amber inline-flex items-center justify-center px-8 py-3.5 text-base rounded-sm group"
+                className="btn-amber inline-flex items-center justify-center px-8 py-3.5 min-h-[44px] text-base rounded-sm group"
               >
                 <span>FIND YOUR SHOW</span>
-                <svg className="w-4 h-4 ml-2 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4 ml-2 transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                 </svg>
               </Link>
               <Link
                 to="/register"
-                className="btn-ghost inline-flex items-center justify-center px-8 py-3.5 text-base rounded-sm"
+                className="btn-ghost inline-flex items-center justify-center px-8 py-3.5 min-h-[44px] text-base rounded-sm"
               >
                 SIGN UP
               </Link>
@@ -541,6 +625,30 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ===== 2. SOCIAL PROOF STATS ===== */}
+      <Section className="py-16 px-6 border-y border-noir-800/30 bg-noir-900/50">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            {[
+              { target: 2000, suffix: '+', label: 'Fans Registered' },
+              { target: 100, suffix: '%', label: 'Direct to Artists' },
+              { target: 0, suffix: '%', label: 'Scalper Rate' },
+              { target: 5, suffix: '', label: 'Dollar Raffle Entry' },
+            ].map((stat) => (
+              <div key={stat.label} className="group">
+                <p className="font-display text-3xl sm:text-4xl md:text-5xl text-amber-500 mb-2 tabular-nums">
+                  {stat.target === 5 && '$'}
+                  <AnimatedCounter target={stat.target} suffix={stat.suffix} />
+                </p>
+                <p className="font-body text-xs tracking-widest uppercase text-gray-500 group-hover:text-gray-400 transition-colors duration-200">
+                  {stat.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Section>
 
       <hr className="section-divider" />
 
@@ -1081,6 +1189,56 @@ export default function HomePage() {
                   {badge.label}
                 </span>
               </div>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      {/* ===== 8b. TESTIMONIALS / SOCIAL PROOF ===== */}
+      <Section className="py-24 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
+              FROM THE COMMUNITY
+            </p>
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 text-3d">
+              VOICES
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                quote: "I never thought I'd see my favorite DJ live — the tickets were always $200+ resale. MiraCulture got me in for $5. I literally cried.",
+                name: 'Jordan M.',
+                role: 'Fan, Atlanta',
+              },
+              {
+                quote: "As an artist, knowing that 100% of the support goes directly to me changes everything. No middleman taking 40%. Just me and my fans.",
+                name: 'DJ Solstice',
+                role: 'Artist, Denver',
+              },
+              {
+                quote: "The cryptographic fairness proof is genius. I verified my draw result myself. There's no way to rig this — and that's exactly the point.",
+                name: 'Marcus T.',
+                role: 'Fan & Developer, Austin',
+              },
+            ].map((t) => (
+              <blockquote
+                key={t.name}
+                className="glass-card fresnel-border rounded-xl p-6 flex flex-col"
+              >
+                <svg className="w-8 h-8 text-amber-500/30 mb-4 shrink-0" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+                </svg>
+                <p className="font-body text-gray-300 text-sm leading-relaxed flex-1 mb-5">
+                  {t.quote}
+                </p>
+                <footer className="border-t border-noir-800/60 pt-4">
+                  <p className="font-body text-warm-50 text-sm font-semibold">{t.name}</p>
+                  <p className="font-body text-gray-500 text-xs">{t.role}</p>
+                </footer>
+              </blockquote>
             ))}
           </div>
         </div>
