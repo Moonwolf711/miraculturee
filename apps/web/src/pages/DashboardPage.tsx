@@ -1325,7 +1325,7 @@ function SecurityTab() {
       const data = await api.post<{ qrCodeDataUrl: string; backupCodes: string[] }>('/auth/2fa/setup', {});
       setSetupData(data);
       setCodesSaved(false);
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); }
     finally { setLoading(false); }
   };
 
@@ -1338,7 +1338,7 @@ function SecurityTab() {
       setVerifyCode('');
       setSuccess('Two-factor authentication enabled!');
       refreshUser();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); }
     finally { setLoading(false); }
   };
 
@@ -1351,7 +1351,7 @@ function SecurityTab() {
       setDisableCode('');
       setSuccess('Two-factor authentication disabled.');
       refreshUser();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); }
     finally { setLoading(false); }
   };
 
@@ -1359,7 +1359,7 @@ function SecurityTab() {
     setError(''); setSuccess(''); setLoading(true);
     try {
       const { startRegistration } = await import('@simplewebauthn/browser');
-      const options = await api.post<any>('/auth/passkeys/register/options', {});
+      const options = await api.post<Record<string, unknown>>('/auth/passkeys/register/options', {});
       const regResponse = await startRegistration({ optionsJSON: options });
       await api.post('/auth/passkeys/register/verify', { friendlyName: passkeyName || 'My Passkey', ...regResponse });
       setPasskeyName('');
@@ -1367,7 +1367,7 @@ function SecurityTab() {
       setPasskeys(updated);
       setSuccess('Passkey registered!');
       refreshUser();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); }
     finally { setLoading(false); }
   };
 
@@ -1376,7 +1376,7 @@ function SecurityTab() {
       await api.delete(`/auth/passkeys/${id}`);
       setPasskeys((prev) => prev.filter((p) => p.id !== id));
       refreshUser();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); }
   };
 
   const copyBackupCodes = () => {
