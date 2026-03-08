@@ -623,12 +623,18 @@ model PromoterAgent {
   userId             String                  @unique
   displayName        String
   bio                String?
+  headline           String?                 // short tagline (e.g. "Club Promoter in NYC")
   state              String                  // US state abbreviation (e.g. "NY", "CA")
   city               String
+  age                Int?
   profileImageUrl    String?
+  yearsExperience    Int?                    // years in the music/events industry
+  promoterType       String?                 // Concert, Club, Festival, Venue, Street Team, Independent
+  genres             String[]                // music genres they specialize in
+  skills             String[]                // specific skills (Social Media, Flyering, Venue Booking, etc.)
   venueExperience    String?                 // venues they've worked with
   promotionHistory   String?                 // past shows/events promoted
-  socialLinks        Json?                   // { instagram, twitter, website }
+  socialLinks        Json?                   // { instagram, twitter, tiktok, website }
   verificationStatus AgentVerificationStatus @default(PENDING)
   verificationNote   String?                 // admin note on approval/rejection
   verifiedAt         DateTime?
@@ -636,6 +642,8 @@ model PromoterAgent {
   totalCampaigns     Int                     @default(0)
   totalEarnedCents   Int                     @default(0)
   rating             Float?                  // average rating from artists
+  ratingCount        Int                     @default(0)
+  profileStrength    Int                     @default(0)   // 0-100 completion percentage
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
 

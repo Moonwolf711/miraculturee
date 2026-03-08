@@ -24,15 +24,23 @@ export async function agentRoutes(app: FastifyInstance) {
         select: {
           id: true,
           displayName: true,
+          headline: true,
           bio: true,
           state: true,
           city: true,
           profileImageUrl: true,
+          yearsExperience: true,
+          promoterType: true,
+          genres: true,
+          skills: true,
           venueExperience: true,
           promotionHistory: true,
           socialLinks: true,
           totalCampaigns: true,
           rating: true,
+          ratingCount: true,
+          verificationStatus: true,
+          profileStrength: true,
           createdAt: true,
         },
         orderBy: [{ totalCampaigns: 'desc' }, { createdAt: 'desc' }],
@@ -64,16 +72,25 @@ export async function agentRoutes(app: FastifyInstance) {
       select: {
         id: true,
         displayName: true,
+        headline: true,
         bio: true,
         state: true,
         city: true,
+        age: true,
         profileImageUrl: true,
+        yearsExperience: true,
+        promoterType: true,
+        genres: true,
+        skills: true,
         venueExperience: true,
         promotionHistory: true,
         socialLinks: true,
         totalCampaigns: true,
         totalEarnedCents: false, // private
         rating: true,
+        ratingCount: true,
+        verificationStatus: true,
+        profileStrength: true,
         createdAt: true,
         campaigns: {
           where: { status: 'COMPLETED' },
@@ -95,6 +112,24 @@ export async function agentRoutes(app: FastifyInstance) {
 
   // ─── Authenticated: Agent profile management ───
 
+  /** Calculate profile completion percentage */
+  function calcProfileStrength(data: Record<string, unknown>): number {
+    const fields: [string, number][] = [
+      ['displayName', 10], ['profileImageUrl', 15], ['bio', 10], ['headline', 5],
+      ['state', 5], ['city', 5], ['age', 5], ['yearsExperience', 5],
+      ['promoterType', 5], ['venueExperience', 10], ['promotionHistory', 10],
+      ['socialLinks', 10], ['genres', 5],
+    ];
+    let score = 0;
+    for (const [field, weight] of fields) {
+      const val = data[field];
+      if (val && (typeof val !== 'object' || (Array.isArray(val) ? val.length > 0 : Object.values(val as Record<string, unknown>).some(Boolean)))) {
+        score += weight;
+      }
+    }
+    return Math.min(score, 100);
+  }
+
   /** POST /agents/profile — create agent profile (requires AGENT role) */
   app.post('/profile', { preHandler: [app.authenticate] }, async (req, reply) => {
     const body = CreateAgentProfileSchema.parse(req.body);
@@ -109,17 +144,26 @@ export async function agentRoutes(app: FastifyInstance) {
       await app.prisma.user.update({ where: { id: req.user.id }, data: { role: 'AGENT' } });
     }
 
+    const profileStrength = calcProfileStrength(body as Record<string, unknown>);
+
     const agent = await app.prisma.promoterAgent.create({
       data: {
         userId: req.user.id,
         displayName: body.displayName,
+        headline: body.headline,
         bio: body.bio,
         state: body.state.toUpperCase(),
         city: body.city,
+        age: body.age,
         profileImageUrl: body.profileImageUrl,
+        yearsExperience: body.yearsExperience,
+        promoterType: body.promoterType,
+        genres: body.genres ?? [],
+        skills: body.skills ?? [],
         venueExperience: body.venueExperience,
         promotionHistory: body.promotionHistory,
         socialLinks: body.socialLinks ?? undefined,
+        profileStrength,
       },
     });
 
@@ -158,12 +202,18 @@ export async function agentRoutes(app: FastifyInstance) {
     const agent = await app.prisma.promoterAgent.findUnique({ where: { userId: req.user.id } });
     if (!agent) return reply.code(404).send({ error: 'No agent profile found' });
 
+    const merged = { ...agent, ...body };
+    const profileStrength = calcProfileStrength(merged as Record<string, unknown>);
+
     const updated = await app.prisma.promoterAgent.update({
       where: { id: agent.id },
       data: {
         ...body,
         state: body.state?.toUpperCase(),
         socialLinks: body.socialLinks ?? undefined,
+        genres: body.genres ?? undefined,
+        skills: body.skills ?? undefined,
+        profileStrength,
       },
     });
     return updated;
@@ -254,7 +304,7 @@ export async function agentRoutes(app: FastifyInstance) {
     const avg = allRatings.reduce((sum: number, r: { artistRating: number | null }) => sum + (r.artistRating ?? 0), 0) / allRatings.length;
     await app.prisma.promoterAgent.update({
       where: { id: agentCampaign.agentId },
-      data: { rating: Math.round(avg * 10) / 10 },
+      data: { rating: Math.round(avg * 10) / 10, ratingCount: allRatings.length },
     });
 
     return reply.send({ message: 'Rating submitted', averageRating: avg });

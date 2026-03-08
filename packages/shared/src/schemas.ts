@@ -269,15 +269,22 @@ export const DeveloperInviteSchema = z.object({
 /** Validates promoter agent profile creation. */
 export const CreateAgentProfileSchema = z.object({
   displayName: z.string().min(1).max(100),
+  headline: z.string().max(120).optional(),
   bio: z.string().max(2000).optional(),
   state: z.string().min(2).max(2).toUpperCase(),
   city: z.string().min(1).max(100),
+  age: z.number().int().min(18).max(99).optional(),
   profileImageUrl: z.string().url().optional(),
+  yearsExperience: z.number().int().min(0).max(50).optional(),
+  promoterType: z.string().max(50).optional(),
+  genres: z.array(z.string().max(50)).max(10).optional(),
+  skills: z.array(z.string().max(50)).max(15).optional(),
   venueExperience: z.string().max(2000).optional(),
   promotionHistory: z.string().max(2000).optional(),
   socialLinks: z.object({
     instagram: z.string().max(100).optional(),
     twitter: z.string().max(100).optional(),
+    tiktok: z.string().max(100).optional(),
     website: z.string().url().optional(),
   }).optional(),
 });
@@ -285,15 +292,22 @@ export const CreateAgentProfileSchema = z.object({
 /** Validates promoter agent profile update. */
 export const UpdateAgentProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
+  headline: z.string().max(120).optional(),
   bio: z.string().max(2000).optional(),
   state: z.string().min(2).max(2).toUpperCase().optional(),
   city: z.string().min(1).max(100).optional(),
+  age: z.number().int().min(18).max(99).optional(),
   profileImageUrl: z.string().url().optional(),
+  yearsExperience: z.number().int().min(0).max(50).optional(),
+  promoterType: z.string().max(50).optional(),
+  genres: z.array(z.string().max(50)).max(10).optional(),
+  skills: z.array(z.string().max(50)).max(15).optional(),
   venueExperience: z.string().max(2000).optional(),
   promotionHistory: z.string().max(2000).optional(),
   socialLinks: z.object({
     instagram: z.string().max(100).optional(),
     twitter: z.string().max(100).optional(),
+    tiktok: z.string().max(100).optional(),
     website: z.string().url().optional(),
   }).optional(),
 });
