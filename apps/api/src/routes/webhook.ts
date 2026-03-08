@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type Stripe from 'stripe';
 import { SupportService } from '../services/support.service.js';
 import { RaffleService } from '../services/raffle.service.js';
 import { TicketService } from '../services/ticket.service.js';
@@ -38,12 +39,12 @@ export async function webhookRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Missing stripe-signature header' });
     }
 
-    let event: any;
+    let event: Stripe.Event;
     try {
       // req.body is a raw Buffer thanks to the content-type parser above
-      event = app.pos.parseWebhook(req.body as Buffer, signature);
-    } catch (err: any) {
-      app.log.warn(`Webhook signature verification failed: ${err.message}`);
+      event = app.pos.parseWebhook(req.body as Buffer, signature) as Stripe.Event;
+    } catch (err: unknown) {
+      app.log.warn(`Webhook signature verification failed: ${err instanceof Error ? err.message : String(err)}`);
       return reply.code(400).send({ error: 'Webhook signature verification failed' });
     }
 
@@ -154,9 +155,9 @@ export async function webhookRoutes(app: FastifyInstance) {
         default:
           app.log.info(`Unhandled webhook event type: ${event.type}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Log the error but still return 200 so Stripe doesn't retry endlessly
-      app.log.error(`Error processing webhook ${event.type}: ${err.message}`);
+      app.log.error(`Error processing webhook ${event.type}: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     // Always return 200 to acknowledge receipt

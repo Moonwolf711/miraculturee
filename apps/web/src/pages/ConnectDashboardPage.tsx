@@ -109,8 +109,9 @@ export default function ConnectDashboardPage() {
       setDisplayName('');
       setContactEmail('');
       await fetchAccounts();
-    } catch (err: any) {
-      if (err?.code === 'CONNECT_NOT_ENABLED' || err?.message?.includes('not yet available')) {
+    } catch (err: unknown) {
+      const errObj = err as { code?: string; message?: string };
+      if (errObj?.code === 'CONNECT_NOT_ENABLED' || errObj?.message?.includes('not yet available')) {
         setConnectUnavailable(true);
         setShowCreateForm(false);
       } else {

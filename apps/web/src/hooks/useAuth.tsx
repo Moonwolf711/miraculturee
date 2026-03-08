@@ -57,14 +57,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchUser]);
 
   const login = async (email: string, password: string): Promise<LoginResult> => {
-    const res = await api.post<any>('/auth/login', { email, password });
+    const res = await api.post<{ accessToken?: string; refreshToken?: string; requiresTwoFactor?: boolean; tempToken?: string }>('/auth/login', { email, password });
 
     if (res.requiresTwoFactor) {
-      return { requiresTwoFactor: true, tempToken: res.tempToken };
+      return { requiresTwoFactor: true, tempToken: res.tempToken! };
     }
 
-    localStorage.setItem('accessToken', res.accessToken);
-    localStorage.setItem('refreshToken', res.refreshToken);
+    localStorage.setItem('accessToken', res.accessToken!);
+    localStorage.setItem('refreshToken', res.refreshToken!);
     await fetchUser();
     return { success: true };
   };
@@ -81,10 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithPasskey = async () => {
     const { startAuthentication } = await import('@simplewebauthn/browser');
-    const options = await api.post<any>('/auth/passkeys/auth/options', {});
+    const options = await api.post<Record<string, unknown>>('/auth/passkeys/auth/options', {});
     // Hint the browser to prefer platform authenticators (Windows Hello PIN, Touch ID)
     // over cross-platform ones (USB security keys)
-    (options as any).hints = ['client-device'];
+    (options as Record<string, unknown>).hints = ['client-device'];
     const authResponse = await startAuthentication({ optionsJSON: options });
     const tokens = await api.post<{ accessToken: string; refreshToken: string }>(
       '/auth/passkeys/auth/verify',
