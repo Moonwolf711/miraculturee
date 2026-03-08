@@ -1,6 +1,6 @@
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma, type RaffleEntry, type PoolTicket, type SupportTicket } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { EmailService } from '../services/email.service.js';
 import { EdmtrainService } from '../services/edmtrain.service.js';
@@ -135,7 +135,7 @@ export async function initWorkers() {
       const { poolId } = job.data;
       console.info(`[RaffleDraw] Starting draw for pool ${poolId}`);
 
-      await prisma.$transaction(async (tx: any) => {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const pool = await tx.rafflePool.update({
           where: { id: poolId, status: 'OPEN' },
           data: { status: 'DRAWING' },
@@ -159,18 +159,18 @@ export async function initWorkers() {
         }
 
         // Count unique entrants
-        const uniqueUserIds: string[] = Array.from(new Set<string>(entries.map((e: any) => e.userId)));
+        const uniqueUserIds: string[] = Array.from(new Set<string>(entries.map((e: RaffleEntry) => e.userId)));
         const isAutoWin = uniqueUserIds.length <= 10;
 
         const winnerUserIds: string[] = [];
-        const winnerEntries: any[] = [];
+        const winnerEntries: RaffleEntry[] = [];
 
         if (isAutoWin) {
           // <= 10 unique entrants: everyone gets a ticket
           const winnerCount = Math.min(uniqueUserIds.length, availableTickets.length);
           for (let i = 0; i < winnerCount; i++) {
             const userId = uniqueUserIds[i];
-            const entry = entries.find((e: any) => e.userId === userId);
+            const entry = entries.find((e: RaffleEntry) => e.userId === userId);
             winnerUserIds.push(userId);
             winnerEntries.push(entry);
           }
@@ -219,7 +219,7 @@ export async function initWorkers() {
         // Queue loser notifications for non-winners (only when draw was used)
         if (!isAutoWin) {
           const wonSet = new Set(winnerUserIds);
-          const loserUserIds = [...new Set(entries.filter((e: any) => !wonSet.has(e.userId)).map((e: any) => e.userId))];
+          const loserUserIds = [...new Set(entries.filter((e: RaffleEntry) => !wonSet.has(e.userId)).map((e: RaffleEntry) => e.userId))];
           for (const userId of loserUserIds) {
             await getNotificationQueue().add('loser', {
               userId,
@@ -366,7 +366,7 @@ export async function initWorkers() {
         where: { eventId, confirmed: true },
       });
       const totalDonationFunds = supportTickets.reduce(
-        (sum: number, st: any) => sum + st.totalAmountCents,
+        (sum: number, st: SupportTicket) => sum + st.totalAmountCents,
         0,
       );
 

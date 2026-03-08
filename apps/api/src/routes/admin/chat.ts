@@ -4,7 +4,8 @@
  * AND read/write files in the GitHub repo to implement features end-to-end.
  */
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { PrismaClient } from '@prisma/client';
 
 const REPO_OWNER = 'Moonwolf711';
 const REPO_NAME = 'miraculturee';
@@ -274,11 +275,13 @@ interface ContentBlock {
   text?: string;
   id?: string;
   name?: string;
-  input?: any;
+  input?: Record<string, unknown>;
 }
 
 // Execute a tool call against the database or GitHub API
-async function executeTool(name: string, input: any, prisma: any): Promise<any> {
+// PrismaClient used with dynamic model access (prisma[model][operation])
+// which TypeScript cannot statically verify — indexed access typed loosely.
+async function executeTool(name: string, input: Record<string, unknown>, prisma: PrismaClient): Promise<unknown> {
   switch (name) {
     // === Database Tools ===
     case 'query_analytics': {
@@ -315,7 +318,7 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
       });
     }
     case 'list_events': {
-      const where: any = {};
+      const where: Record<string, unknown> = {};
       if (input.upcoming) where.date = { gte: new Date() };
       return prisma.event.findMany({
         where, take: input.limit || 10, orderBy: { date: 'desc' },
@@ -323,7 +326,7 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
       });
     }
     case 'get_campaign_details': {
-      const where: any = {};
+      const where: Record<string, unknown> = {};
       if (input.status) where.status = input.status;
       return prisma.campaign.findMany({
         where, take: input.limit || 10, orderBy: { createdAt: 'desc' },
@@ -331,8 +334,9 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
       });
     }
     case 'count_records': {
-      const model = input.model;
-      if (prisma[model]) return { model, count: await prisma[model].count() };
+      const model = input.model as string;
+      const prismaAny = prisma as unknown as Record<string, { count: () => Promise<number> }>;
+      if (prismaAny[model]) return { model, count: await prismaAny[model].count() };
       return { error: `Unknown model: ${model}` };
     }
     case 'get_revenue_stats': {
@@ -374,7 +378,7 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
         sha = existing.sha;
       }
 
-      const body: any = {
+      const body: Record<string, string> = {
         message,
         content: Buffer.from(content).toString('base64'),
         branch: REPO_BRANCH,
@@ -417,7 +421,7 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
       if (!Array.isArray(items)) return { error: `${dirPath} is not a directory` };
       return {
         path: dirPath || '/',
-        items: items.map((item: any) => ({
+        items: items.map((item: { name: string; type: string; size: number; path: string }) => ({
           name: item.name,
           type: item.type, // 'file' or 'dir'
           size: item.size,
@@ -439,11 +443,11 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
       const data = await res.json();
       return {
         total_count: data.total_count,
-        results: (data.items || []).map((item: any) => ({
+        results: (data.items || []).map((item: { path: string; name: string; html_url: string; text_matches?: { fragment: string }[] }) => ({
           path: item.path,
           name: item.name,
           url: item.html_url,
-          matches: item.text_matches?.map((m: any) => m.fragment) || [],
+          matches: item.text_matches?.map((m: { fragment: string }) => m.fragment) || [],
         })),
       };
     }
@@ -462,8 +466,10 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
     // === Admin Power Tools ===
     case 'run_prisma_query': {
       const { model, operation, args } = input;
-      if (!prisma[model]) return { error: `Unknown model: ${model}` };
-      if (typeof prisma[model][operation] !== 'function') return { error: `Unknown operation: ${model}.${operation}` };
+      // Dynamic model/operation access — runtime-validated, needs indexed access
+      const prismaAny = prisma as unknown as Record<string, Record<string, (args?: unknown) => Promise<unknown>>>;
+      if (!prismaAny[model as string]) return { error: `Unknown model: ${model}` };
+      if (typeof prismaAny[model as string][operation as string] !== 'function') return { error: `Unknown operation: ${model}.${operation}` };
 
       // Parse date strings in args
       const processedArgs = args ? JSON.parse(JSON.stringify(args), (_key, value) => {
@@ -471,7 +477,7 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
         return value;
       }) : undefined;
 
-      const result = await prisma[model][operation](processedArgs);
+      const result = await prismaAny[model as string][operation as string](processedArgs);
       // Truncate large results
       const json = JSON.stringify(result);
       if (json.length > 20000) {
@@ -482,7 +488,9 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
     }
 
     case 'manage_user': {
-      const { action, email, role } = input;
+      const action = input.action as string;
+      const email = input.email as string;
+      const role = input.role as string | undefined;
       const user = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true, name: true, role: true, emailVerified: true, isBanned: true, createdAt: true, _count: { select: { supportTickets: true, raffleEntries: true, transactions: true, directTickets: true } } } });
       if (!user) return { error: `User not found: ${email}` };
 
@@ -537,7 +545,7 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
       if (upper.startsWith('SELECT') || upper.startsWith('WITH') || upper.startsWith('EXPLAIN')) {
         const result = await prisma.$queryRawUnsafe(query, ...(params || []));
         const json = JSON.stringify(result, (_k, v) => typeof v === 'bigint' ? Number(v) : v);
-        if (json.length > 20000) return { truncated: true, rowCount: (result as any[]).length, preview: json.slice(0, 20000) };
+        if (json.length > 20000) return { truncated: true, rowCount: (result as unknown[]).length, preview: json.slice(0, 20000) };
         return JSON.parse(json);
       } else {
         const affected = await prisma.$executeRawUnsafe(query, ...(params || []));
@@ -553,7 +561,7 @@ async function executeTool(name: string, input: any, prisma: any): Promise<any> 
 // Process a streaming response, forwarding text to client and collecting tool calls
 async function processStream(
   response: Response,
-  reply: any,
+  reply: FastifyReply,
 ): Promise<{ contentBlocks: ContentBlock[]; stopReason: string }> {
   const reader = response.body?.getReader();
   if (!reader) return { contentBlocks: [], stopReason: 'error' };
@@ -653,7 +661,7 @@ export default async function chatRoutes(app: FastifyInstance) {
 
     try {
       // Build conversation with proper content format
-      let currentMessages: any[] = messages.map((m) => ({
+      let currentMessages: { role: string; content: unknown }[] = messages.map((m) => ({
         role: m.role,
         content: typeof m.content === 'string' ? m.content : m.content,
       }));
@@ -695,7 +703,7 @@ export default async function chatRoutes(app: FastifyInstance) {
         if (toolUseBlocks.length === 0) break;
 
         // Build assistant content for the conversation
-        const assistantContent: any[] = [];
+        const assistantContent: Record<string, unknown>[] = [];
         for (const block of contentBlocks) {
           if (block.type === 'text' && block.text) {
             assistantContent.push({ type: 'text', text: block.text });
@@ -707,7 +715,7 @@ export default async function chatRoutes(app: FastifyInstance) {
         currentMessages.push({ role: 'assistant', content: assistantContent });
 
         // Execute tools and collect results
-        const toolResults: any[] = [];
+        const toolResults: { type: string; tool_use_id: string | undefined; content: string; is_error?: boolean }[] = [];
         for (const tc of toolUseBlocks) {
           reply.raw.write(`data: ${JSON.stringify({ tool_call: { name: tc.name, status: 'running' } })}\n\n`);
 
@@ -719,12 +727,12 @@ export default async function chatRoutes(app: FastifyInstance) {
               tool_use_id: tc.id,
               content: JSON.stringify(result),
             });
-          } catch (err: any) {
+          } catch (err: unknown) {
             reply.raw.write(`data: ${JSON.stringify({ tool_call: { name: tc.name, status: 'error' } })}\n\n`);
             toolResults.push({
               type: 'tool_result',
               tool_use_id: tc.id,
-              content: JSON.stringify({ error: err.message }),
+              content: JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
               is_error: true,
             });
           }
@@ -732,9 +740,9 @@ export default async function chatRoutes(app: FastifyInstance) {
 
         currentMessages.push({ role: 'user', content: toolResults });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       app.log.error(err, 'Dev chat error');
-      reply.raw.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+      reply.raw.write(`data: ${JSON.stringify({ error: err instanceof Error ? err.message : String(err) })}\n\n`);
     }
 
     reply.raw.write('data: [DONE]\n\n');

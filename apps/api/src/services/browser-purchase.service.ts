@@ -2,6 +2,7 @@
 /// <reference lib="dom.iterable" />
 import type { PrismaClient } from '@prisma/client';
 import type { POSClient } from '@miraculturee/pos';
+import type { Page, Frame } from 'puppeteer-core';
 
 /**
  * Browser-based ticket purchasing using Puppeteer.
@@ -208,7 +209,7 @@ export class BrowserPurchaseService {
   /* ─────────── Platform-Specific Handlers ─────────── */
 
   private async purchaseEventbrite(
-    page: any,
+    page: Page,
     params: { ticketCount: number; eventTitle: string },
     card: CardInfo,
   ): Promise<BrowserPurchaseResult> {
@@ -274,7 +275,7 @@ export class BrowserPurchaseService {
   }
 
   private async purchaseAXS(
-    page: any,
+    page: Page,
     params: { ticketCount: number; eventTitle: string },
     card: CardInfo,
   ): Promise<BrowserPurchaseResult> {
@@ -317,7 +318,7 @@ export class BrowserPurchaseService {
   }
 
   private async purchaseDICE(
-    page: any,
+    page: Page,
     params: { ticketCount: number; eventTitle: string },
     card: CardInfo,
   ): Promise<BrowserPurchaseResult> {
@@ -359,7 +360,7 @@ export class BrowserPurchaseService {
   }
 
   private async purchaseGeneric(
-    page: any,
+    page: Page,
     params: { ticketCount: number; eventTitle: string },
     card: CardInfo,
   ): Promise<BrowserPurchaseResult> {
@@ -445,7 +446,7 @@ export class BrowserPurchaseService {
   /**
    * Click the first button/link whose visible text matches one of the candidates.
    */
-  private async clickByText(page: any, textCandidates: string[]): Promise<boolean> {
+  private async clickByText(page: Page, textCandidates: string[]): Promise<boolean> {
     return page.evaluate((candidates: string[]) => {
       const clickables = document.querySelectorAll('button, a, [role="button"]');
       for (const text of candidates) {
@@ -467,11 +468,11 @@ export class BrowserPurchaseService {
    * Fill Stripe Elements inside an iframe.
    * Stripe injects `__privateStripeFrame*` iframes for card fields.
    */
-  private async fillStripeIframe(page: any, card: CardInfo): Promise<boolean> {
+  private async fillStripeIframe(page: Page, card: CardInfo): Promise<boolean> {
     try {
       // Find Stripe iframe(s)
       const frames = page.frames();
-      const stripeFrames = frames.filter((f: any) => {
+      const stripeFrames = frames.filter((f: Frame) => {
         const name = f.name() || '';
         const url = f.url() || '';
         return name.includes('__privateStripeFrame') || url.includes('js.stripe.com');
@@ -542,7 +543,7 @@ export class BrowserPurchaseService {
   /**
    * Fill standard (non-Stripe-iframe) card input fields.
    */
-  private async fillCardInputs(page: any, card: CardInfo): Promise<boolean> {
+  private async fillCardInputs(page: Page, card: CardInfo): Promise<boolean> {
     try {
       const filled = await page.evaluate(
         (c: { number: string; expMonth: number; expYear: number; cvc: string }) => {
@@ -646,7 +647,7 @@ export class BrowserPurchaseService {
   /**
    * Extract a confirmation/order reference from the page.
    */
-  private async extractConfirmation(page: any): Promise<string | null> {
+  private async extractConfirmation(page: Page): Promise<string | null> {
     try {
       const ref = await page.evaluate(() => {
         const selectors = [
@@ -699,7 +700,7 @@ export class BrowserPurchaseService {
   /**
    * Get any visible error text from the page.
    */
-  private async getErrorText(page: any): Promise<string | null> {
+  private async getErrorText(page: Page): Promise<string | null> {
     return page.evaluate(() => {
       const errorSels = ['.error-message', '[data-testid="error"]', '.payment-error', '.alert-danger', '[role="alert"]'];
       for (const sel of errorSels) {

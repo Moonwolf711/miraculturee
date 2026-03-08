@@ -155,7 +155,7 @@ export default function CreateCampaignPage() {
               <div className="flex items-center gap-2">
                 <span className="text-gray-300 text-sm font-body truncate flex-1">{shareUrl}</span>
                 <button
-                  onClick={() => { navigator.clipboard.writeText(shareUrl); setCopiedIdx(-2); setTimeout(() => setCopiedIdx(-1), 2000); }}
+                  onClick={() => { navigator.clipboard.writeText(shareUrl).catch(() => {}); setCopiedIdx(-2); setTimeout(() => setCopiedIdx(-1), 2000); }}
                   className="flex-shrink-0 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold transition-colors"
                 >
                   {copiedIdx === -2 ? 'Copied!' : 'Copy'}
@@ -177,7 +177,7 @@ export default function CreateCampaignPage() {
                         {tmpl.platform}
                       </span>
                       <button
-                        onClick={() => { navigator.clipboard.writeText(text); setCopiedIdx(i); setTimeout(() => setCopiedIdx(-1), 2000); }}
+                        onClick={() => { navigator.clipboard.writeText(text).catch(() => {}); setCopiedIdx(i); setTimeout(() => setCopiedIdx(-1), 2000); }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${tmpl.btnClass}`}
                       >
                         {copiedIdx === i ? 'Copied!' : 'Copy'}
