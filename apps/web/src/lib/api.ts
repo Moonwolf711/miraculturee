@@ -1,5 +1,36 @@
 const BASE = import.meta.env.VITE_API_URL || '/api';
 
+// Token refresh mutex — prevents concurrent 401s from racing on refresh
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefreshToken(): Promise<boolean> {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return false;
+
+  try {
+    const refreshRes = await fetch(`${BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (refreshRes.ok) {
+      const tokens = await refreshRes.json();
+      localStorage.setItem('accessToken', tokens.accessToken);
+      localStorage.setItem('refreshToken', tokens.refreshToken);
+      return true;
+    }
+  } catch {
+    // refresh failed
+  }
+  return false;
+}
+
+async function refreshWithMutex(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = tryRefreshToken().finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('accessToken');
   const headers: Record<string, string> = {
@@ -10,24 +41,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
 
   if (res.status === 401) {
-    // Try refresh
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (refreshToken) {
-      const refreshRes = await fetch(`${BASE}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-      });
-      if (refreshRes.ok) {
-        const tokens = await refreshRes.json();
-        localStorage.setItem('accessToken', tokens.accessToken);
-        localStorage.setItem('refreshToken', tokens.refreshToken);
-        // Retry original request
-        headers.Authorization = `Bearer ${tokens.accessToken}`;
-        const retryRes = await fetch(`${BASE}${path}`, { ...options, headers });
-        if (!retryRes.ok) throw new Error(`API error: ${retryRes.status}`);
-        return retryRes.json();
-      }
+    const refreshed = await refreshWithMutex();
+    if (refreshed) {
+      // Retry with new token
+      const newToken = localStorage.getItem('accessToken');
+      headers.Authorization = `Bearer ${newToken}`;
+      const retryRes = await fetch(`${BASE}${path}`, { ...options, headers });
+      if (!retryRes.ok) throw new Error(`API error: ${retryRes.status}`);
+      return retryRes.json();
     }
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
