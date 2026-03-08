@@ -3,6 +3,8 @@ import type Stripe from 'stripe';
 import { SupportService } from '../services/support.service.js';
 import { RaffleService } from '../services/raffle.service.js';
 import { TicketService } from '../services/ticket.service.js';
+import { AgentSubscriptionService } from '../services/agent-subscription.service.js';
+import { getStripeClient } from '../lib/stripe.js';
 
 /**
  * Stripe webhook route.
@@ -21,6 +23,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   const supportService = new SupportService(app.prisma, app.pos);
   const raffleService = new RaffleService(app.prisma, app.pos, app.io);
   const ticketService = new TicketService(app.prisma, app.pos);
+  const agentSubService = new AgentSubscriptionService(app.prisma);
 
   // Register a raw body content-type parser for this route prefix.
   // This ensures Stripe signature verification receives the untouched payload.
@@ -149,6 +152,64 @@ export async function webhookRoutes(app: FastifyInstance) {
           app.log.info(
             `Payment failed: ${paymentIntent.id} — ${paymentIntent.last_payment_error?.message ?? 'unknown reason'}`,
           );
+          break;
+        }
+
+        // ─── Agent Subscription Events ───
+
+        case 'customer.subscription.created':
+        case 'customer.subscription.updated': {
+          const subscription = event.data.object as Stripe.Subscription;
+          const meta = subscription.metadata ?? {};
+          if (meta.type === 'agent_subscription') {
+            const status = subscription.status; // active, past_due, canceled, etc.
+            if (status === 'active' || status === 'trialing') {
+              await agentSubService.activateSubscription(
+                subscription.id,
+                subscription.customer as string,
+                new Date(subscription.current_period_end * 1000),
+              );
+              app.log.info(`Agent subscription activated: ${subscription.id}`);
+            } else if (status === 'canceled' || status === 'unpaid') {
+              await agentSubService.deactivateSubscription(subscription.id, status);
+              app.log.info(`Agent subscription ${status}: ${subscription.id}`);
+            } else if (status === 'past_due') {
+              await agentSubService.deactivateSubscription(subscription.id, 'past_due');
+              app.log.info(`Agent subscription past_due: ${subscription.id}`);
+            }
+          }
+          break;
+        }
+
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as Stripe.Subscription;
+          const meta = subscription.metadata ?? {};
+          if (meta.type === 'agent_subscription') {
+            await agentSubService.deactivateSubscription(subscription.id, 'canceled');
+            app.log.info(`Agent subscription canceled: ${subscription.id}`);
+          }
+          break;
+        }
+
+        case 'invoice.paid': {
+          const invoice = event.data.object as Stripe.Invoice;
+          const subId = invoice.subscription as string | null;
+          if (subId && invoice.billing_reason === 'subscription_cycle') {
+            // Renewal — reset raffle credits
+            try {
+              const stripe = getStripeClient();
+              const sub = await stripe.subscriptions.retrieve(subId);
+              if (sub.metadata?.type === 'agent_subscription') {
+                await agentSubService.renewCredits(
+                  subId,
+                  new Date(sub.current_period_end * 1000),
+                );
+                app.log.info(`Agent raffle credits renewed for subscription: ${subId}`);
+              }
+            } catch (err) {
+              app.log.warn(`Failed to retrieve subscription ${subId}: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }
           break;
         }
 

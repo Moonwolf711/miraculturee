@@ -7,6 +7,7 @@ import {
   RateAgentSchema,
   UuidParamSchema,
 } from '@miraculturee/shared';
+import { AgentSubscriptionService } from '../services/agent-subscription.service.js';
 
 export async function agentRoutes(app: FastifyInstance) {
   // ─── Public: Browse agent marketplace ───
@@ -348,5 +349,78 @@ export async function agentRoutes(app: FastifyInstance) {
       orderBy: { createdAt: 'asc' },
     });
     return pending;
+  });
+
+  // ─── Agent Subscription ($19.99/mo) ───
+
+  const subService = new AgentSubscriptionService(app.prisma);
+
+  /** POST /agents/subscribe — create Stripe checkout session for agent subscription */
+  app.post('/subscribe', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const agent = await app.prisma.promoterAgent.findUnique({ where: { userId: req.user.id } });
+    if (!agent) return reply.code(404).send({ error: 'No agent profile found. Create one first.' });
+
+    const origin = (req.headers.origin || req.headers.referer || 'https://mira-culture.com').replace(/\/$/, '');
+    try {
+      const { sessionId, url } = await subService.createCheckoutSession(
+        agent.id,
+        req.user.id,
+        `${origin}/agents/dashboard?subscribed=true`,
+        `${origin}/agents/dashboard?subscribed=false`,
+      );
+      return { sessionId, url };
+    } catch (err) {
+      return reply.code(400).send({ error: err instanceof Error ? err.message : 'Subscription failed' });
+    }
+  });
+
+  /** GET /agents/subscription — get agent subscription status + raffle credits */
+  app.get('/subscription', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const agent = await app.prisma.promoterAgent.findUnique({ where: { userId: req.user.id } });
+    if (!agent) return reply.code(404).send({ error: 'No agent profile found' });
+
+    try {
+      const status = await subService.getSubscriptionStatus(agent.id);
+      return status;
+    } catch (err) {
+      return reply.code(400).send({ error: err instanceof Error ? err.message : 'Failed to get status' });
+    }
+  });
+
+  /** POST /agents/portal — create Stripe billing portal session to manage subscription */
+  app.post('/portal', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const agent = await app.prisma.promoterAgent.findUnique({ where: { userId: req.user.id } });
+    if (!agent) return reply.code(404).send({ error: 'No agent profile found' });
+
+    const origin = (req.headers.origin || req.headers.referer || 'https://mira-culture.com').replace(/\/$/, '');
+    try {
+      const url = await subService.createPortalSession(agent.id, `${origin}/agents/dashboard`);
+      return { url };
+    } catch (err) {
+      return reply.code(400).send({ error: err instanceof Error ? err.message : 'Portal failed' });
+    }
+  });
+
+  /** POST /agents/spend-credits — spend raffle credits toward a raffle entry */
+  app.post('/spend-credits', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const agent = await app.prisma.promoterAgent.findUnique({ where: { userId: req.user.id } });
+    if (!agent) return reply.code(404).send({ error: 'No agent profile found' });
+
+    const { poolId, amountCents } = req.body as { poolId: string; amountCents: number };
+    if (!poolId || !amountCents || amountCents <= 0) {
+      return reply.code(400).send({ error: 'poolId and positive amountCents required' });
+    }
+
+    try {
+      const result = await subService.spendRaffleCredits(agent.id, amountCents, { poolId });
+      return {
+        deductedCents: result.deductedCents,
+        deductedDollars: (result.deductedCents / 100).toFixed(2),
+        remainingCents: result.remainingCents,
+        remainingDollars: (result.remainingCents / 100).toFixed(2),
+      };
+    } catch (err) {
+      return reply.code(400).send({ error: err instanceof Error ? err.message : 'Credit spend failed' });
+    }
   });
 }
