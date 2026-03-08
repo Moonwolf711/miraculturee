@@ -134,12 +134,14 @@ function renderInline(text: string) {
 // ---------------------------------------------------------------------------
 
 const DEV_TOOLS = ['read_file', 'write_file', 'list_directory', 'search_code', 'get_prisma_schema', 'run_prisma_query', 'manage_user', 'call_api_endpoint', 'run_raw_sql'];
+const WEB_TOOLS = ['web_search', 'fetch_webpage'];
 
 function ToolCallBadge({ name, status }: { name: string; status: string }) {
   const label = name.replace(/_/g, ' ');
   const isDev = DEV_TOOLS.includes(name);
+  const isWeb = WEB_TOOLS.includes(name);
   return (
-    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs my-1 ${isDev ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300' : 'bg-noir-800/50 border-noir-700/50 text-gray-400'}`}>
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs my-1 ${isDev ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300' : isWeb ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' : 'bg-noir-800/50 border-noir-700/50 text-gray-400'}`}>
       {status === 'running' ? (
         <svg className="w-3 h-3 animate-spin text-amber-500" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -176,6 +178,8 @@ export default function DevChat() {
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [engine, setEngine] = useState<'mercury' | 'claude'>('mercury');
+  const [activeEngine, setActiveEngine] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -280,6 +284,7 @@ export default function DevChat() {
         },
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          engine,
         }),
       });
 
@@ -316,6 +321,9 @@ export default function DevChat() {
           try {
             const parsed = JSON.parse(data);
 
+            if (parsed.engine) {
+              setActiveEngine(parsed.engine);
+            }
             if (parsed.text) {
               setMessages((prev) => {
                 const updated = [...prev];
@@ -432,7 +440,17 @@ export default function DevChat() {
             </button>
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             <span className="font-display text-sm tracking-wider text-warm-50">DEV CHAT</span>
-            <span className="text-[10px] text-gray-600 tracking-wider ml-1">Sonnet 4</span>
+            <button
+              onClick={() => setEngine(engine === 'mercury' ? 'claude' : 'mercury')}
+              className={`ml-1 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider border transition-colors ${
+                engine === 'mercury'
+                  ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
+                  : 'bg-violet-500/10 border-violet-500/30 text-violet-400 hover:bg-violet-500/20'
+              }`}
+              title={`Switch to ${engine === 'mercury' ? 'Claude' : 'Mercury 2'}`}
+            >
+              {engine === 'mercury' ? 'Mercury 2' : 'Claude'}
+            </button>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -464,7 +482,7 @@ export default function DevChat() {
               </div>
               <p className="text-warm-50 font-display text-sm tracking-wider mb-1">MiraCulture Dev Assistant</p>
               <p className="text-gray-600 text-xs max-w-[280px] mx-auto leading-relaxed">
-                Query live data, browse the codebase, and implement features. I can read/write files and commit directly.
+                Powered by Mercury 2 + Claude. Query live data, browse the codebase, search the web, and implement features end-to-end.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
                 {['How many users do we have?', 'Show the project structure', 'Read the Prisma schema', 'Add a new API endpoint'].map((q) => (

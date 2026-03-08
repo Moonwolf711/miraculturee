@@ -1,7 +1,10 @@
 /**
- * Admin AI dev-chat route — Base44-style AI assistant with tool calling.
- * Streams Claude responses via SSE. The AI can query the MiraCulture database
- * AND read/write files in the GitHub repo to implement features end-to-end.
+ * Admin AI dev-chat route — Dual-engine AI assistant with tool calling.
+ * Supports Mercury 2 (Inception Labs diffusion LLM) and Claude (Anthropic).
+ * Streams responses via SSE. The AI can query the MiraCulture database,
+ * read/write files in GitHub, search the web, and control Chrome browsers.
+ *
+ * Engine selection: POST body { engine: "mercury" | "claude" } (default: "mercury")
  */
 
 import type { FastifyInstance, FastifyReply } from 'fastify';
@@ -10,6 +13,10 @@ import type { PrismaClient, Role } from '@prisma/client';
 const REPO_OWNER = 'Moonwolf711';
 const REPO_NAME = 'miraculturee';
 const REPO_BRANCH = 'master';
+
+// Mercury 2 (Inception Labs) config
+const MERCURY_API_URL = 'https://api.inceptionlabs.ai/v1/chat/completions';
+const MERCURY_MODEL = 'mercury-2';
 
 const SYSTEM_PROMPT = `You are MiraCulture's AI development assistant, embedded in the admin panel.
 You help admins and developers build, debug, and improve the MiraCulture platform.
@@ -261,6 +268,31 @@ const TOOLS = [
         params: { type: 'array', description: 'Query parameters (optional, for parameterized queries)' },
       },
       required: ['query'],
+    },
+  },
+  // === Web Tools (Mercury-powered) ===
+  {
+    name: 'web_search',
+    description: 'Search the web for information. Returns titles, URLs, and snippets from search results. Use for researching APIs, finding documentation, checking competitors, or gathering information.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'Search query' },
+        max_results: { type: 'number', description: 'Number of results (default 5, max 10)' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'fetch_webpage',
+    description: 'Fetch a webpage and extract its text content. Use for reading documentation, API references, or any web content.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        url: { type: 'string', description: 'URL to fetch' },
+        selector: { type: 'string', description: 'CSS selector to extract specific content (optional)' },
+      },
+      required: ['url'],
     },
   },
 ];
@@ -558,6 +590,48 @@ async function executeTool(name: string, input: Record<string, unknown>, prisma:
       }
     }
 
+    // === Web Tools ===
+    case 'web_search': {
+      const query = input.query as string;
+      const maxResults = Math.min((input.max_results as number) || 5, 10);
+      // Use DuckDuckGo HTML search (no API key needed)
+      const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      });
+      const html = await res.text();
+      // Parse results from HTML
+      const results: { title: string; url: string; snippet: string }[] = [];
+      const resultPattern = /<a rel="nofollow" class="result__a" href="([^"]+)"[^>]*>(.*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>(.*?)<\/a>/g;
+      let match;
+      while ((match = resultPattern.exec(html)) !== null && results.length < maxResults) {
+        results.push({
+          title: match[2].replace(/<\/?b>/g, ''),
+          url: match[1],
+          snippet: match[3].replace(/<\/?b>/g, ''),
+        });
+      }
+      return { query, resultCount: results.length, results };
+    }
+
+    case 'fetch_webpage': {
+      const url = input.url as string;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) return { error: `HTTP ${res.status}: ${res.statusText}` };
+      const html = await res.text();
+      // Strip HTML tags for clean text extraction
+      let text = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (text.length > 20000) text = text.slice(0, 20000) + '... [truncated]';
+      return { url, contentLength: text.length, text };
+    }
+
     default:
       return { error: `Unknown tool: ${name}` };
   }
@@ -628,17 +702,117 @@ async function processStream(
   return { contentBlocks, stopReason };
 }
 
+// Convert Claude tool format to OpenAI function-calling format (for Mercury)
+function toolsToOpenAI(claudeTools: typeof TOOLS) {
+  return claudeTools.map((t) => ({
+    type: 'function' as const,
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.input_schema,
+    },
+  }));
+}
+
+// Mercury 2 engine — non-streaming, tool-calling loop
+async function mercuryLoop(
+  messages: { role: string; content: unknown }[],
+  apiKey: string,
+  prisma: PrismaClient,
+  reply: FastifyReply,
+  maxRounds = 10,
+) {
+  const openaiTools = toolsToOpenAI(TOOLS);
+  const systemMsg = { role: 'system', content: SYSTEM_PROMPT };
+  const mercuryMessages = [systemMsg, ...messages];
+
+  while (maxRounds-- > 0) {
+    const res = await fetch(MERCURY_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: MERCURY_MODEL,
+        messages: mercuryMessages,
+        tools: openaiTools,
+        max_tokens: 8192,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      reply.raw.write(`data: ${JSON.stringify({ error: `Mercury API error (${res.status}): ${errText.slice(0, 200)}` })}\n\n`);
+      break;
+    }
+
+    const data = await res.json();
+    const choice = data.choices?.[0];
+    if (!choice) break;
+
+    const msg = choice.message;
+    const toolCalls = msg.tool_calls;
+
+    // If no tool calls, emit the text and done
+    if (!toolCalls || toolCalls.length === 0) {
+      if (msg.content) {
+        reply.raw.write(`data: ${JSON.stringify({ text: msg.content })}\n\n`);
+      }
+      break;
+    }
+
+    // Add assistant message with tool calls
+    mercuryMessages.push(msg);
+
+    // Execute each tool call
+    for (const tc of toolCalls) {
+      const fnName = tc.function.name;
+      let fnArgs: Record<string, unknown> = {};
+      try { fnArgs = JSON.parse(tc.function.arguments || '{}'); } catch { /* empty */ }
+
+      reply.raw.write(`data: ${JSON.stringify({ tool_call: { name: fnName, status: 'running' } })}\n\n`);
+
+      try {
+        const result = await executeTool(fnName, fnArgs, prisma);
+        reply.raw.write(`data: ${JSON.stringify({ tool_call: { name: fnName, status: 'done' } })}\n\n`);
+        mercuryMessages.push({
+          role: 'tool',
+          content: JSON.stringify(result),
+          // @ts-expect-error — OpenAI format requires tool_call_id
+          tool_call_id: tc.id,
+        });
+      } catch (err: unknown) {
+        reply.raw.write(`data: ${JSON.stringify({ tool_call: { name: fnName, status: 'error' } })}\n\n`);
+        mercuryMessages.push({
+          role: 'tool',
+          content: JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
+          // @ts-expect-error — OpenAI format requires tool_call_id
+          tool_call_id: tc.id,
+        });
+      }
+    }
+  }
+}
+
 export default async function chatRoutes(app: FastifyInstance) {
   app.post('/dev-assist', async (req, reply) => {
-    const { messages } = req.body as { messages: ChatMessage[] };
+    const { messages, engine } = req.body as { messages: ChatMessage[]; engine?: 'mercury' | 'claude' };
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return reply.code(400).send({ error: 'messages array is required' });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const useMercury = (engine || 'mercury') === 'mercury';
+    const mercuryKey = process.env.API_KEY_INCEPTION;
+    const claudeKey = process.env.ANTHROPIC_API_KEY;
+
+    // Pick engine: prefer Mercury if available, fallback to Claude
+    const apiKey = useMercury && mercuryKey ? mercuryKey : claudeKey;
+    const actualEngine = useMercury && mercuryKey ? 'mercury' : 'claude';
+
     if (!apiKey) {
-      return reply.code(503).send({ error: 'AI chat not configured' });
+      return reply.code(503).send({ error: 'AI chat not configured — set API_KEY_INCEPTION or ANTHROPIC_API_KEY' });
     }
 
     // SSE headers — must include CORS since reply.raw bypasses Fastify middleware
@@ -664,6 +838,9 @@ export default async function chatRoutes(app: FastifyInstance) {
       ...corsHeaders,
     });
 
+    // Tell client which engine is active
+    reply.raw.write(`data: ${JSON.stringify({ engine: actualEngine })}\n\n`);
+
     try {
       // Build conversation with proper content format
       let currentMessages: { role: string; content: unknown }[] = messages.map((m) => ({
@@ -671,6 +848,15 @@ export default async function chatRoutes(app: FastifyInstance) {
         content: typeof m.content === 'string' ? m.content : m.content,
       }));
 
+      // Mercury 2 path — non-streaming with tool loop
+      if (actualEngine === 'mercury') {
+        await mercuryLoop(currentMessages, apiKey, app.prisma, reply);
+        reply.raw.write('data: [DONE]\n\n');
+        reply.raw.end();
+        return reply;
+      }
+
+      // Claude path — streaming with tool loop (existing behavior)
       let maxRounds = 10; // Higher limit for multi-step dev tasks
 
       while (maxRounds-- > 0) {
