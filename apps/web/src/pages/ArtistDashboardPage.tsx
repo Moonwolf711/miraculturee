@@ -110,6 +110,12 @@ export default function ArtistDashboardPage() {
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [assigningAgentId, setAssigningAgentId] = useState<string | null>(null);
   const [agentError, setAgentError] = useState('');
+
+  // Artist profile edit state
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [profileForm, setProfileForm] = useState({ stageName: '', genre: '', bio: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
+
   const [managers, setManagers] = useState<{ id: string; displayName: string; permission: string; bio: string | null; user: { email: string; name: string } }[]>([]);
   const [managersLoading, setManagersLoading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -200,6 +206,29 @@ export default function ArtistDashboardPage() {
     }
   }, [fetchDashboard]);
 
+  const openProfileEdit = useCallback(() => {
+    api.get<{ stageName: string; genre: string | null; bio: string | null }>('/artist/profile')
+      .then((p) => {
+        setProfileForm({ stageName: p.stageName, genre: p.genre || '', bio: p.bio || '' });
+        setShowProfileEdit(true);
+      })
+      .catch(() => setShowProfileEdit(true));
+  }, []);
+
+  const saveProfile = useCallback(async () => {
+    setProfileSaving(true);
+    try {
+      await api.put('/artist/profile', {
+        stageName: profileForm.stageName || undefined,
+        genre: profileForm.genre || undefined,
+        bio: profileForm.bio || undefined,
+      });
+      setShowProfileEdit(false);
+      fetchDashboard();
+    } catch {}
+    finally { setProfileSaving(false); }
+  }, [profileForm, fetchDashboard]);
+
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -257,6 +286,12 @@ export default function ArtistDashboardPage() {
             ARTIST DASHBOARD
           </h1>
           <div className="flex gap-3">
+            <button
+              onClick={openProfileEdit}
+              className="px-5 py-2.5 border border-noir-600 text-gray-300 hover:border-amber-500/40 hover:text-amber-400 font-semibold rounded-lg text-sm transition-colors"
+            >
+              Edit Profile
+            </button>
             <Link
               to="/artist/earnings"
               className="px-5 py-2.5 border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-semibold rounded-lg text-sm transition-colors"
@@ -599,6 +634,64 @@ export default function ArtistDashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Profile edit modal */}
+      {showProfileEdit && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowProfileEdit(false)}>
+          <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-xl tracking-wider text-warm-50">EDIT PROFILE</h2>
+              <button onClick={() => setShowProfileEdit(false)} className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors" aria-label="Close">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-1">Stage Name</label>
+                <input
+                  type="text"
+                  value={profileForm.stageName}
+                  onChange={(e) => setProfileForm({ ...profileForm, stageName: e.target.value })}
+                  className="w-full bg-noir-800 border border-noir-700 rounded-lg px-4 py-2.5 text-warm-50 focus:border-amber-500/50 focus:outline-none"
+                  maxLength={100}
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-1">Genre</label>
+                <input
+                  type="text"
+                  value={profileForm.genre}
+                  onChange={(e) => setProfileForm({ ...profileForm, genre: e.target.value })}
+                  className="w-full bg-noir-800 border border-noir-700 rounded-lg px-4 py-2.5 text-warm-50 focus:border-amber-500/50 focus:outline-none"
+                  placeholder="e.g. Hip-Hop, Indie, Electronic"
+                  maxLength={100}
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-1">Bio</label>
+                <textarea
+                  value={profileForm.bio}
+                  onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                  rows={4}
+                  className="w-full bg-noir-800 border border-noir-700 rounded-lg px-4 py-2.5 text-warm-50 focus:border-amber-500/50 focus:outline-none resize-none"
+                  placeholder="Tell fans about yourself and your music"
+                  maxLength={2000}
+                />
+                <p className="text-gray-600 text-xs mt-1 text-right">{profileForm.bio.length}/2000</p>
+              </div>
+            </div>
+
+            <button
+              onClick={saveProfile}
+              disabled={profileSaving || !profileForm.stageName.trim()}
+              className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors"
+            >
+              {profileSaving ? 'Saving...' : 'Save Profile'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Manager invite modal */}
       {showInviteModal && (

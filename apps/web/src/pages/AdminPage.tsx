@@ -7,6 +7,7 @@ import AdminAnalytics from '../components/admin/AdminAnalytics.js';
 import AdminUserManagement from '../components/admin/AdminUserManagement.js';
 import AdminArtistManagement from '../components/admin/AdminArtistManagement.js';
 import AdminDeveloperInvites from '../components/admin/AdminDeveloperInvites.js';
+import AdminIntegrations from '../components/admin/AdminIntegrations.js';
 
 const DevChat = lazy(() => import('../components/DevChat.js'));
 
@@ -38,7 +39,7 @@ export default function AdminPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [page, setPage] = useState(1);
-  const [tab, setTab] = useState<'analytics' | 'users' | 'artists' | 'developers'>('analytics');
+  const [tab, setTab] = useState<'analytics' | 'users' | 'artists' | 'developers' | 'integrations'>('analytics');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -198,7 +199,7 @@ export default function AdminPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-8 border-b border-noir-800">
-          {([...(['analytics', 'users', 'artists'] as const), ...(currentUser?.role === 'ADMIN' ? ['developers' as const] : [])]).map((t) => (
+          {([...(['analytics', 'users', 'artists'] as const), ...(currentUser?.role === 'ADMIN' ? ['developers' as const, 'integrations' as const] : [])]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -259,6 +260,10 @@ export default function AdminPage() {
             onResendInvite={handleResendInvite}
             onRevokeDev={handleRevokeDev}
           />
+        )}
+
+        {tab === 'integrations' && currentUser?.role === 'ADMIN' && (
+          <AdminIntegrations />
         )}
       </div>
 
