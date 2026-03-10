@@ -182,6 +182,7 @@ model ArtistSocialAccount {
 enum SocialProvider {
   SPOTIFY
   SOUNDCLOUD
+  TIDAL
   INSTAGRAM
   FACEBOOK
 }

@@ -93,12 +93,14 @@ export default function ArtistVerifyPage() {
       const userName = searchParams.get('userName') || '';
       const messages: Record<string, string> = {
         spotify_denied: 'Spotify authorization was denied.',
+        tidal_denied: 'Tidal authorization was denied.',
         soundcloud_denied: 'SoundCloud authorization was denied.',
         invalid_state: 'Invalid OAuth state. Please try again.',
         spotify_failed: 'Failed to connect Spotify. Please try again.',
+        tidal_failed: 'Failed to connect Tidal. Please try again.',
         soundcloud_failed: 'Failed to connect SoundCloud. Please try again.',
-        missing_artist_url: 'Please provide your Spotify artist URL before connecting.',
-        artist_not_found: 'The Spotify artist page was not found. Please check the URL and try again.',
+        missing_artist_url: 'Please provide your artist URL before connecting.',
+        artist_not_found: 'The artist page was not found. Please check the URL and try again.',
         artist_mismatch: artistName
           ? `Verification failed: your Spotify account "${userName}" does not match the artist "${artistName}". You must log in with the Spotify account that owns this artist page.`
           : 'Verification failed: your Spotify account does not match the claimed artist. Log in with the Spotify account that owns this artist page.',
@@ -153,7 +155,7 @@ export default function ArtistVerifyPage() {
             VERIFY YOUR IDENTITY
           </h1>
           <p className="font-body text-gray-400 text-sm max-w-md mx-auto">
-            Connect your Spotify account to verify your artist identity.
+            Connect your Spotify or Tidal account to verify your artist identity.
             This helps fans and venues trust your profile.
           </p>
         </div>
@@ -203,7 +205,7 @@ export default function ArtistVerifyPage() {
           </div>
         )}
 
-        {/* Verify via Spotify */}
+        {/* Verify via Spotify or Tidal */}
         <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6">
           <h2 className="font-body text-xs tracking-widest uppercase text-gray-500 font-semibold mb-4">
             {connectedProviders.has('SPOTIFY') ? 'Spotify Verified' : 'Connect Spotify'}
@@ -226,8 +228,31 @@ export default function ArtistVerifyPage() {
           </div>
         </div>
 
-        {/* Matched Events — Activate Campaign (only shown when Spotify-verified) */}
-        {connectedProviders.has('SPOTIFY') && matchedEvents.length > 0 && (
+        {/* Verify via Tidal */}
+        <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6 mt-4">
+          <h2 className="font-body text-xs tracking-widest uppercase text-gray-500 font-semibold mb-4">
+            {connectedProviders.has('TIDAL') ? 'Tidal Verified' : 'Connect Tidal'}
+          </h2>
+          <div className="space-y-3">
+            {!connectedProviders.has('TIDAL') && (
+              <SocialConnectButton provider="tidal" />
+            )}
+            {connectedProviders.has('TIDAL') && (
+              <p className="font-body text-green-400 text-sm text-center py-2">
+                Your Tidal account is verified. You can claim shows below.
+              </p>
+            )}
+            {!connectedProviders.has('TIDAL') && (
+              <p className="font-body text-gray-500 text-xs text-center mt-2">
+                Paste your Tidal artist page URL, then log in with your Tidal account.
+                This verifies you are the artist.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Matched Events — Activate Campaign (shown when Spotify or Tidal verified) */}
+        {(connectedProviders.has('SPOTIFY') || connectedProviders.has('TIDAL')) && matchedEvents.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-body text-xs tracking-widest uppercase text-amber-400 font-semibold">

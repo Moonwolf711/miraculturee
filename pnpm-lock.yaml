@@ -47,6 +47,9 @@ importers:
       '@simplewebauthn/types':
         specifier: ^11.0.0
         version: 11.0.0
+      '@tidal-music/api':
+        specifier: ^0.8.1
+        version: 0.8.1
       '@types/seedrandom':
         specifier: ^3.0.8
         version: 3.0.8
@@ -1344,6 +1347,9 @@ packages:
     engines: {node: '>=12', npm: '>=6'}
     peerDependencies:
       '@testing-library/dom': '>=7.21.4'
+
+  '@tidal-music/api@0.8.1':
+    resolution: {integrity: sha512-x2K9lzdnoMF9FiLcRSow9RS3L5PUf7bPylEns+lbYbVm+CRb0cNLhiwTmSxi/NUXJqJbFibeZdaMhJih3zSShg==}
 
   '@tootallnate/quickjs-emscripten@0.23.0':
     resolution: {integrity: sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA==}
@@ -2806,6 +2812,12 @@ packages:
   onetime@5.1.2:
     resolution: {integrity: sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==}
     engines: {node: '>=6'}
+
+  openapi-fetch@0.16.0:
+    resolution: {integrity: sha512-EVLlvcUOugBYMXhuITAm2Ihv9EmQ7b9gJYn7hg2wvcf/GxbanhQ9olDz9I3DcS0Jr4Jv/53I2oVuIYQsFHa9mA==}
+
+  openapi-typescript-helpers@0.0.15:
+    resolution: {integrity: sha512-opyTPaunsklCBpTK8JGef6mfPhLSnyy5a0IN9vKtx3+4aExf+KxEqYwIy3hqkedXIB97u357uLMJsOnm3GVjsw==}
 
   otplib@12.0.1:
     resolution: {integrity: sha512-xDGvUOQjop7RDgxTQ+o4pOol0/3xSZzawTiPKRrHnQWAy0WjhNs/5HdIDJCrqC4MBynmjXgULc6YfioaxZeFgg==}
@@ -4872,6 +4884,10 @@ snapshots:
     dependencies:
       '@testing-library/dom': 10.4.1
 
+  '@tidal-music/api@0.8.1':
+    dependencies:
+      openapi-fetch: 0.16.0
+
   '@tootallnate/quickjs-emscripten@0.23.0': {}
 
   '@types/aria-query@5.0.4': {}
@@ -6537,6 +6553,12 @@ snapshots:
   onetime@5.1.2:
     dependencies:
       mimic-fn: 2.1.0
+
+  openapi-fetch@0.16.0:
+    dependencies:
+      openapi-typescript-helpers: 0.0.15
+
+  openapi-typescript-helpers@0.0.15: {}
 
   otplib@12.0.1:
     dependencies:
