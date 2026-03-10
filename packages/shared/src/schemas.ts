@@ -274,7 +274,7 @@ export const CreateAgentProfileSchema = z.object({
   state: z.string().min(2).max(2).toUpperCase(),
   city: z.string().min(1).max(100),
   age: z.number().int().min(18).max(99).optional(),
-  profileImageUrl: z.string().url().optional(),
+  profileImageUrl: z.string().max(500000).optional(),
   yearsExperience: z.number().int().min(0).max(50).optional(),
   promoterType: z.string().max(50).optional(),
   genres: z.array(z.string().max(50)).max(10).optional(),
@@ -297,7 +297,7 @@ export const UpdateAgentProfileSchema = z.object({
   state: z.string().min(2).max(2).toUpperCase().optional(),
   city: z.string().min(1).max(100).optional(),
   age: z.number().int().min(18).max(99).optional(),
-  profileImageUrl: z.string().url().optional(),
+  profileImageUrl: z.string().max(500000).optional(),
   yearsExperience: z.number().int().min(0).max(50).optional(),
   promoterType: z.string().max(50).optional(),
   genres: z.array(z.string().max(50)).max(10).optional(),
@@ -347,4 +347,23 @@ export const EventIdParamSchema = z.object({
 /** Validates a raffle pool UUID path parameter. */
 export const PoolIdParamSchema = z.object({
   poolId: z.string().uuid(),
+});
+
+// --- Manager Invites ---
+
+/** Validates manager invite creation. */
+export const CreateManagerInviteSchema = z.object({
+  permission: z.enum(['READ', 'READ_WRITE']).default('READ_WRITE'),
+  email: z.string().email().optional(),
+});
+
+/** Validates manager invite acceptance. */
+export const AcceptManagerInviteSchema = z.object({
+  displayName: z.string().min(1).max(100),
+  bio: z.string().max(500).optional(),
+});
+
+/** Validates manager invite token param. */
+export const ManagerTokenParamSchema = z.object({
+  token: z.string().uuid(),
 });

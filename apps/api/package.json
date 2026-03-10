@@ -17,6 +17,7 @@
   "dependencies": {
     "@fastify/cors": "^10.0.0",
     "@fastify/jwt": "^9.0.0",
+    "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "^10.2.0",
     "@fastify/websocket": "^11.0.0",
     "@miraculturee/pos": "workspace:*",

@@ -129,6 +129,7 @@ model User {
   devInvitesSent       DeveloperInvite[] @relation("DevInvitesSent")
   devInvitesAccepted   DeveloperInvite[] @relation("DevInvitesAccepted")
   promoterAgent        PromoterAgent?
+  managedArtists       ArtistManager[]
 }
 
 model Artist {
@@ -151,6 +152,8 @@ model Artist {
   events         Event[]
   campaigns      Campaign[]
   socialAccounts ArtistSocialAccount[]
+  managers       ArtistManager[]
+  managerInvites ManagerInvite[]
 }
 
 model ArtistSocialAccount {
@@ -683,6 +686,47 @@ model AgentCampaign {
 
   @@index([agentId])
   @@index([campaignId])
+}
+
+// ─── Artist Manager System ───
+
+enum ManagerPermission {
+  READ
+  READ_WRITE
+}
+
+model ManagerInvite {
+  id         String             @id @default(uuid())
+  artistId   String
+  token      String             @unique @default(uuid())
+  permission ManagerPermission  @default(READ_WRITE)
+  email      String?
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime           @default(now())
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@index([artistId])
+  @@index([token])
+}
+
+model ArtistManager {
+  id              String             @id @default(uuid())
+  artistId        String
+  userId          String
+  permission      ManagerPermission  @default(READ_WRITE)
+  displayName     String
+  bio             String?
+  profileImageUrl String?
+  addedAt         DateTime           @default(now())
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, userId])
+  @@index([artistId])
+  @@index([userId])
 }
 
 model NewsletterSubscriber {
