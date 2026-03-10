@@ -205,31 +205,8 @@ export default function ArtistVerifyPage() {
           </div>
         )}
 
-        {/* Verify via Spotify or Tidal */}
+        {/* Primary: Verify via Tidal */}
         <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6">
-          <h2 className="font-body text-xs tracking-widest uppercase text-gray-500 font-semibold mb-4">
-            {connectedProviders.has('SPOTIFY') ? 'Spotify Verified' : 'Connect Spotify'}
-          </h2>
-          <div className="space-y-3">
-            {!connectedProviders.has('SPOTIFY') && (
-              <SocialConnectButton provider="spotify" />
-            )}
-            {connectedProviders.has('SPOTIFY') && (
-              <p className="font-body text-green-400 text-sm text-center py-2">
-                Your Spotify account is verified. You can claim shows below.
-              </p>
-            )}
-            {!connectedProviders.has('SPOTIFY') && (
-              <p className="font-body text-gray-500 text-xs text-center mt-2">
-                Paste your Spotify artist page URL, then log in with the Spotify account
-                that owns that artist page. This proves you are the artist.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Verify via Tidal */}
-        <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6 mt-4">
           <h2 className="font-body text-xs tracking-widest uppercase text-gray-500 font-semibold mb-4">
             {connectedProviders.has('TIDAL') ? 'Tidal Verified' : 'Connect Tidal'}
           </h2>
@@ -246,6 +223,36 @@ export default function ArtistVerifyPage() {
               <p className="font-body text-gray-500 text-xs text-center mt-2">
                 Paste your Tidal artist page URL, then log in with your Tidal account.
                 This verifies you are the artist.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Secondary: Spotify & SoundCloud side by side */}
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="bg-noir-900 border border-noir-800 rounded-2xl p-5">
+            <h2 className="font-body text-xs tracking-widest uppercase text-gray-500 font-semibold mb-3">
+              {connectedProviders.has('SPOTIFY') ? 'Spotify Verified' : 'Spotify'}
+            </h2>
+            {!connectedProviders.has('SPOTIFY') && (
+              <SocialConnectButton provider="spotify" />
+            )}
+            {connectedProviders.has('SPOTIFY') && (
+              <p className="font-body text-green-400 text-xs text-center py-2">
+                Verified
+              </p>
+            )}
+          </div>
+          <div className="bg-noir-900 border border-noir-800 rounded-2xl p-5">
+            <h2 className="font-body text-xs tracking-widest uppercase text-gray-500 font-semibold mb-3">
+              {connectedProviders.has('SOUNDCLOUD') ? 'SoundCloud Connected' : 'SoundCloud'}
+            </h2>
+            {!connectedProviders.has('SOUNDCLOUD') && (
+              <SocialConnectButton provider="soundcloud" />
+            )}
+            {connectedProviders.has('SOUNDCLOUD') && (
+              <p className="font-body text-green-400 text-xs text-center py-2">
+                Connected
               </p>
             )}
           </div>
