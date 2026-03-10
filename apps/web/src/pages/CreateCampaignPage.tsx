@@ -284,7 +284,7 @@ export default function CreateCampaignPage() {
                   <div className="grid grid-cols-3 gap-3 mb-3">
                     <div className="bg-noir-800 rounded-lg p-2 text-center">
                       <div className="text-warm-50 font-semibold">${(levelInfo.discountCents / 100).toFixed(0)}</div>
-                      <div className="text-[10px] text-gray-500 uppercase">Ticket Price</div>
+                      <div className="text-[10px] text-gray-500 uppercase">Local Fan Price</div>
                     </div>
                     <div className="bg-noir-800 rounded-lg p-2 text-center">
                       <div className="text-warm-50 font-semibold">{ticketCount}</div>
@@ -297,7 +297,7 @@ export default function CreateCampaignPage() {
                   </div>
 
                   <p className="text-gray-500 text-xs font-body">
-                    When fans donate ${(goalCents / 100).toFixed(0)}, {ticketCount} discounted tickets unlock for local fans at ${(levelInfo.discountCents / 100).toFixed(0)} each.
+                    When global fans donate a total of ${(goalCents / 100).toFixed(0)}, {ticketCount} discounted tickets unlock for verified local fans at just ${(levelInfo.discountCents / 100).toFixed(0)} each.
                   </p>
                 </div>
               );

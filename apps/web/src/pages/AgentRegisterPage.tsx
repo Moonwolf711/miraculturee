@@ -191,8 +191,11 @@ export default function AgentRegisterPage() {
           </div>
           <h2 className="text-warm-50 text-xl font-semibold mb-2">Application Submitted!</h2>
           <p className="text-gray-400 mb-2">
-            Your promoter agent profile is under review. We'll verify your experience
-            and approve your profile within 24-48 hours.
+            Your application has been submitted for human review. A MiraCulture team member will
+            personally verify your experience, credentials, and social presence before approval.
+          </p>
+          <p className="text-gray-500 text-sm mb-2">
+            This review typically takes 24-48 hours. You'll receive a notification once your profile is approved.
           </p>
           <p className="text-amber-400/80 text-sm mb-6">
             Once approved, you can activate your $19.99/mo subscription from your agent
@@ -286,10 +289,67 @@ export default function AgentRegisterPage() {
               </div>
 
               <div>
-                <label className="block text-gray-400 text-sm mb-1">Profile Photo URL</label>
-                <input type="url" value={form.profileImageUrl} onChange={(e) => set('profileImageUrl', e.target.value)}
-                  className="w-full bg-noir-800 border border-noir-700 rounded-lg px-4 py-2.5 text-warm-50 focus:border-amber-500/50 focus:outline-none"
-                  placeholder="https://..." />
+                <label className="block text-gray-400 text-sm mb-1">Profile Photo</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-full bg-noir-800 border-2 border-dashed border-noir-600 flex items-center justify-center shrink-0 overflow-hidden">
+                    {form.profileImageUrl ? (
+                      <img src={form.profileImageUrl} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      <svg className="w-8 h-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-noir-700 hover:bg-noir-600 border border-noir-600 rounded-lg text-sm text-gray-300 transition-colors">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                      Upload Photo
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 2 * 1024 * 1024) {
+                            setError('Photo must be under 2MB');
+                            return;
+                          }
+                          try {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/upload/profile-image`, {
+                              method: 'POST',
+                              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                              body: formData,
+                            });
+                            if (!res.ok) {
+                              const err = await res.json();
+                              throw new Error(err.error || 'Upload failed');
+                            }
+                            const { url } = await res.json();
+                            set('profileImageUrl', url);
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : 'Photo upload failed');
+                          }
+                        }}
+                      />
+                    </label>
+                    <p className="text-gray-600 text-xs mt-1">JPEG, PNG, WebP or GIF. Max 2MB.</p>
+                    {form.profileImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => set('profileImageUrl', '')}
+                        className="text-red-400/70 hover:text-red-400 text-xs mt-1"
+                      >
+                        Remove photo
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div>

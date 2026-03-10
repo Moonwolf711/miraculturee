@@ -47,6 +47,7 @@ const DevInviteAcceptPage = lazyRetry(() => import('./pages/DevInviteAcceptPage.
 const AgentMarketplacePage = lazyRetry(() => import('./pages/AgentMarketplacePage.js'));
 const AgentRegisterPage = lazyRetry(() => import('./pages/AgentRegisterPage.js'));
 const AgentDashboardPage = lazyRetry(() => import('./pages/AgentDashboardPage.js'));
+const ManagerAcceptPage = lazyRetry(() => import('./pages/ManagerAcceptPage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -208,6 +209,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/manager/accept/:token" element={<ManagerAcceptPage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/terms" element={<TermsOfServicePage />} />
             {/* Catch-all 404 route */}

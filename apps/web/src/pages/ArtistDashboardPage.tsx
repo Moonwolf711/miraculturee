@@ -110,6 +110,12 @@ export default function ArtistDashboardPage() {
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [assigningAgentId, setAssigningAgentId] = useState<string | null>(null);
   const [agentError, setAgentError] = useState('');
+  const [managers, setManagers] = useState<{ id: string; displayName: string; permission: string; bio: string | null; user: { email: string; name: string } }[]>([]);
+  const [managersLoading, setManagersLoading] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [invitePermission, setInvitePermission] = useState<'READ' | 'READ_WRITE'>('READ_WRITE');
+  const [inviteLink, setInviteLink] = useState('');
+  const [creatingInvite, setCreatingInvite] = useState(false);
 
   const fetchDashboard = useCallback(() => {
     setLoading(true);
@@ -131,6 +137,35 @@ export default function ArtistDashboardPage() {
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  const fetchManagers = useCallback(() => {
+    setManagersLoading(true);
+    api.get<{ managers: typeof managers }>('/artist/managers')
+      .then((data) => setManagers(data.managers))
+      .catch(() => setManagers([]))
+      .finally(() => setManagersLoading(false));
+  }, []);
+
+  useEffect(() => { fetchManagers(); }, [fetchManagers]);
+
+  const createInvite = useCallback(async () => {
+    setCreatingInvite(true);
+    try {
+      const { inviteUrl } = await api.post<{ inviteUrl: string }>('/artist/managers/invite', { permission: invitePermission });
+      setInviteLink(inviteUrl);
+    } catch {
+      setInviteLink('');
+    } finally {
+      setCreatingInvite(false);
+    }
+  }, [invitePermission]);
+
+  const removeManager = useCallback(async (id: string) => {
+    try {
+      await api.delete(`/artist/managers/${id}`);
+      fetchManagers();
+    } catch {}
+  }, [fetchManagers]);
 
   const openAgentPicker = useCallback((campaign: CampaignItem) => {
     setAgentPickerCampaign(campaign);
@@ -324,7 +359,7 @@ export default function ArtistDashboardPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-noir-950 rounded-lg p-3 text-center">
                 <div className="font-display text-xl text-warm-50">${(dashboard.discountCents / 100).toFixed(0)}</div>
-                <div className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">Ticket Price</div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">Local Fan Price</div>
               </div>
               <div className="bg-noir-950 rounded-lg p-3 text-center">
                 <div className="font-display text-xl text-warm-50">{dashboard.maxTicketsForLevel}</div>
@@ -510,7 +545,122 @@ export default function ArtistDashboardPage() {
             )}
           </>
         )}
+
+        {/* Manager Section */}
+        <div className="mt-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-xl tracking-wider text-warm-50">MANAGERS</h2>
+            <button
+              onClick={() => { setShowInviteModal(true); setInviteLink(''); }}
+              className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs uppercase tracking-wide font-semibold transition-colors"
+            >
+              + Invite Manager
+            </button>
+          </div>
+
+          {managersLoading ? (
+            <div className="text-gray-500 text-sm py-4">Loading managers...</div>
+          ) : managers.length === 0 ? (
+            <div className="bg-noir-800 border border-noir-700 rounded-xl p-6 text-center">
+              <p className="text-gray-500 text-sm mb-2">No managers added yet.</p>
+              <p className="text-gray-600 text-xs">Share an invite link to add someone who can help manage your campaigns and profile.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {managers.map((m) => (
+                <div key={m.id} className="flex items-center justify-between bg-noir-800 border border-noir-700/50 rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-noir-700 flex items-center justify-center text-amber-400 text-sm font-bold shrink-0">
+                      {m.displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="text-warm-50 text-sm font-medium">{m.displayName}</div>
+                      <div className="text-gray-500 text-xs">{m.user.email}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold ${
+                      m.permission === 'READ_WRITE'
+                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                        : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                    }`}>
+                      {m.permission === 'READ_WRITE' ? 'Read & Write' : 'Read Only'}
+                    </span>
+                    <button
+                      onClick={() => removeManager(m.id)}
+                      className="px-2.5 py-1 text-red-400/70 hover:text-red-400 hover:bg-red-500/10 rounded-lg text-xs transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Manager invite modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowInviteModal(false)}>
+          <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-xl tracking-wider text-warm-50">INVITE MANAGER</h2>
+              <button onClick={() => setShowInviteModal(false)} className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors" aria-label="Close">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">Share a link to invite someone to manage your artist profile and campaigns.</p>
+
+            <div className="mb-4">
+              <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">Permission Level</label>
+              <div className="flex gap-3">
+                {([
+                  { value: 'READ_WRITE' as const, label: 'Read & Write', desc: 'Full management access' },
+                  { value: 'READ' as const, label: 'Read Only', desc: 'View-only access' },
+                ]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setInvitePermission(opt.value)}
+                    className={`flex-1 p-3 border rounded-lg text-center transition-colors ${
+                      invitePermission === opt.value
+                        ? 'border-amber-500 bg-amber-500/5 text-warm-50'
+                        : 'border-noir-700 bg-noir-800 text-gray-400 hover:border-noir-600'
+                    }`}
+                  >
+                    <div className="font-semibold text-sm">{opt.label}</div>
+                    <div className="text-xs text-gray-500 mt-1">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {!inviteLink ? (
+              <button
+                onClick={createInvite}
+                disabled={creatingInvite}
+                className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {creatingInvite ? 'Generating...' : 'Generate Invite Link'}
+              </button>
+            ) : (
+              <div className="bg-noir-950 border border-noir-800 rounded-lg p-4">
+                <p className="text-gray-500 text-xs uppercase tracking-wider font-medium mb-2">Invite Link (expires in 7 days)</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-300 text-sm font-body truncate flex-1">{inviteLink}</span>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(inviteLink).catch(() => {}); }}
+                    className="flex-shrink-0 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Promotion modal */}
       {promotingCampaign && (() => {
