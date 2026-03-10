@@ -1194,56 +1194,6 @@ export default function HomePage() {
         </div>
       </Section>
 
-      {/* ===== 8b. TESTIMONIALS / SOCIAL PROOF ===== */}
-      <Section className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="font-display text-sm tracking-[0.4em] text-amber-500/60 mb-3">
-              FROM THE COMMUNITY
-            </p>
-            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl tracking-widest text-warm-50 text-3d">
-              VOICES
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                quote: "I never thought I'd see my favorite DJ live — the tickets were always $200+ resale. MiraCulture got me in for $5. I literally cried.",
-                name: 'Jordan M.',
-                role: 'Fan, Atlanta',
-              },
-              {
-                quote: "As an artist, knowing that 100% of the support goes directly to me changes everything. No middleman taking 40%. Just me and my fans.",
-                name: 'DJ Solstice',
-                role: 'Artist, Denver',
-              },
-              {
-                quote: "The cryptographic fairness proof is genius. I verified my draw result myself. There's no way to rig this — and that's exactly the point.",
-                name: 'Marcus T.',
-                role: 'Fan & Developer, Austin',
-              },
-            ].map((t) => (
-              <blockquote
-                key={t.name}
-                className="glass-card fresnel-border rounded-xl p-6 flex flex-col"
-              >
-                <svg className="w-8 h-8 text-amber-500/30 mb-4 shrink-0" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-                </svg>
-                <p className="font-body text-gray-300 text-sm leading-relaxed flex-1 mb-5">
-                  {t.quote}
-                </p>
-                <footer className="border-t border-noir-800/60 pt-4">
-                  <p className="font-body text-warm-50 text-sm font-semibold">{t.name}</p>
-                  <p className="font-body text-gray-500 text-xs">{t.role}</p>
-                </footer>
-              </blockquote>
-            ))}
-          </div>
-        </div>
-      </Section>
-
       <hr className="section-divider" />
 
       {/* ===== 9. BOTTOM CTA ===== */}
