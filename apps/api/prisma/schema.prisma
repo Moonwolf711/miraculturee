@@ -729,6 +729,50 @@ model ArtistManager {
   @@index([userId])
 }
 
+// ─── Ticketing Platform Integration Management ───
+
+enum PlatformIntegrationStatus {
+  NOT_STARTED
+  CONTACTED
+  PENDING_APPROVAL
+  API_KEY_RECEIVED
+  ACTIVE
+  REJECTED
+  SUSPENDED
+}
+
+model TicketingPlatform {
+  id              String                    @id @default(uuid())
+  name            String                    @unique
+  displayName     String
+  status          PlatformIntegrationStatus @default(NOT_STARTED)
+  apiKey          String?
+  apiSecret       String?
+  devPortalUrl    String?
+  contactEmail    String?
+  contactedAt     DateTime?
+  approvedAt      DateTime?
+  notes           String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  contactLogs PlatformContactLog[]
+}
+
+model PlatformContactLog {
+  id          String   @id @default(uuid())
+  platformId  String
+  messageType String
+  subject     String
+  body        String
+  sentById    String?
+  sentAt      DateTime @default(now())
+
+  platform TicketingPlatform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+
+  @@index([platformId])
+}
+
 model NewsletterSubscriber {
   id        String   @id @default(uuid())
   email     String   @unique

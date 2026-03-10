@@ -34,6 +34,7 @@ import adminDashboardRoutes from './routes/admin/dashboard.js';
 import adminCleanupRoutes from './routes/admin/cleanup.js';
 import adminRepriceRoutes from './routes/admin/reprice.js';
 import developerRoutes from './routes/admin/developers.js';
+import integrationRoutes from './routes/admin/integrations.js';
 import chatRoutes from './routes/admin/chat.js';
 import { devInviteRoutes } from './routes/dev-invite.js';
 import { publicChatRoutes } from './routes/public-chat.js';
@@ -114,6 +115,7 @@ async function start() {
     await admin.register(adminCleanupRoutes, { prefix: '/cleanup' });
     await admin.register(adminRepriceRoutes);
     await admin.register(developerRoutes, { prefix: '/developers' });
+    await admin.register(integrationRoutes, { prefix: '/integrations' });
   }, { prefix: '/admin' });
   // Admin chat — accessible to ADMIN + DEVELOPER
   await app.register(async function adminChatScope(scope) {

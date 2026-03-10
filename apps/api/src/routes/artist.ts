@@ -35,6 +35,38 @@ export async function artistRoutes(app: FastifyInstance) {
     return artistService.getDashboard(req.user.id);
   });
 
+  /** PUT /artist/profile — update artist's own profile */
+  app.put('/profile', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
+    if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+
+    const { stageName, genre, bio } = req.body as { stageName?: string; genre?: string; bio?: string };
+    const data: Record<string, unknown> = {};
+    if (stageName !== undefined && stageName.trim()) data.stageName = stageName.trim();
+    if (genre !== undefined) data.genre = genre || null;
+    if (bio !== undefined) data.bio = bio || null;
+
+    if (Object.keys(data).length === 0) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    const updated = await app.prisma.artist.update({ where: { id: artist.id }, data });
+    return updated;
+  });
+
+  /** GET /artist/profile — get artist's own profile */
+  app.get('/profile', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const artist = await app.prisma.artist.findUnique({
+      where: { userId: req.user.id },
+      include: {
+        socialAccounts: { select: { provider: true, providerUsername: true, followerCount: true } },
+        _count: { select: { campaigns: true, events: true, managers: true } },
+      },
+    });
+    if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+    return artist;
+  });
+
   app.get('/earnings', { preHandler: [app.authenticate] }, async (req) => {
     return artistService.getEarnings(req.user.id);
   });
