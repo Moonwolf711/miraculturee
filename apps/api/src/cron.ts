@@ -33,7 +33,6 @@ export function setupCronJobs(app: FastifyInstance) {
         return;
       }
 
-      const dmaIds = ['751', '803', '501', '602'];
       const allResults: any[] = [];
 
       // Sync music events (Ticketmaster + EDMTrain)
@@ -47,7 +46,6 @@ export function setupCronJobs(app: FastifyInstance) {
               countryCode: 'US',
               classificationName: 'music',
               daysAhead: 90,
-              dmaIds,
             },
           }),
           ...(edmtrainApiKey && {
@@ -71,14 +69,13 @@ export function setupCronJobs(app: FastifyInstance) {
               countryCode: 'US',
               classificationName: 'sports',
               daysAhead: 90,
-              dmaIds,
             },
           },
         );
         allResults.push(...await sportsService.syncAll());
       }
 
-      // Sync comedy events (Ticketmaster only — segment "Arts & Theatre", genre "Comedy")
+      // Sync comedy events (Ticketmaster only — "comedy" is a genre, not a segment, so use keyword)
       if (ticketmasterApiKey) {
         const comedyService = new EventIngestionService(
           app.prisma,
@@ -87,9 +84,8 @@ export function setupCronJobs(app: FastifyInstance) {
             ticketmaster: {
               apiKey: ticketmasterApiKey,
               countryCode: 'US',
-              classificationName: 'comedy',
+              keyword: 'comedy',
               daysAhead: 90,
-              dmaIds,
             },
           },
         );

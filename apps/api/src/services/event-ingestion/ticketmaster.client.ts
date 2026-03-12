@@ -16,7 +16,8 @@ export interface TicketmasterConfig {
   markets?: string[]; // e.g., ['denver', 'los-angeles']
   dmaIds?: string[]; // e.g., ['751', '803']
   countryCode?: string; // e.g., 'US'
-  classificationName?: string; // e.g., 'music'
+  classificationName?: string; // e.g., 'music', 'sports'
+  keyword?: string; // e.g., 'comedy' — broader search than classificationName
   daysAhead?: number; // How many days in the future to fetch
 }
 
@@ -193,9 +194,14 @@ export class TicketmasterClient {
       params.append('dmaId', this.config.dmaIds.join(','));
     }
 
-    // Classification filter (e.g., music)
+    // Classification filter (e.g., music, sports)
     if (this.config.classificationName) {
       params.append('classificationName', this.config.classificationName);
+    }
+
+    // Keyword filter (broader than classification, e.g., 'comedy')
+    if (this.config.keyword) {
+      params.append('keyword', this.config.keyword);
     }
 
     // Date range: today to X days ahead
