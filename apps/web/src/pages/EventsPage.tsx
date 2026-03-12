@@ -519,7 +519,7 @@ export default function EventsPage() {
                   {/* Price (incl. fees) — always visible, never cut off */}
                   <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 text-right border-l border-noir-700">
                     <span className="font-display text-lg text-amber-400 leading-none">
-                      {event.ticketPriceCents === 0
+                      {event.status === 'AWAITING_ARTIST' || event.ticketPriceCents === 0
                         ? 'TBD'
                         : event.maxPriceCents && event.maxPriceCents !== event.ticketPriceCents
                           ? `${formatPrice(event.ticketPriceCents)}\u2013${formatPrice(event.maxPriceCents)}`

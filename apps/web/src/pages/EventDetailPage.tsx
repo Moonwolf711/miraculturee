@@ -606,20 +606,20 @@ export default function EventDetailPage() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Ticket price</span>
                 <span className="text-warm-50 font-medium">
-                  {event.ticketPriceCents === 0
+                  {event.status === 'AWAITING_ARTIST' || event.ticketPriceCents === 0
                     ? 'Price TBD'
                     : event.maxPriceCents && event.maxPriceCents !== event.ticketPriceCents
                       ? `${formatPrice(event.ticketPriceCents)} \u2013 ${formatPrice(event.maxPriceCents)}`
                       : formatPrice(event.ticketPriceCents)}
                 </span>
               </div>
-              {event.ticketPriceCents > 0 && (
+              {event.status !== 'AWAITING_ARTIST' && event.ticketPriceCents > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">+ platform fee</span>
                   <span className="text-gray-500 font-medium">{formatPrice(SUPPORT_FEE_PER_TICKET_CENTS)}</span>
                 </div>
               )}
-              {event.priceSource && event.priceSource !== 'manual' && event.ticketPriceCents > 0 && (
+              {event.status !== 'AWAITING_ARTIST' && event.priceSource && event.priceSource !== 'manual' && event.ticketPriceCents > 0 && (
                 <div className="text-[10px] text-gray-600 mt-1">
                   {event.priceSource === 'ticketmaster' || event.priceSource === 'ticketmaster_crossref'
                     ? 'Face value via Ticketmaster (venue fees may apply)'
