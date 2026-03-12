@@ -45,13 +45,16 @@ interface UserLocation {
   lng: number;
 }
 
-const DATE_RANGES = [
-  { label: 'Any Date', value: '' },
-  { label: 'This Week', value: 'week' },
-  { label: 'This Month', value: 'month' },
-  { label: 'Next 3 Months', value: '3months' },
-  { label: 'Next 6 Months', value: '6months' },
-];
+/** Format a local YYYY-MM-DD date string to start-of-day ISO for the API */
+function localDateToISO(dateStr: string): string | undefined {
+  if (!dateStr) return undefined;
+  return new Date(dateStr + 'T00:00:00').toISOString();
+}
+/** Format end-of-day so the entire selected day is included */
+function localDateToEndISO(dateStr: string): string | undefined {
+  if (!dateStr) return undefined;
+  return new Date(dateStr + 'T23:59:59').toISOString();
+}
 
 const SORT_OPTIONS: { label: string; value: SortKey }[] = [
   { label: 'Nearest', value: 'distance' },
@@ -59,19 +62,8 @@ const SORT_OPTIONS: { label: string; value: SortKey }[] = [
   { label: 'Date', value: 'date' },
 ];
 
-function getDateRange(value: string): { dateFrom?: string; dateTo?: string } {
-  if (!value) return {};
-  const now = new Date();
-  const from = now.toISOString();
-  const to = new Date(now);
-  switch (value) {
-    case 'week': to.setDate(to.getDate() + 7); break;
-    case 'month': to.setMonth(to.getMonth() + 1); break;
-    case '3months': to.setMonth(to.getMonth() + 3); break;
-    case '6months': to.setMonth(to.getMonth() + 6); break;
-  }
-  return { dateFrom: from, dateTo: to.toISOString() };
-}
+/** Today in YYYY-MM-DD for the date input min attribute */
+const TODAY_STR = new Date().toISOString().split('T')[0];
 
 export default function EventsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -81,8 +73,8 @@ export default function EventsPage() {
   const [activeTab, setActiveTab] = useState<EventTypeFilter>(initialTab as EventTypeFilter);
   const [events, setEvents] = useState<PaginatedEvents | null>(null);
   const [cityFilter, setCityFilter] = useState('');
-  const [genreFilter, setGenreFilter] = useState('');
-  const [dateRange, setDateRange] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
   const [activeSorts, setActiveSorts] = useState<SortKey[]>(['popular', 'date']);
   const [currentPage, setCurrentPage] = useState(initialPage);
@@ -131,26 +123,24 @@ export default function EventsPage() {
   }, []);
 
   const currentFilters = useCallback(() => {
-    const { dateFrom, dateTo } = getDateRange(dateRange);
     // Build compound sort string — filter out distance if no location
     const sortKeys = activeSorts.filter((s) => s !== 'distance' || userLocation);
     return {
       q: search || undefined,
       city: cityFilter || undefined,
-      genre: genreFilter || undefined,
       type: activeTab,
-      dateFrom,
-      dateTo,
+      dateFrom: localDateToISO(dateFrom),
+      dateTo: localDateToEndISO(dateTo || dateFrom),
       sort: sortKeys.length > 0 ? sortKeys.join(',') : 'date',
       lat: userLocation?.lat,
       lng: userLocation?.lng,
     };
-  }, [cityFilter, search, genreFilter, dateRange, activeTab, activeSorts, userLocation]);
+  }, [cityFilter, search, dateFrom, dateTo, activeTab, activeSorts, userLocation]);
 
   // Load events when filters change
   useEffect(() => {
     loadEvents({ ...currentFilters(), page: 1 });
-  }, [loadEvents, activeTab, cityFilter, genreFilter, dateRange, activeSorts, userLocation]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadEvents, activeTab, cityFilter, dateFrom, dateTo, activeSorts, userLocation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTabChange = (tab: EventTypeFilter) => {
     setActiveTab(tab);
@@ -172,15 +162,15 @@ export default function EventsPage() {
 
   const clearFilters = () => {
     setCityFilter('');
-    setGenreFilter('');
-    setDateRange('');
+    setDateFrom('');
+    setDateTo('');
     setSearch('');
     setActiveSorts(userLocation ? ['distance', 'popular', 'date'] : ['popular', 'date']);
     setLocationDenied(false);
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = !!(cityFilter || genreFilter || dateRange || search);
+  const hasActiveFilters = !!(cityFilter || dateFrom || dateTo || search);
 
   /* ---------- WebSocket real-time ticket count updates ---------- */
   const handleWSMessage = useCallback(
@@ -402,36 +392,27 @@ export default function EventsPage() {
               </select>
             </div>
 
-            {/* Date range dropdown */}
-            <div className="w-full sm:w-auto sm:min-w-[150px]">
-              <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Date</label>
-              <select
-                value={dateRange}
-                onChange={(e) => { setDateRange(e.target.value); setCurrentPage(1); }}
+            {/* Date pickers — from / to */}
+            <div className="w-full sm:w-auto sm:min-w-[140px]">
+              <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">From</label>
+              <input
+                type="date"
+                value={dateFrom}
+                min={TODAY_STR}
+                onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
                 className={`${selectClass} w-full`}
-              >
-                {DATE_RANGES.map((d) => (
-                  <option key={d.value} value={d.value}>{d.label}</option>
-                ))}
-              </select>
+              />
             </div>
-
-            {/* Genre dropdown */}
-            {filterOptions.genres.length > 0 && (
-              <div className="w-full sm:w-auto sm:min-w-[150px]">
-                <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Genre</label>
-                <select
-                  value={genreFilter}
-                  onChange={(e) => { setGenreFilter(e.target.value); setCurrentPage(1); }}
-                  className={`${selectClass} w-full`}
-                >
-                  <option value="">All Genres</option>
-                  {filterOptions.genres.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className="w-full sm:w-auto sm:min-w-[140px]">
+              <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">To</label>
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || TODAY_STR}
+                onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
+                className={`${selectClass} w-full`}
+              />
+            </div>
 
             {/* Clear filters */}
             {hasActiveFilters && (
