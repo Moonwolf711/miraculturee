@@ -296,7 +296,9 @@ export class EventIngestionService {
         const priceSource = ext.minPriceCents
           ? (ext.source === 'ticketmaster' ? 'ticketmaster' : 'ticketmaster_crossref')
           : 'unknown';
-        const isFestival = ext.category === 'Festival' || ext.title.toLowerCase().includes('festival');
+        const eventType = EventNormalizer.resolveEventType(ext.category, ext.title);
+        // Also check genre field for comedy classification from Ticketmaster
+        const resolvedType = (ext.genre?.toLowerCase() === 'comedy') ? 'COMEDY' as const : eventType;
 
         const event = await this.prisma.event.create({
           data: {
@@ -313,9 +315,9 @@ export class EventIngestionService {
             maxPriceCents,
             priceSource,
             feesIncluded: false,
-            totalTickets: isFestival ? 500 : 200,
+            totalTickets: resolvedType === 'FESTIVAL' ? 500 : resolvedType === 'SPORTS' ? 1000 : 200,
             localRadiusKm: 50,
-            type: isFestival ? 'FESTIVAL' : 'SHOW',
+            type: resolvedType,
             status: 'AWAITING_ARTIST',
           },
         });

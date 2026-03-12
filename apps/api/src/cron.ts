@@ -33,7 +33,11 @@ export function setupCronJobs(app: FastifyInstance) {
         return;
       }
 
-      const ingestionService = new EventIngestionService(
+      const dmaIds = ['751', '803', '501', '602'];
+      const allResults: any[] = [];
+
+      // Sync music events (Ticketmaster + EDMTrain)
+      const musicService = new EventIngestionService(
         app.prisma,
         app.log,
         {
@@ -43,7 +47,7 @@ export function setupCronJobs(app: FastifyInstance) {
               countryCode: 'US',
               classificationName: 'music',
               daysAhead: 90,
-              dmaIds: ['751', '803', '501', '602'],
+              dmaIds,
             },
           }),
           ...(edmtrainApiKey && {
@@ -54,13 +58,48 @@ export function setupCronJobs(app: FastifyInstance) {
           }),
         },
       );
+      allResults.push(...await musicService.syncAll());
 
-      const results = await ingestionService.syncAll();
+      // Sync sports events (Ticketmaster only)
+      if (ticketmasterApiKey) {
+        const sportsService = new EventIngestionService(
+          app.prisma,
+          app.log,
+          {
+            ticketmaster: {
+              apiKey: ticketmasterApiKey,
+              countryCode: 'US',
+              classificationName: 'sports',
+              daysAhead: 90,
+              dmaIds,
+            },
+          },
+        );
+        allResults.push(...await sportsService.syncAll());
+      }
+
+      // Sync comedy events (Ticketmaster only — segment "Arts & Theatre", genre "Comedy")
+      if (ticketmasterApiKey) {
+        const comedyService = new EventIngestionService(
+          app.prisma,
+          app.log,
+          {
+            ticketmaster: {
+              apiKey: ticketmasterApiKey,
+              countryCode: 'US',
+              classificationName: 'comedy',
+              daysAhead: 90,
+              dmaIds,
+            },
+          },
+        );
+        allResults.push(...await comedyService.syncAll());
+      }
 
       // Auto-publish discovered events to main Event table
-      const publishResult = await ingestionService.publishExternalEvents();
+      const publishResult = await musicService.publishExternalEvents();
 
-      app.log.info({ results, published: publishResult }, 'Scheduled event sync completed');
+      app.log.info({ results: allResults, published: publishResult }, 'Scheduled event sync completed');
     } catch (error) {
       app.log.error({ error }, 'Scheduled event sync failed');
     }
@@ -100,11 +139,15 @@ export function setupCronJobs(app: FastifyInstance) {
           dayBefore.setDate(dayBefore.getDate() - 1);
           const dayAfter = new Date(eventDate);
           dayAfter.setDate(dayAfter.getDate() + 1);
+          // Map event type to Ticketmaster classification for repricing
+          const tmClassification = event.type === 'SPORTS' ? 'sports'
+            : event.type === 'COMEDY' ? 'comedy'
+              : 'music';
           const params = new URLSearchParams({
             apikey: apiKey,
             keyword: artistName.split(',')[0].trim(),
             size: '5',
-            classificationName: 'music',
+            classificationName: tmClassification,
             startDateTime: dayBefore.toISOString().replace(/\.\d{3}Z$/, 'Z'),
             endDateTime: dayAfter.toISOString().replace(/\.\d{3}Z$/, 'Z'),
           });

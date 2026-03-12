@@ -107,9 +107,30 @@ export class EventNormalizer {
       
       genre,
       category: classification?.segment?.name || null,
-      
+
       rawData: event,
     };
+  }
+
+  /**
+   * Determine the MiraCulture EventType from a Ticketmaster classification segment.
+   * Ticketmaster segments: Music, Sports, Arts & Theatre, Film, Miscellaneous, etc.
+   */
+  static resolveEventType(category: string | null, title: string): 'SHOW' | 'FESTIVAL' | 'SPORTS' | 'COMEDY' {
+    const cat = (category || '').toLowerCase();
+    const t = title.toLowerCase();
+
+    if (cat === 'sports') return 'SPORTS';
+
+    // Comedy lives under "Arts & Theatre" in Ticketmaster but has genre "Comedy"
+    // Also check title keywords
+    if (cat === 'comedy' || t.includes('comedy') || t.includes('stand-up') || t.includes('standup')) {
+      return 'COMEDY';
+    }
+
+    if (cat === 'festival' || t.includes('festival')) return 'FESTIVAL';
+
+    return 'SHOW';
   }
 
   /**
