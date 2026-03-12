@@ -1,0 +1,3 @@
+-- Add SPORTS and COMEDY to EventType enum
+ALTER TYPE "EventType" ADD VALUE 'SPORTS';
+ALTER TYPE "EventType" ADD VALUE 'COMEDY';

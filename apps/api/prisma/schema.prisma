@@ -74,6 +74,8 @@ enum DirectTicketStatus {
 enum EventType {
   SHOW
   FESTIVAL
+  SPORTS
+  COMEDY
 }
 
 enum ExternalEventStatus {

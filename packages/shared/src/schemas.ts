@@ -77,6 +77,7 @@ export const CreateEventSchema = z.object({
   date: z.string().datetime(),
   ticketPriceCents: z.number().int().min(100),
   totalTickets: z.number().int().min(1).max(100000),
+  type: z.enum(['SHOW', 'FESTIVAL', 'SPORTS', 'COMEDY']).default('SHOW'),
   localRadiusKm: z.number().min(1).max(500).default(50),
 });
 
@@ -86,7 +87,7 @@ export const EventSearchSchema = z.object({
   city: z.string().optional(),
   artistName: z.string().optional(),
   genre: z.string().optional(),
-  type: z.enum(['SHOW', 'FESTIVAL']).optional(),
+  type: z.enum(['SHOW', 'FESTIVAL', 'SPORTS', 'COMEDY']).optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),

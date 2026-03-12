@@ -8,7 +8,7 @@ import { CardSkeleton, InlineError } from '../components/LoadingStates.js';
 import ShareButton from '../components/ShareButton.js';
 import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
 
-type EventTypeFilter = 'SHOW' | 'FESTIVAL';
+type EventTypeFilter = 'SHOW' | 'FESTIVAL' | 'SPORTS' | 'COMEDY';
 type SortKey = 'distance' | 'popular' | 'date';
 
 interface EventSummary {
@@ -75,7 +75,8 @@ function getDateRange(value: string): { dateFrom?: string; dateTo?: string } {
 
 export default function EventsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get('type') === 'FESTIVAL' ? 'FESTIVAL' : 'SHOW';
+  const paramType = searchParams.get('type') as EventTypeFilter | null;
+  const initialTab: EventTypeFilter = paramType && ['SHOW', 'FESTIVAL', 'SPORTS', 'COMEDY'].includes(paramType) ? paramType : 'SHOW';
   const initialPage = Number(searchParams.get('page')) || 1;
   const [activeTab, setActiveTab] = useState<EventTypeFilter>(initialTab as EventTypeFilter);
   const [events, setEvents] = useState<PaginatedEvents | null>(null);
@@ -154,7 +155,7 @@ export default function EventsPage() {
   const handleTabChange = (tab: EventTypeFilter) => {
     setActiveTab(tab);
     setCurrentPage(1);
-    setSearchParams(tab === 'SHOW' ? {} : { type: tab });
+    setSearchParams(tab === 'SHOW' ? {} : { type: tab as string });
   };
 
   const handlePageChange = (page: number) => {
@@ -219,41 +220,65 @@ export default function EventsPage() {
   return (
     <div className="bg-noir-950 min-h-screen">
       <SEO
-        title={activeTab === 'FESTIVAL' ? 'Upcoming Festivals' : 'Upcoming Shows'}
-        description={activeTab === 'FESTIVAL'
-          ? 'Browse upcoming EDM festivals on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan.'
-          : 'Browse upcoming live music events on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan.'}
+        title={
+          activeTab === 'FESTIVAL' ? 'Upcoming Festivals'
+            : activeTab === 'SPORTS' ? 'Sports Events'
+              : activeTab === 'COMEDY' ? 'Comedy Shows'
+                : 'Upcoming Shows'
+        }
+        description={
+          activeTab === 'FESTIVAL'
+            ? 'Browse upcoming EDM festivals on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan.'
+            : activeTab === 'SPORTS'
+              ? 'Browse upcoming sports events on MiraCulture. Face-value tickets, no scalpers, no bots.'
+              : activeTab === 'COMEDY'
+                ? 'Browse upcoming comedy shows on MiraCulture. Face-value tickets, no scalpers, no bots.'
+                : 'Browse upcoming live music events on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan.'
+        }
         type="website"
         jsonLd={getBreadcrumbSchema([
           { name: 'Home', url: 'https://mira-culture.com/' },
-          { name: activeTab === 'FESTIVAL' ? 'Festivals' : 'Events', url: 'https://mira-culture.com/events' },
+          { name: activeTab === 'FESTIVAL' ? 'Festivals' : activeTab === 'SPORTS' ? 'Sports' : activeTab === 'COMEDY' ? 'Comedy' : 'Events', url: 'https://mira-culture.com/events' },
         ])}
       />
       <div className="max-w-5xl mx-auto px-6 pt-16 pb-8">
         {/* Title */}
         <div className="mb-6">
-          <p className="font-display text-xs tracking-[0.4em] text-amber-500/60 mb-2">LIVE MUSIC</p>
+          <p className="font-display text-xs tracking-[0.4em] text-amber-500/60 mb-2">
+            {activeTab === 'SPORTS' ? 'SPORTS' : activeTab === 'COMEDY' ? 'COMEDY' : 'LIVE MUSIC'}
+          </p>
           <h1 className="font-display text-4xl md:text-5xl tracking-wider text-warm-50">
-            {activeTab === 'FESTIVAL' ? 'UPCOMING FESTIVALS' : 'UPCOMING SHOWS'}
+            {activeTab === 'FESTIVAL' ? 'UPCOMING FESTIVALS'
+              : activeTab === 'SPORTS' ? 'SPORTS EVENTS'
+                : activeTab === 'COMEDY' ? 'COMEDY SHOWS'
+                  : 'UPCOMING SHOWS'}
           </h1>
           <div className="mt-4 h-px w-24 bg-gradient-to-r from-amber-500/50 to-transparent" aria-hidden="true" />
         </div>
 
-        {/* Shows / Festivals tabs */}
-        <div className="flex gap-1 mb-6 border-b border-noir-700" role="tablist" aria-label="Event type">
-          {(['SHOW', 'FESTIVAL'] as const).map((tab) => (
+        {/* Event type tabs */}
+        <div className="flex gap-1 mb-6 border-b border-noir-700 overflow-x-auto" role="tablist" aria-label="Event type">
+          {([
+            { key: 'SHOW', label: 'Shows' },
+            { key: 'FESTIVAL', label: 'Festivals' },
+            { key: 'SPORTS', label: 'Sports' },
+            { key: 'COMEDY', label: 'Comedy' },
+          ] as const).map(({ key, label }) => (
             <button
-              key={tab}
+              key={key}
               role="tab"
-              aria-selected={activeTab === tab}
-              onClick={() => handleTabChange(tab)}
-              className={`px-5 py-3 font-body text-sm tracking-wide uppercase transition-all duration-300 border-b-2 -mb-px ${
-                activeTab === tab
+              aria-selected={activeTab === key}
+              onClick={() => handleTabChange(key)}
+              className={`px-5 py-3 font-body text-sm tracking-wide uppercase transition-all duration-300 border-b-2 -mb-px whitespace-nowrap ${
+                activeTab === key
                   ? 'border-amber-500 text-amber-400'
                   : 'border-transparent text-gray-500 hover:text-gray-300'
               }`}
             >
-              {tab === 'SHOW' ? 'Shows' : 'Festivals'}
+              {label}
+              {(key === 'SPORTS' || key === 'COMEDY') && (
+                <span className="ml-1.5 text-[9px] font-display tracking-widest text-amber-500/50 align-top">BETA</span>
+              )}
             </button>
           ))}
         </div>
@@ -556,7 +581,12 @@ export default function EventsPage() {
         {/* Result count */}
         {events && events.total > 0 && (
           <p className="mt-4 text-center font-body text-gray-500 text-xs">
-            {events.total} {activeTab === 'FESTIVAL' ? 'festivals' : 'shows'} found
+            {events.total} {
+              activeTab === 'FESTIVAL' ? 'festivals'
+                : activeTab === 'SPORTS' ? 'sports events'
+                  : activeTab === 'COMEDY' ? 'comedy shows'
+                    : 'shows'
+            } found
           </p>
         )}
       </div>

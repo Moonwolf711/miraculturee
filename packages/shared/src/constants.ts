@@ -14,6 +14,8 @@ export type Role = (typeof ROLES)[keyof typeof ROLES];
 export const EVENT_TYPE = {
   SHOW: 'SHOW',
   FESTIVAL: 'FESTIVAL',
+  SPORTS: 'SPORTS',
+  COMEDY: 'COMEDY',
 } as const;
 
 /** Union type of event types. */

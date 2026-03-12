@@ -43,8 +43,10 @@ export class EventService {
     date: string;
     ticketPriceCents: number;
     totalTickets: number;
+    type?: string;
     localRadiusKm: number;
   }): Promise<EventDetail> {
+    const eventType = data.type as 'SHOW' | 'FESTIVAL' | 'SPORTS' | 'COMEDY' | undefined;
     const event = await this.prisma.event.create({
       data: {
         artistId,
@@ -57,6 +59,7 @@ export class EventService {
         date: new Date(data.date),
         ticketPriceCents: data.ticketPriceCents,
         totalTickets: data.totalTickets,
+        ...(eventType ? { type: eventType } : {}),
         localRadiusKm: data.localRadiusKm,
         status: 'PUBLISHED',
       },
