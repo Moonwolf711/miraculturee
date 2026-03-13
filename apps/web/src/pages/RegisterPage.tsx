@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
+import { useProviders } from '../hooks/useProviders.js';
 import SEO from '../components/SEO.js';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -12,6 +13,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
+  const { providers, hasSocial } = useProviders();
   const navigate = useNavigate();
 
   const handleSocialLogin = (provider: string) => {
@@ -119,15 +121,17 @@ export default function RegisterPage() {
             </div>
           </form>
 
-            {/* Divider */}
+            {/* Divider + Social login buttons — only show configured providers */}
+            {hasSocial && (
+            <>
             <div className="flex items-center gap-3 my-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
               <div className="flex-1 h-px bg-gradient-to-r from-transparent via-noir-700 to-transparent" />
               <span className="text-gray-600 text-xs uppercase tracking-wider">or sign up with</span>
               <div className="flex-1 h-px bg-gradient-to-r from-transparent via-noir-700 to-transparent" />
             </div>
 
-            {/* Social login buttons */}
             <div className="grid grid-cols-2 gap-3 animate-fade-in-up" style={{ animationDelay: '0.45s' }}>
+              {providers.google && (
               <button
                 onClick={() => handleSocialLogin('google')}
                 disabled={loading}
@@ -141,6 +145,8 @@ export default function RegisterPage() {
                 </svg>
                 Google
               </button>
+              )}
+              {providers.facebook && (
               <button
                 onClick={() => handleSocialLogin('facebook')}
                 disabled={loading}
@@ -151,6 +157,8 @@ export default function RegisterPage() {
                 </svg>
                 Facebook
               </button>
+              )}
+              {providers.apple && (
               <button
                 onClick={() => handleSocialLogin('apple')}
                 disabled={loading}
@@ -161,6 +169,8 @@ export default function RegisterPage() {
                 </svg>
                 Apple
               </button>
+              )}
+              {providers.microsoft && (
               <button
                 onClick={() => handleSocialLogin('microsoft')}
                 disabled={loading}
@@ -174,7 +184,10 @@ export default function RegisterPage() {
                 </svg>
                 Microsoft
               </button>
+              )}
             </div>
+            </>
+            )}
 
           <p className="text-sm text-gray-400 mt-6 text-center animate-fade-in" style={{ animationDelay: '0.55s' }}>
             Already have an account?{' '}

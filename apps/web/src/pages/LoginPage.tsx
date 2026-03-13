@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
+import { useProviders } from '../hooks/useProviders.js';
 import SEO from '../components/SEO.js';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [twoFactorState, setTwoFactorState] = useState<{ tempToken: string } | null>(null);
   const [totpCode, setTotpCode] = useState('');
   const { login, loginWith2FA, loginWithPasskey } = useAuth();
+  const { providers, hasSocial } = useProviders();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = (location.state as { from?: string })?.from || '/events';
@@ -176,7 +178,7 @@ export default function LoginPage() {
                 </div>
               </form>
 
-              {/* Divider */}
+              {/* Divider — show when passkey or social login is available */}
               <div className="flex items-center gap-3 my-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent via-noir-700 to-transparent" />
                 <span className="text-gray-600 text-xs uppercase tracking-wider">or</span>
@@ -198,8 +200,10 @@ export default function LoginPage() {
               </button>
               </div>
 
-              {/* Social login buttons */}
+              {/* Social login buttons — only show configured providers */}
+              {hasSocial && (
               <div className="grid grid-cols-2 gap-3 animate-fade-in-up" style={{ animationDelay: '0.5s' }}>
+                {providers.google && (
                 <button
                   onClick={() => handleSocialLogin('google')}
                   disabled={loading}
@@ -213,6 +217,8 @@ export default function LoginPage() {
                   </svg>
                   Google
                 </button>
+                )}
+                {providers.facebook && (
                 <button
                   onClick={() => handleSocialLogin('facebook')}
                   disabled={loading}
@@ -223,6 +229,8 @@ export default function LoginPage() {
                   </svg>
                   Facebook
                 </button>
+                )}
+                {providers.apple && (
                 <button
                   onClick={() => handleSocialLogin('apple')}
                   disabled={loading}
@@ -233,6 +241,8 @@ export default function LoginPage() {
                   </svg>
                   Apple
                 </button>
+                )}
+                {providers.microsoft && (
                 <button
                   onClick={() => handleSocialLogin('microsoft')}
                   disabled={loading}
@@ -246,7 +256,9 @@ export default function LoginPage() {
                   </svg>
                   Microsoft
                 </button>
+                )}
               </div>
+              )}
             </>
           )}
 
