@@ -75,6 +75,7 @@ export const mockEventDetail = {
       status: 'OPEN',
       availableTickets: 10,
       totalEntries: 45,
+      uniqueEntrants: 8,
       drawTime: '2026-07-14T18:00:00Z',
     },
   ],
@@ -181,5 +182,26 @@ export const handlers = [
       totalCents: 5500,
       clientSecret: 'pi_ticket_secret',
     });
+  }),
+
+  /* Raffle free entry check */
+  http.get(`${BASE}/raffle/free-entry`, () => {
+    return HttpResponse.json({ freeEntryAvailable: false });
+  }),
+
+  /* Auth providers */
+  http.get(`${BASE}/auth/providers`, () => {
+    return HttpResponse.json({
+      google: false,
+      facebook: false,
+      apple: false,
+      microsoft: false,
+      tidal: false,
+    });
+  }),
+
+  /* User notifications */
+  http.get(`${BASE}/user/notifications`, () => {
+    return HttpResponse.json({ data: [], total: 0 });
   }),
 ];

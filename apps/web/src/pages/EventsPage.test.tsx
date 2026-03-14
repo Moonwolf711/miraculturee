@@ -53,28 +53,26 @@ describe('EventsPage', () => {
     expect(screen.getByText(/Austin/)).toBeInTheDocument();
   });
 
-  it('displays ticket prices', async () => {
+  it('displays ticket prices including platform fee', async () => {
     renderWithProviders(<EventsPage />, {
       routerProps: { initialEntries: ['/events'] },
     });
 
     await screen.findByText('Summer Vibes Tour');
-    expect(screen.getByText('$50.00')).toBeInTheDocument();
-    expect(screen.getByText('$75.00')).toBeInTheDocument();
+    // Prices include $5 platform fee: $50+$5=$55, $75+$5=$80
+    expect(screen.getByText('$55.00')).toBeInTheDocument();
+    expect(screen.getByText('$80.00')).toBeInTheDocument();
   });
 
-  it('shows progress bars with supported ticket counts', async () => {
+  it('shows supported ticket counts', async () => {
     renderWithProviders(<EventsPage />, {
       routerProps: { initialEntries: ['/events'] },
     });
 
     await screen.findByText('Summer Vibes Tour');
 
-    expect(screen.getByText('75/200')).toBeInTheDocument();
-    expect(screen.getByText('120/150')).toBeInTheDocument();
-
-    const progressBars = screen.getAllByRole('progressbar');
-    expect(progressBars.length).toBe(2);
+    expect(screen.getByText('75 supported')).toBeInTheDocument();
+    expect(screen.getByText('120 supported')).toBeInTheDocument();
   });
 
   it('page title renders', async () => {
@@ -180,7 +178,7 @@ describe('EventsPage', () => {
       });
 
       await screen.findByText('Summer Vibes Tour');
-      expect(screen.getByText('75/200')).toBeInTheDocument();
+      expect(screen.getByText('75 supported')).toBeInTheDocument();
 
       // Get the onMessage callback that was passed to useWebSocket.
       // The component wraps handleWSMessage with useCallback, so
@@ -202,7 +200,7 @@ describe('EventsPage', () => {
       });
 
       // Verify DOM updates with the new values
-      expect(screen.getByText('100/200')).toBeInTheDocument();
+      expect(screen.getByText('100 supported')).toBeInTheDocument();
     });
   });
 });

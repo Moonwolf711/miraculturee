@@ -46,12 +46,11 @@ describe('Layout', () => {
       </Layout>,
     );
 
-    // The logo text "M" and "iraCulture" appear in header and footer.
-    // Use getAllByText and verify at least one exists.
+    // The header logo renders as M + ☝️ + ra + Culture in separate spans.
     const mLetters = screen.getAllByText('M');
     expect(mLetters.length).toBeGreaterThanOrEqual(1);
-    const brandTexts = screen.getAllByText('iraCulture');
-    expect(brandTexts.length).toBeGreaterThanOrEqual(1);
+    const cultureTexts = screen.getAllByText('Culture');
+    expect(cultureTexts.length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders children in main content area', () => {
