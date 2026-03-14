@@ -168,16 +168,8 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
         return redirectWithError(reply, 'invalid_state');
       }
 
-      let tokens: OAuth2Tokens;
       try {
-        tokens = await google.validateAuthorizationCode(code, entry.codeVerifier);
-      } catch (err) {
-        app.log.error(err, 'Google OAuth token exchange failed');
-        const msg = err instanceof Error ? err.message : String(err);
-        return redirectWithError(reply, `google_token_error:${encodeURIComponent(msg.slice(0, 100))}`);
-      }
-
-      try {
+        const tokens: OAuth2Tokens = await google.validateAuthorizationCode(code, entry.codeVerifier);
         const idToken = tokens.idToken();
         const claims = decodeIdToken(idToken) as {
           sub: string;
@@ -195,9 +187,9 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
 
         return redirectWithTokens(reply, result);
       } catch (err) {
-        app.log.error(err, 'Google OAuth login/register failed');
         const msg = err instanceof Error ? err.message : String(err);
-        return redirectWithError(reply, `google_login_error:${encodeURIComponent(msg.slice(0, 100))}`);
+        app.log.error({ err, detail: msg }, 'Google OAuth callback failed');
+        return redirectWithError(reply, 'google_failed');
       }
     });
 
