@@ -101,12 +101,28 @@ function OAuthCallback() {
     const params = new URLSearchParams(window.location.search);
     const accessToken = params.get('accessToken');
     const refreshToken = params.get('refreshToken');
+    const error = params.get('error');
     if (accessToken && refreshToken) {
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       refreshUser().then(() => navigate('/events', { replace: true }));
     } else {
-      navigate('/login', { replace: true });
+      const errorMessages: Record<string, string> = {
+        google_denied: 'Google login was cancelled.',
+        google_failed: 'Google login failed. Please try again.',
+        facebook_denied: 'Facebook login was cancelled.',
+        facebook_failed: 'Facebook login failed. Please try again.',
+        facebook_no_email: 'Facebook did not provide an email address.',
+        apple_denied: 'Apple login was cancelled.',
+        apple_failed: 'Apple login failed. Please try again.',
+        apple_no_email: 'Apple did not provide an email address.',
+        microsoft_denied: 'Microsoft login was cancelled.',
+        microsoft_failed: 'Microsoft login failed. Please try again.',
+        microsoft_no_email: 'Microsoft did not provide an email address.',
+        invalid_state: 'Login session expired. Please try again.',
+      };
+      const msg = error ? errorMessages[error] || `Login failed: ${error}` : 'Login failed. Please try again.';
+      navigate('/login', { replace: true, state: { oauthError: msg } });
     }
   }, [navigate, refreshUser]);
   return <PageFallback />;

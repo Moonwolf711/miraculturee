@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useProviders } from '../hooks/useProviders.js';
@@ -17,7 +17,16 @@ export default function LoginPage() {
   const { providers, hasSocial } = useProviders();
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectTo = (location.state as { from?: string })?.from || '/events';
+  const locationState = location.state as { from?: string; oauthError?: string } | null;
+  const redirectTo = locationState?.from || '/events';
+
+  // Show OAuth error from redirect if present
+  useEffect(() => {
+    if (locationState?.oauthError) {
+      setError(locationState.oauthError);
+      window.history.replaceState({}, '');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
