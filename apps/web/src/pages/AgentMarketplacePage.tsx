@@ -10,6 +10,7 @@ interface AgentProfile {
   state: string;
   city: string;
   profileImageUrl: string | null;
+  bannerImageUrl: string | null;
   yearsExperience: number | null;
   promoterType: string | null;
   genres: string[];
@@ -143,53 +144,77 @@ export default function AgentMarketplacePage() {
         ) : (
           <>
             <p className="text-gray-500 text-sm mb-4">{total} agent{total !== 1 ? 's' : ''} found</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {agents.map((agent) => (
                 <button
                   key={agent.id}
                   onClick={() => setSelectedAgent(agent)}
-                  className="text-left bg-noir-900 border border-noir-700/50 rounded-xl p-6 hover:border-amber-500/30 transition-colors"
+                  className="text-left bg-noir-900 border border-noir-700/50 rounded-xl overflow-hidden hover:border-amber-500/30 transition-all duration-300 group"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 rounded-full bg-noir-800 flex items-center justify-center text-amber-400 text-xl font-bold shrink-0">
-                      {agent.profileImageUrl ? (
-                        <img src={agent.profileImageUrl} alt={agent.displayName} className="w-full h-full rounded-full object-cover" />
-                      ) : (
-                        agent.displayName.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-warm-50 font-semibold truncate">{agent.displayName}</h3>
-                        {agent.verificationStatus === 'APPROVED' && (
-                          <svg className="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                  {/* Banner */}
+                  <div className="relative h-28 overflow-hidden">
+                    {agent.bannerImageUrl ? (
+                      <img
+                        src={agent.bannerImageUrl}
+                        alt=""
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-amber-500/10 via-noir-800 to-noir-900 group-hover:scale-105 transition-transform duration-500" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-noir-900 via-noir-900/40 to-transparent" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="px-4 pb-4">
+                    {/* Avatar overlapping banner */}
+                    <div className="-mt-8 mb-2">
+                      <div className="w-16 h-16 rounded-full bg-noir-800 flex items-center justify-center text-amber-400 text-xl font-bold shrink-0 border-[3px] border-noir-900">
+                        {agent.profileImageUrl ? (
+                          <img src={agent.profileImageUrl} alt={agent.displayName} className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          agent.displayName.charAt(0).toUpperCase()
                         )}
                       </div>
-                      {agent.headline ? (
-                        <p className="text-gray-400 text-xs truncate">{agent.headline}</p>
-                      ) : (
-                        <p className="text-gray-500 text-sm">{agent.city}, {US_STATES[agent.state] || agent.state}</p>
+                    </div>
+
+                    {/* Name + verification */}
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <h3 className="text-warm-50 font-semibold truncate">{agent.displayName}</h3>
+                      {agent.verificationStatus === 'APPROVED' && (
+                        <svg className="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                       )}
+                    </div>
+
+                    {/* Headline */}
+                    {agent.headline && (
+                      <p className="text-gray-400 text-xs truncate mb-1">{agent.headline}</p>
+                    )}
+
+                    {/* Location */}
+                    <p className="text-gray-500 text-xs mb-1.5">{agent.city}, {US_STATES[agent.state] || agent.state}</p>
+
+                    {/* Rating */}
+                    <div className="mb-2">
                       <StarRating rating={agent.rating} />
                     </div>
+
+                    {/* Genre pills */}
+                    {agent.genres.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {agent.genres.slice(0, 3).map((g) => (
+                          <span key={g} className="px-2 py-0.5 bg-amber-500/10 text-amber-400/80 rounded text-[10px]">{g}</span>
+                        ))}
+                        {agent.genres.length > 3 && <span className="text-gray-600 text-[10px] self-center">+{agent.genres.length - 3}</span>}
+                      </div>
+                    )}
                   </div>
-                  {!agent.headline && <p className="text-gray-500 text-xs mt-1">{agent.city}, {US_STATES[agent.state] || agent.state}</p>}
-                  {agent.headline && <p className="text-gray-500 text-xs mt-2">{agent.city}, {US_STATES[agent.state] || agent.state}</p>}
-                  {agent.genres.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {agent.genres.slice(0, 4).map((g) => (
-                        <span key={g} className="px-2 py-0.5 bg-noir-800 text-gray-400 rounded-full text-[10px]">{g}</span>
-                      ))}
-                      {agent.genres.length > 4 && <span className="text-gray-600 text-[10px] self-center">+{agent.genres.length - 4}</span>}
-                    </div>
-                  )}
-                  {agent.bio && (
-                    <p className="text-gray-400 text-sm mt-2 line-clamp-2">{agent.bio}</p>
-                  )}
-                  <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
+
+                  {/* Stats footer */}
+                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-noir-700/50 text-xs text-gray-500">
                     <span>{agent.totalCampaigns} campaign{agent.totalCampaigns !== 1 ? 's' : ''}</span>
                     {agent.promoterType && <span className="text-amber-400/70">{agent.promoterType}</span>}
-                    {agent.yearsExperience !== null && agent.yearsExperience > 0 && <span>{agent.yearsExperience} yrs</span>}
+                    {agent.yearsExperience !== null && agent.yearsExperience > 0 && <span>{agent.yearsExperience} yrs exp</span>}
                   </div>
                 </button>
               ))}
@@ -200,108 +225,142 @@ export default function AgentMarketplacePage() {
         {/* Agent detail modal */}
         {selectedAgent && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setSelectedAgent(null)}>
-            <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-16 h-16 rounded-full bg-noir-800 flex items-center justify-center text-amber-400 text-2xl font-bold shrink-0">
-                  {selectedAgent.profileImageUrl ? (
-                    <img src={selectedAgent.profileImageUrl} alt={selectedAgent.displayName} className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    selectedAgent.displayName.charAt(0).toUpperCase()
-                  )}
+            <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              {/* Banner */}
+              <div className="relative h-36 rounded-t-2xl overflow-hidden">
+                {selectedAgent.bannerImageUrl ? (
+                  <img src={selectedAgent.bannerImageUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-amber-500/10 via-noir-800 to-noir-900" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-noir-900 via-noir-900/30 to-transparent" />
+                {/* Close button on banner */}
+                <button
+                  onClick={() => setSelectedAgent(null)}
+                  className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-gray-300 hover:bg-black/70 hover:text-white transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              <div className="px-6 pb-6">
+                {/* Avatar overlapping banner */}
+                <div className="-mt-10 mb-3">
+                  <div className="w-20 h-20 rounded-full bg-noir-800 flex items-center justify-center text-amber-400 text-2xl font-bold shrink-0 border-4 border-noir-900">
+                    {selectedAgent.profileImageUrl ? (
+                      <img src={selectedAgent.profileImageUrl} alt={selectedAgent.displayName} className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      selectedAgent.displayName.charAt(0).toUpperCase()
+                    )}
+                  </div>
                 </div>
-                <div>
+
+                {/* Name + verification + headline */}
+                <div className="mb-3">
                   <div className="flex items-center gap-2">
                     <h2 className="text-warm-50 text-xl font-semibold">{selectedAgent.displayName}</h2>
                     {selectedAgent.verificationStatus === 'APPROVED' && (
-                      <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      <svg className="w-5 h-5 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                     )}
                   </div>
-                  {selectedAgent.headline && <p className="text-gray-400 text-sm">{selectedAgent.headline}</p>}
-                  <p className="text-gray-500 text-sm">{selectedAgent.city}, {US_STATES[selectedAgent.state] || selectedAgent.state}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <StarRating rating={selectedAgent.rating} />
-                    {selectedAgent.ratingCount > 0 && <span className="text-gray-600 text-xs">({selectedAgent.ratingCount})</span>}
-                  </div>
+                  {selectedAgent.headline && <p className="text-gray-400 text-sm mt-0.5">{selectedAgent.headline}</p>}
                 </div>
-              </div>
 
-              {/* Quick stats */}
-              <div className="flex gap-3 mb-4">
-                {selectedAgent.promoterType && (
-                  <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded text-xs">{selectedAgent.promoterType}</span>
+                {/* Location + meta row */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mb-3">
+                  <span>{selectedAgent.city}, {US_STATES[selectedAgent.state] || selectedAgent.state}</span>
+                  {selectedAgent.yearsExperience !== null && selectedAgent.yearsExperience > 0 && (
+                    <span>{selectedAgent.yearsExperience} yrs experience</span>
+                  )}
+                  {selectedAgent.promoterType && (
+                    <span className="text-amber-400/70">{selectedAgent.promoterType}</span>
+                  )}
+                </div>
+
+                {/* Rating */}
+                <div className="flex items-center gap-2 mb-4">
+                  <StarRating rating={selectedAgent.rating} />
+                  {selectedAgent.ratingCount > 0 && <span className="text-gray-600 text-xs">({selectedAgent.ratingCount})</span>}
+                </div>
+
+                {/* Quick stats */}
+                <div className="flex gap-3 mb-5">
+                  {selectedAgent.promoterType && (
+                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded text-xs">{selectedAgent.promoterType}</span>
+                  )}
+                  {selectedAgent.yearsExperience !== null && selectedAgent.yearsExperience > 0 && (
+                    <span className="px-2 py-0.5 bg-noir-800 text-gray-400 rounded text-xs">{selectedAgent.yearsExperience} yrs exp</span>
+                  )}
+                  <span className="px-2 py-0.5 bg-noir-800 text-gray-400 rounded text-xs">{selectedAgent.totalCampaigns} campaigns</span>
+                </div>
+
+                {selectedAgent.bio && (
+                  <div className="mb-4">
+                    <h3 className="text-gray-300 text-sm font-medium mb-1">About</h3>
+                    <p className="text-gray-400 text-sm">{selectedAgent.bio}</p>
+                  </div>
                 )}
-                {selectedAgent.yearsExperience !== null && selectedAgent.yearsExperience > 0 && (
-                  <span className="px-2 py-0.5 bg-noir-800 text-gray-400 rounded text-xs">{selectedAgent.yearsExperience} yrs exp</span>
+
+                {selectedAgent.genres.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-gray-300 text-sm font-medium mb-2">Genres</h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedAgent.genres.map((g) => <span key={g} className="px-2 py-0.5 bg-amber-500/10 text-amber-400/80 rounded text-xs">{g}</span>)}
+                    </div>
+                  </div>
                 )}
-                <span className="px-2 py-0.5 bg-noir-800 text-gray-400 rounded text-xs">{selectedAgent.totalCampaigns} campaigns</span>
-              </div>
 
-              {selectedAgent.bio && (
-                <div className="mb-4">
-                  <h3 className="text-gray-300 text-sm font-medium mb-1">About</h3>
-                  <p className="text-gray-400 text-sm">{selectedAgent.bio}</p>
-                </div>
-              )}
-
-              {selectedAgent.genres.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-gray-300 text-sm font-medium mb-2">Genres</h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedAgent.genres.map((g) => <span key={g} className="px-2 py-0.5 bg-noir-800 text-gray-300 rounded-full text-xs">{g}</span>)}
+                {selectedAgent.skills.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-gray-300 text-sm font-medium mb-2">Skills</h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedAgent.skills.map((s) => <span key={s} className="px-2 py-0.5 bg-green-500/10 text-green-400 rounded-full text-xs">{s}</span>)}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {selectedAgent.skills.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-gray-300 text-sm font-medium mb-2">Skills</h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedAgent.skills.map((s) => <span key={s} className="px-2 py-0.5 bg-green-500/10 text-green-400 rounded-full text-xs">{s}</span>)}
+                {selectedAgent.socialLinks && Object.values(selectedAgent.socialLinks).some(Boolean) && (
+                  <div className="mb-4">
+                    <h3 className="text-gray-300 text-sm font-medium mb-1">Links</h3>
+                    <div className="flex gap-3 text-sm">
+                      {selectedAgent.socialLinks.instagram && (
+                        <a href={`https://instagram.com/${selectedAgent.socialLinks.instagram}`} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">Instagram</a>
+                      )}
+                      {selectedAgent.socialLinks.twitter && (
+                        <a href={`https://twitter.com/${selectedAgent.socialLinks.twitter}`} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">Twitter</a>
+                      )}
+                      {selectedAgent.socialLinks.tiktok && (
+                        <a href={`https://tiktok.com/@${selectedAgent.socialLinks.tiktok}`} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">TikTok</a>
+                      )}
+                      {selectedAgent.socialLinks.website && (
+                        <a href={selectedAgent.socialLinks.website} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">Website</a>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {selectedAgent.venueExperience && (
-                <div className="mb-4">
-                  <h3 className="text-gray-300 text-sm font-medium mb-1">Venue Experience</h3>
-                  <p className="text-gray-400 text-sm">{selectedAgent.venueExperience}</p>
-                </div>
-              )}
-
-              {selectedAgent.promotionHistory && (
-                <div className="mb-4">
-                  <h3 className="text-gray-300 text-sm font-medium mb-1">Promotion History</h3>
-                  <p className="text-gray-400 text-sm">{selectedAgent.promotionHistory}</p>
-                </div>
-              )}
-
-              {selectedAgent.socialLinks && Object.values(selectedAgent.socialLinks).some(Boolean) && (
-                <div className="mb-4">
-                  <h3 className="text-gray-300 text-sm font-medium mb-1">Links</h3>
-                  <div className="flex gap-3 text-sm">
-                    {selectedAgent.socialLinks.instagram && (
-                      <a href={`https://instagram.com/${selectedAgent.socialLinks.instagram}`} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">Instagram</a>
-                    )}
-                    {selectedAgent.socialLinks.twitter && (
-                      <a href={`https://twitter.com/${selectedAgent.socialLinks.twitter}`} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">Twitter</a>
-                    )}
-                    {selectedAgent.socialLinks.tiktok && (
-                      <a href={`https://tiktok.com/@${selectedAgent.socialLinks.tiktok}`} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">TikTok</a>
-                    )}
-                    {selectedAgent.socialLinks.website && (
-                      <a href={selectedAgent.socialLinks.website} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">Website</a>
-                    )}
+                {selectedAgent.venueExperience && (
+                  <div className="mb-4">
+                    <h3 className="text-gray-300 text-sm font-medium mb-1">Venue Experience</h3>
+                    <p className="text-gray-400 text-sm">{selectedAgent.venueExperience}</p>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setSelectedAgent(null)}
-                  className="flex-1 px-4 py-2 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors"
-                >
-                  Close
-                </button>
+                {selectedAgent.promotionHistory && (
+                  <div className="mb-4">
+                    <h3 className="text-gray-300 text-sm font-medium mb-1">Promotion History</h3>
+                    <p className="text-gray-400 text-sm">{selectedAgent.promotionHistory}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => setSelectedAgent(null)}
+                    className="flex-1 px-4 py-2 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>

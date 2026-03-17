@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { api } from '../lib/api.js';
 
@@ -43,6 +43,7 @@ interface AgentProfile {
   city: string;
   age: number | null;
   profileImageUrl: string | null;
+  bannerImageUrl: string | null;
   yearsExperience: number | null;
   promoterType: string | null;
   genres: string[];
@@ -115,13 +116,17 @@ interface SubscriptionStatus {
 
 export default function AgentDashboardPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [agent, setAgent] = useState<AgentProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'overview' | 'campaigns' | 'reviews'>('overview');
   const [sub, setSub] = useState<SubscriptionStatus | null>(null);
   const [subscribing, setSubscribing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, unknown>>({});
+  const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -150,6 +155,84 @@ export default function AgentDashboardPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to open billing portal');
     }
+  };
+
+  const handleImageUpload = async (file: File, field: 'profileImageUrl' | 'bannerImageUrl') => {
+    const setter = field === 'profileImageUrl' ? setUploadingPhoto : setUploadingBanner;
+    setter(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/upload/profile-image`, {
+        method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const { url } = await res.json();
+      setEditForm(prev => ({ ...prev, [field]: url }));
+    } catch {
+      setError('Image upload failed');
+    } finally {
+      setter(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        displayName: editForm.displayName,
+        headline: editForm.headline || undefined,
+        bio: editForm.bio || undefined,
+        profileImageUrl: editForm.profileImageUrl || undefined,
+        bannerImageUrl: editForm.bannerImageUrl || undefined,
+        promoterType: editForm.promoterType || undefined,
+        yearsExperience: editForm.yearsExperience ? Number(editForm.yearsExperience) : undefined,
+        genres: editForm.genres,
+        skills: editForm.skills,
+        socialLinks: editForm.socialLinks,
+      };
+      const updated = await api.put<AgentProfile>('/agents/profile', payload);
+      setAgent(updated);
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const GENRE_OPTIONS = ['Hip-Hop', 'R&B', 'Pop', 'Rock', 'Electronic', 'Country', 'Jazz', 'Latin', 'Reggae', 'Metal', 'Indie', 'Folk', 'Blues', 'Punk', 'Soul', 'Funk', 'Classical', 'Gospel', 'Afrobeats', 'K-Pop'];
+  const SKILL_OPTIONS = ['Social Media Marketing', 'Flyering', 'Venue Relations', 'Ticket Sales', 'Event Planning', 'Photography', 'Videography', 'Graphic Design', 'Community Outreach', 'Press Relations', 'Radio Promotion', 'Street Marketing', 'Influencer Networking', 'Brand Partnerships', 'Data Analytics'];
+  const PROMOTER_TYPES = ['Concert', 'Club', 'Festival', 'Venue', 'Street Team', 'Independent', 'Other'];
+
+  const openEditModal = () => {
+    if (!agent) return;
+    setEditForm({
+      displayName: agent.displayName,
+      headline: agent.headline || '',
+      bio: agent.bio || '',
+      profileImageUrl: agent.profileImageUrl || '',
+      bannerImageUrl: agent.bannerImageUrl || '',
+      promoterType: agent.promoterType || '',
+      yearsExperience: agent.yearsExperience ?? '',
+      genres: [...(agent.genres || [])],
+      skills: [...(agent.skills || [])],
+      socialLinks: { ...(agent.socialLinks || {}) },
+    });
+    setEditing(true);
+  };
+
+  const togglePill = (field: 'genres' | 'skills', value: string) => {
+    setEditForm(prev => {
+      const arr = (prev[field] as string[]) || [];
+      return {
+        ...prev,
+        [field]: arr.includes(value) ? arr.filter((v: string) => v !== value) : [...arr, value],
+      };
+    });
   };
 
   if (!user) return null;
@@ -182,53 +265,64 @@ export default function AgentDashboardPage() {
       <div className="max-w-4xl mx-auto px-4">
 
         {/* Profile header */}
-        <div className="bg-noir-900 border border-noir-700/50 rounded-2xl p-6 mb-6">
-          <div className="flex flex-col sm:flex-row gap-5">
-            {/* Avatar */}
-            <div className="w-24 h-24 rounded-full bg-noir-800 flex items-center justify-center text-amber-400 text-3xl font-bold shrink-0 self-center sm:self-start">
-              {agent.profileImageUrl ? (
-                <img src={agent.profileImageUrl} alt={agent.displayName} className="w-full h-full rounded-full object-cover" />
-              ) : agent.displayName.charAt(0).toUpperCase()}
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h1 className="text-2xl font-display tracking-wider text-warm-50">{agent.displayName}</h1>
-                <VerificationBadge status={agent.verificationStatus} />
-              </div>
-              {agent.headline && <p className="text-gray-400 mb-2">{agent.headline}</p>}
-              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-3">
-                <span className="flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  {agent.city}, {US_STATES[agent.state] || agent.state}
-                </span>
-                {agent.age && <span>Age {agent.age}</span>}
-                {agent.yearsExperience !== null && <span>{agent.yearsExperience} yrs experience</span>}
-                {agent.promoterType && (
-                  <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded text-xs">{agent.promoterType}</span>
-                )}
-              </div>
-              <StarRating rating={agent.rating} count={agent.ratingCount} />
-            </div>
-
-            {/* Edit button */}
-            <button
-              onClick={() => navigate('/agents/register')}
-              className="px-4 py-2 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors text-sm self-start"
-            >
-              Edit Profile
-            </button>
+        <div className="bg-noir-900 border border-noir-700/50 rounded-2xl overflow-hidden mb-6">
+          {/* Banner */}
+          <div className="h-40 bg-noir-800 relative">
+            {agent.bannerImageUrl ? (
+              <img src={agent.bannerImageUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-amber-500/10 via-noir-800 to-noir-900" />
+            )}
           </div>
+          {/* Profile content overlapping banner */}
+          <div className="px-6 pb-6">
+            <div className="-mt-12 flex flex-col sm:flex-row gap-5">
+              {/* Avatar with border */}
+              <div className="w-24 h-24 rounded-full bg-noir-800 border-4 border-noir-900 flex items-center justify-center text-amber-400 text-3xl font-bold shrink-0 self-center sm:self-start overflow-hidden">
+                {agent.profileImageUrl ? (
+                  <img src={agent.profileImageUrl} alt={agent.displayName} className="w-full h-full rounded-full object-cover" />
+                ) : agent.displayName.charAt(0).toUpperCase()}
+              </div>
 
-          {/* Profile strength bar */}
-          <div className="mt-5 pt-4 border-t border-noir-700/50">
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-gray-500">Profile Strength</span>
-              <span className={agent.profileStrength >= 80 ? 'text-green-400' : agent.profileStrength >= 50 ? 'text-amber-400' : 'text-gray-500'}>{agent.profileStrength}%</span>
+              {/* Info */}
+              <div className="flex-1 min-w-0 pt-2">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h1 className="text-2xl font-display tracking-wider text-warm-50">{agent.displayName}</h1>
+                  <VerificationBadge status={agent.verificationStatus} />
+                </div>
+                {agent.headline && <p className="text-gray-400 mb-2">{agent.headline}</p>}
+                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-3">
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    {agent.city}, {US_STATES[agent.state] || agent.state}
+                  </span>
+                  {agent.age && <span>Age {agent.age}</span>}
+                  {agent.yearsExperience !== null && <span>{agent.yearsExperience} yrs experience</span>}
+                  {agent.promoterType && (
+                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded text-xs">{agent.promoterType}</span>
+                  )}
+                </div>
+                <StarRating rating={agent.rating} count={agent.ratingCount} />
+              </div>
+
+              {/* Edit button */}
+              <button
+                onClick={openEditModal}
+                className="px-4 py-2 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors text-sm self-start"
+              >
+                Edit Profile
+              </button>
             </div>
-            <div className="h-1.5 bg-noir-800 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all ${agent.profileStrength >= 80 ? 'bg-green-500' : agent.profileStrength >= 50 ? 'bg-amber-500' : 'bg-gray-600'}`} style={{ width: `${agent.profileStrength}%` }} />
+
+            {/* Profile strength bar */}
+            <div className="mt-5 pt-4 border-t border-noir-700/50">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-gray-500">Profile Strength</span>
+                <span className={agent.profileStrength >= 80 ? 'text-green-400' : agent.profileStrength >= 50 ? 'text-amber-400' : 'text-gray-500'}>{agent.profileStrength}%</span>
+              </div>
+              <div className="h-1.5 bg-noir-800 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${agent.profileStrength >= 80 ? 'bg-green-500' : agent.profileStrength >= 50 ? 'bg-amber-500' : 'bg-gray-600'}`} style={{ width: `${agent.profileStrength}%` }} />
+              </div>
             </div>
           </div>
         </div>
@@ -475,6 +569,252 @@ export default function AgentDashboardPage() {
           Member since {new Date(agent.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      {editing && (
+        <div className="fixed inset-0 z-50 bg-noir-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal header */}
+            <div className="sticky top-0 bg-noir-900 border-b border-noir-700/50 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="text-lg font-display tracking-wider text-warm-50">Edit Profile</h2>
+              <button onClick={() => setEditing(false)} className="text-gray-500 hover:text-gray-300 transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-6">
+              {/* Banner image upload */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Banner Image</label>
+                <label className="block cursor-pointer group">
+                  <div className="h-32 rounded-lg overflow-hidden bg-noir-800 border border-noir-700 relative">
+                    {editForm.bannerImageUrl ? (
+                      <img src={editForm.bannerImageUrl as string} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-amber-500/10 via-noir-800 to-noir-900 flex items-center justify-center">
+                        <span className="text-gray-600 text-sm">Click to upload banner</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-noir-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      {uploadingBanner ? (
+                        <span className="text-gray-300 text-sm">Uploading...</span>
+                      ) : (
+                        <span className="text-gray-300 text-sm">Change Banner</span>
+                      )}
+                    </div>
+                  </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file, 'bannerImageUrl');
+                  }} />
+                </label>
+              </div>
+
+              {/* Profile photo upload */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Profile Photo</label>
+                <label className="inline-block cursor-pointer group">
+                  <div className="w-24 h-24 rounded-full bg-noir-800 border-2 border-noir-700 overflow-hidden relative flex items-center justify-center text-amber-400 text-3xl font-bold">
+                    {editForm.profileImageUrl ? (
+                      <img src={editForm.profileImageUrl as string} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      agent.displayName.charAt(0).toUpperCase()
+                    )}
+                    <div className="absolute inset-0 bg-noir-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
+                      {uploadingPhoto ? (
+                        <svg className="w-5 h-5 text-gray-300 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      )}
+                    </div>
+                  </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file, 'profileImageUrl');
+                  }} />
+                </label>
+              </div>
+
+              {/* Display Name */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Display Name</label>
+                <input
+                  type="text"
+                  value={(editForm.displayName as string) || ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, displayName: e.target.value }))}
+                  className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                  placeholder="Your display name"
+                />
+              </div>
+
+              {/* Headline */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Headline</label>
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={(editForm.headline as string) || ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, headline: e.target.value }))}
+                  className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                  placeholder="Short tagline about you"
+                />
+                <p className="text-gray-600 text-xs mt-1 text-right">{((editForm.headline as string) || '').length}/120</p>
+              </div>
+
+              {/* Bio */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Bio</label>
+                <textarea
+                  rows={4}
+                  value={(editForm.bio as string) || ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                  className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600 resize-none"
+                  placeholder="Tell artists about yourself..."
+                />
+              </div>
+
+              {/* Promoter Type */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Promoter Type</label>
+                <select
+                  value={(editForm.promoterType as string) || ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, promoterType: e.target.value }))}
+                  className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors"
+                >
+                  <option value="">Select type...</option>
+                  {PROMOTER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+
+              {/* Years Experience */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Years of Experience</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  value={(editForm.yearsExperience as string | number) ?? ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, yearsExperience: e.target.value }))}
+                  className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                  placeholder="0"
+                />
+              </div>
+
+              {/* Genres */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Genres</label>
+                <div className="flex flex-wrap gap-2">
+                  {GENRE_OPTIONS.map(g => {
+                    const selected = ((editForm.genres as string[]) || []).includes(g);
+                    return (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => togglePill('genres', g)}
+                        className={`px-3 py-1.5 rounded-full text-xs transition-colors ${
+                          selected
+                            ? 'bg-amber-500/15 border border-amber-500/40 text-amber-400'
+                            : 'border border-noir-700 text-gray-400 hover:border-amber-500/40'
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Skills */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Skills</label>
+                <div className="flex flex-wrap gap-2">
+                  {SKILL_OPTIONS.map(s => {
+                    const selected = ((editForm.skills as string[]) || []).includes(s);
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => togglePill('skills', s)}
+                        className={`px-3 py-1.5 rounded-full text-xs transition-colors ${
+                          selected
+                            ? 'bg-amber-500/15 border border-amber-500/40 text-amber-400'
+                            : 'border border-noir-700 text-gray-400 hover:border-amber-500/40'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Social Links */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Social Links</label>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500 text-sm w-20 shrink-0">Instagram</span>
+                    <input
+                      type="text"
+                      value={((editForm.socialLinks as Record<string, string>) || {}).instagram || ''}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, socialLinks: { ...((prev.socialLinks as Record<string, string>) || {}), instagram: e.target.value } }))}
+                      className="flex-1 px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                      placeholder="username"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500 text-sm w-20 shrink-0">Twitter / X</span>
+                    <input
+                      type="text"
+                      value={((editForm.socialLinks as Record<string, string>) || {}).twitter || ''}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, socialLinks: { ...((prev.socialLinks as Record<string, string>) || {}), twitter: e.target.value } }))}
+                      className="flex-1 px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                      placeholder="username"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500 text-sm w-20 shrink-0">TikTok</span>
+                    <input
+                      type="text"
+                      value={((editForm.socialLinks as Record<string, string>) || {}).tiktok || ''}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, socialLinks: { ...((prev.socialLinks as Record<string, string>) || {}), tiktok: e.target.value } }))}
+                      className="flex-1 px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                      placeholder="username"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500 text-sm w-20 shrink-0">Website</span>
+                    <input
+                      type="text"
+                      value={((editForm.socialLinks as Record<string, string>) || {}).website || ''}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, socialLinks: { ...((prev.socialLinks as Record<string, string>) || {}), website: e.target.value } }))}
+                      className="flex-1 px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal footer - sticky */}
+            <div className="sticky bottom-0 bg-noir-900 border-t border-noir-700/50 px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setEditing(false)}
+                className="px-6 py-2.5 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !editForm.displayName}
+                className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
