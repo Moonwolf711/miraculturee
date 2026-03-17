@@ -171,6 +171,26 @@ export async function agentRoutes(app: FastifyInstance) {
       },
     });
 
+    // Notify admins about new agent registration (fire and forget)
+    void (async () => {
+      if (!app.emailService) return;
+      const admins = await app.prisma.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { email: true },
+      });
+      const agentUser = await app.prisma.user.findUnique({ where: { id: req.user.id }, select: { email: true } });
+      void app.emailService.sendAgentRegistrationNotify(
+        admins.map((a) => a.email),
+        {
+          agentName: body.displayName,
+          agentEmail: agentUser?.email || req.user.email,
+          agentCity: body.city,
+          agentState: body.state.toUpperCase(),
+          promoterType: body.promoterType || null,
+        },
+      );
+    })();
+
     return reply.code(201).send(agent);
   });
 
@@ -336,9 +356,20 @@ export async function agentRoutes(app: FastifyInstance) {
         verificationNote: note,
         verifiedAt: status === 'APPROVED' ? new Date() : null,
       },
+      include: { user: { select: { email: true } } },
     });
 
-    return agent;
+    // Notify agent of approval/rejection (fire and forget)
+    if (app.emailService) {
+      void app.emailService.sendAgentApprovalResult(agent.user.email, {
+        agentName: agent.displayName,
+        approved: status === 'APPROVED',
+        note: note || null,
+      });
+    }
+
+    const { user: _u, ...agentData } = agent;
+    return agentData;
   });
 
   /** GET /agents/pending — admin lists agents awaiting verification */

@@ -62,11 +62,25 @@ export interface TicketConfirmationData {
   totalAmount: string;
 }
 
+export interface AgentRegistrationNotifyData {
+  agentName: string;
+  agentEmail: string;
+  agentCity: string;
+  agentState: string;
+  promoterType: string | null;
+}
+
+export interface AgentApprovalData {
+  agentName: string;
+  approved: boolean;
+  note: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Shared template helpers
 // ---------------------------------------------------------------------------
 
-const FROM_ADDRESS = 'onboarding@resend.dev';
+const FROM_ADDRESS = process.env.EMAIL_FROM || 'MiraCulture <noreply@mira-culture.com>';
 
 function layout(content: string): string {
   return `<!DOCTYPE html>
@@ -436,6 +450,73 @@ export class EmailService {
     } catch (error) {
       console.error('[EmailService] Failed to send admin email:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Notifies all admins when a new agent registers and needs approval.
+   */
+  async sendAgentRegistrationNotify(
+    adminEmails: string[],
+    data: AgentRegistrationNotifyData,
+  ): Promise<void> {
+    if (adminEmails.length === 0) return;
+
+    const subject = `New Agent Registration: ${data.agentName}`;
+
+    const html = layout(`
+      ${heading('New Agent Awaiting Approval')}
+      ${paragraph('A new promoter agent has registered on MiraCulture and is awaiting your approval.')}
+      ${detailsTable(`
+        ${detailRow('Name', data.agentName)}
+        ${detailRow('Email', data.agentEmail)}
+        ${detailRow('Location', `${data.agentCity}, ${data.agentState}`)}
+        ${detailRow('Type', data.promoterType || 'Not specified')}
+      `)}
+      ${paragraph('Log in to the admin panel to review and approve or reject this agent.')}
+      ${ctaButton('Review Agent', 'https://mira-culture.com/admin')}
+    `);
+
+    for (const email of adminEmails) {
+      try {
+        await this.resend.emails.send({ from: FROM_ADDRESS, to: email, subject, html });
+      } catch (error) {
+        console.error(`[EmailService] Failed to notify admin ${email} about agent registration:`, error);
+      }
+    }
+  }
+
+  /**
+   * Notifies an agent when their profile is approved or rejected.
+   */
+  async sendAgentApprovalResult(
+    to: string,
+    data: AgentApprovalData,
+  ): Promise<void> {
+    const subject = data.approved
+      ? 'Your Agent Profile Has Been Approved!'
+      : 'Agent Profile Review Update';
+
+    const html = data.approved
+      ? layout(`
+          ${heading('Welcome to the Marketplace!')}
+          ${paragraph(`Congratulations ${data.agentName}! Your promoter agent profile has been reviewed and approved. You are now visible in the MiraCulture agent marketplace.`)}
+          ${data.note ? paragraph(`<em style="color:#a3a3a3;">Admin note: ${data.note}</em>`) : ''}
+          ${paragraph('Artists can now find you and hire you for their campaigns. Make sure your profile is complete to attract more opportunities.')}
+          ${ctaButton('View Your Dashboard', 'https://mira-culture.com/agents/dashboard')}
+        `)
+      : layout(`
+          ${heading('Profile Review Update')}
+          ${paragraph(`Hey ${data.agentName}, we have reviewed your promoter agent profile. Unfortunately, it was not approved at this time.`)}
+          ${data.note ? paragraph(`<strong style="color:#ffffff;">Reason:</strong> ${data.note}`) : ''}
+          ${paragraph('You can update your profile and resubmit for review. Make sure all fields are filled out and your information is accurate.')}
+          ${ctaButton('Update Your Profile', 'https://mira-culture.com/agents/dashboard')}
+        `);
+
+    try {
+      await this.resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
+    } catch (error) {
+      console.error('[EmailService] Failed to send agent approval result:', error);
     }
   }
 }
