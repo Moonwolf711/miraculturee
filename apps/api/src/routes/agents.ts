@@ -30,6 +30,7 @@ export async function agentRoutes(app: FastifyInstance) {
           state: true,
           city: true,
           profileImageUrl: true,
+          bannerImageUrl: true,
           yearsExperience: true,
           promoterType: true,
           genres: true,
@@ -79,6 +80,7 @@ export async function agentRoutes(app: FastifyInstance) {
         city: true,
         age: true,
         profileImageUrl: true,
+        bannerImageUrl: true,
         yearsExperience: true,
         promoterType: true,
         genres: true,
@@ -119,7 +121,7 @@ export async function agentRoutes(app: FastifyInstance) {
       ['displayName', 10], ['profileImageUrl', 15], ['bio', 10], ['headline', 5],
       ['state', 5], ['city', 5], ['age', 5], ['yearsExperience', 5],
       ['promoterType', 5], ['venueExperience', 10], ['promotionHistory', 10],
-      ['socialLinks', 10], ['genres', 5],
+      ['socialLinks', 10], ['genres', 5], ['bannerImageUrl', 5],
     ];
     let score = 0;
     for (const [field, weight] of fields) {
@@ -157,6 +159,7 @@ export async function agentRoutes(app: FastifyInstance) {
         city: body.city,
         age: body.age,
         profileImageUrl: body.profileImageUrl,
+        bannerImageUrl: body.bannerImageUrl,
         yearsExperience: body.yearsExperience,
         promoterType: body.promoterType,
         genres: body.genres ?? [],

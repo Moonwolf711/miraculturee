@@ -636,6 +636,7 @@ model PromoterAgent {
   city               String
   age                Int?
   profileImageUrl    String?
+  bannerImageUrl     String?
   yearsExperience    Int?                    // years in the music/events industry
   promoterType       String?                 // Concert, Club, Festival, Venue, Street Team, Independent
   genres             String[]                // music genres they specialize in
