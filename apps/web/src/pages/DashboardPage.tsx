@@ -10,6 +10,7 @@ import ImpactScore from '../components/dashboard/ImpactScore.js';
 import ActivityFeed, { ArtistRelationshipCard, SupportedCampaignCard } from '../components/dashboard/ActivityFeed.js';
 import UpcomingTickets, { ContextualEventCard, EmptyState, LoadingList, LoadingGrid } from '../components/dashboard/UpcomingTickets.js';
 import NotificationsPanel from '../components/dashboard/NotificationsPanel.js';
+import AccountSettings from '../components/dashboard/AccountSettings.js';
 import SecuritySettings from '../components/dashboard/SecuritySettings.js';
 import CampaignsTab from '../components/dashboard/CampaignsTab.js';
 import TransactionsTab from '../components/dashboard/TransactionsTab.js';
@@ -262,6 +263,9 @@ export default function DashboardPage() {
         {activeTab === 'transactions' && (
           <TransactionsTab transactions={transactions} loading={txLoading} page={txPage} onPageChange={setTxPage} />
         )}
+
+        {/* Account Tab */}
+        {activeTab === 'account' && <AccountSettings />}
 
         {/* Security Tab */}
         {activeTab === 'security' && <SecuritySettings />}

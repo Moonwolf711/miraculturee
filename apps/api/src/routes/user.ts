@@ -18,6 +18,64 @@ export async function userRoutes(app: FastifyInstance) {
   // All user routes require authentication
   app.addHook('preHandler', app.authenticate);
 
+  // --- Profile ---
+
+  app.put('/profile', async (req, reply) => {
+    const body = z.object({
+      name: z.string().min(1).max(100).optional(),
+      email: z.string().email().optional(),
+      city: z.string().max(100).optional(),
+    }).parse(req.body);
+
+    if (Object.keys(body).length === 0) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    // If changing email, check it's not taken
+    if (body.email && body.email !== req.user.email) {
+      const existing = await app.prisma.user.findUnique({ where: { email: body.email } });
+      if (existing) return reply.code(409).send({ error: 'Email already in use' });
+    }
+
+    const updated = await app.prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.email !== undefined && { email: body.email, emailVerified: false }),
+        ...(body.city !== undefined && { city: body.city }),
+      },
+      select: { id: true, email: true, name: true, city: true, emailVerified: true },
+    });
+
+    // If email changed, send new verification email
+    if (body.email && body.email !== req.user.email && app.emailService) {
+      const { AuthService } = await import('../services/auth.service.js');
+      const authService = new AuthService(app.prisma, app);
+      void authService.sendVerificationEmail(updated.id);
+    }
+
+    return updated;
+  });
+
+  app.put('/password', async (req, reply) => {
+    const body = z.object({
+      currentPassword: z.string(),
+      newPassword: z.string().min(8).max(128),
+    }).parse(req.body);
+
+    const { compare, hash } = await import('bcrypt');
+    const user = await app.prisma.user.findUnique({ where: { id: req.user.id }, select: { passwordHash: true } });
+    if (!user) return reply.code(404).send({ error: 'User not found' });
+
+    const valid = await compare(body.currentPassword, user.passwordHash);
+    if (!valid) return reply.code(401).send({ error: 'Current password is incorrect' });
+
+    const passwordHash = await hash(body.newPassword, 10);
+    await app.prisma.user.update({ where: { id: req.user.id }, data: { passwordHash } });
+
+    return { success: true, message: 'Password updated' };
+  });
+
   // --- Dashboard ---
 
   app.get('/dashboard', async (req) => {

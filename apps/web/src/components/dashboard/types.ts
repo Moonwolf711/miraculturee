@@ -138,7 +138,7 @@ export interface PaginatedTransactions {
   totalPages: number;
 }
 
-export const TABS = ['overview', 'campaigns', 'raffles', 'tickets', 'notifications', 'transactions', 'security'] as const;
+export const TABS = ['overview', 'campaigns', 'raffles', 'tickets', 'notifications', 'transactions', 'account', 'security'] as const;
 export type Tab = (typeof TABS)[number];
 
 export const TAB_LABELS: Record<Tab, string> = {
@@ -148,6 +148,7 @@ export const TAB_LABELS: Record<Tab, string> = {
   tickets: 'Tickets',
   notifications: 'Notifications',
   transactions: 'Transactions',
+  account: 'Account',
   security: 'Security',
 };
 
