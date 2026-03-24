@@ -24,6 +24,64 @@ export async function managerDashboardRoutes(app: FastifyInstance) {
     return record;
   }
 
+  // ─── GET /manager/profile ───
+  // Return the manager's profile for all managed artists (uses first record).
+
+  app.get('/profile', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const records = await app.prisma.artistManager.findMany({
+      where: { userId: req.user.id },
+      orderBy: { addedAt: 'asc' },
+      take: 1,
+    });
+    if (records.length === 0) {
+      return reply.code(404).send({ error: 'No manager profile found' });
+    }
+    const r = records[0];
+    return {
+      displayName: r.displayName,
+      bio: r.bio,
+      profileImageUrl: r.profileImageUrl,
+    };
+  });
+
+  // ─── PUT /manager/profile ───
+  // Update the manager's profile across all managed artist records.
+
+  const UpdateManagerProfileSchema = z.object({
+    displayName: z.string().min(1).max(100).optional(),
+    bio: z.string().max(500).optional(),
+    profileImageUrl: z.string().url().optional().nullable(),
+  });
+
+  app.put('/profile', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const body = UpdateManagerProfileSchema.parse(req.body);
+
+    if (!body.displayName && body.bio === undefined && body.profileImageUrl === undefined) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    const records = await app.prisma.artistManager.findMany({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+
+    if (records.length === 0) {
+      return reply.code(404).send({ error: 'No manager profile found' });
+    }
+
+    // Update all ArtistManager records for this user (consistent profile across artists)
+    await app.prisma.artistManager.updateMany({
+      where: { userId: req.user.id },
+      data: {
+        ...(body.displayName !== undefined && { displayName: body.displayName }),
+        ...(body.bio !== undefined && { bio: body.bio }),
+        ...(body.profileImageUrl !== undefined && { profileImageUrl: body.profileImageUrl }),
+      },
+    });
+
+    return { success: true };
+  });
+
   // ─── GET /manager/dashboard ───
   // Aggregate stats across all artists this user manages.
 

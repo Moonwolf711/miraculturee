@@ -107,6 +107,20 @@ export default function ManagerDashboardPage() {
   const [artistCampaigns, setArtistCampaigns] = useState<Record<string, ArtistCampaign[]>>({});
   const [campaignsLoading, setCampaignsLoading] = useState<string | null>(null);
 
+  // Profile edit state
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [profileForm, setProfileForm] = useState({ displayName: '', bio: '', profileImageUrl: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  const openProfileEdit = useCallback(() => {
+    api.get<{ displayName: string; bio: string | null; profileImageUrl: string | null }>('/manager/profile')
+      .then((p) => {
+        setProfileForm({ displayName: p.displayName, bio: p.bio || '', profileImageUrl: p.profileImageUrl || '' });
+        setShowProfileEdit(true);
+      })
+      .catch(() => setShowProfileEdit(true));
+  }, []);
+
   const fetchDashboard = useCallback(() => {
     setLoading(true);
     setFetchError(null);
@@ -127,6 +141,20 @@ export default function ManagerDashboardPage() {
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  const saveProfile = useCallback(async () => {
+    setProfileSaving(true);
+    try {
+      await api.put('/manager/profile', {
+        displayName: profileForm.displayName || undefined,
+        bio: profileForm.bio || undefined,
+        profileImageUrl: profileForm.profileImageUrl || undefined,
+      });
+      setShowProfileEdit(false);
+      fetchDashboard();
+    } catch {}
+    finally { setProfileSaving(false); }
+  }, [profileForm, fetchDashboard]);
 
   const toggleArtist = useCallback(
     (artistId: string) => {
@@ -211,6 +239,12 @@ export default function ManagerDashboardPage() {
               </p>
             )}
           </div>
+          <button
+            onClick={openProfileEdit}
+            className="px-4 py-2 bg-noir-800 border border-noir-600 rounded-lg text-warm-200 hover:border-amber-500/30 hover:text-amber-400 transition-colors text-sm"
+          >
+            Edit Profile
+          </button>
         </div>
 
         {/* Stats Grid */}
@@ -416,6 +450,76 @@ export default function ManagerDashboardPage() {
           )}
         </section>
       </div>
+
+      {/* Edit Profile Modal */}
+      {showProfileEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setShowProfileEdit(false)}>
+          <div className="bg-noir-900 border border-noir-700 rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-display tracking-wider text-warm-50">Edit Profile</h2>
+              <button onClick={() => setShowProfileEdit(false)} className="text-gray-500 hover:text-gray-300 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Display Name *</label>
+                <input
+                  className="w-full bg-noir-800 border border-noir-600 rounded-lg px-3 py-2 text-warm-50 placeholder-gray-600 focus:border-amber-500/50 focus:outline-none transition-colors"
+                  value={profileForm.displayName}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, displayName: e.target.value }))}
+                  placeholder="Your manager name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Bio</label>
+                <textarea
+                  className="w-full bg-noir-800 border border-noir-600 rounded-lg px-3 py-2 text-warm-50 placeholder-gray-600 focus:border-amber-500/50 focus:outline-none transition-colors resize-none"
+                  rows={3}
+                  maxLength={500}
+                  value={profileForm.bio}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, bio: e.target.value }))}
+                  placeholder="Brief description of your management experience..."
+                />
+                <p className="text-gray-600 text-xs mt-1 text-right">{profileForm.bio.length}/500</p>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Profile Image URL</label>
+                <input
+                  className="w-full bg-noir-800 border border-noir-600 rounded-lg px-3 py-2 text-warm-50 placeholder-gray-600 focus:border-amber-500/50 focus:outline-none transition-colors"
+                  value={profileForm.profileImageUrl}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, profileImageUrl: e.target.value }))}
+                  placeholder="https://..."
+                />
+                {profileForm.profileImageUrl && (
+                  <div className="mt-2 flex justify-center">
+                    <img src={profileForm.profileImageUrl} alt="Preview" className="w-16 h-16 rounded-full object-cover border border-noir-600" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowProfileEdit(false)}
+                className="flex-1 px-4 py-2 bg-noir-800 border border-noir-600 rounded-lg text-gray-400 hover:text-warm-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveProfile}
+                disabled={profileSaving || !profileForm.displayName.trim()}
+                className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-500/50 text-noir-950 font-semibold rounded-lg transition-colors"
+              >
+                {profileSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
