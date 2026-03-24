@@ -149,10 +149,10 @@ export default function AgentMarketplacePage() {
                 <button
                   key={agent.id}
                   onClick={() => setSelectedAgent(agent)}
-                  className="text-left bg-noir-900 border border-noir-700/50 rounded-xl overflow-hidden hover:border-amber-500/30 transition-all duration-300 group"
+                  className="text-left bg-noir-900 border border-noir-700/50 rounded-xl hover:border-amber-500/30 transition-all duration-300 group"
                 >
                   {/* Banner */}
-                  <div className="relative h-28 overflow-hidden">
+                  <div className="relative h-28 rounded-t-xl overflow-hidden">
                     {agent.bannerImageUrl ? (
                       <img
                         src={agent.bannerImageUrl}
@@ -168,8 +168,8 @@ export default function AgentMarketplacePage() {
                   {/* Content */}
                   <div className="px-4 pb-4">
                     {/* Avatar overlapping banner */}
-                    <div className="-mt-8 mb-2">
-                      <div className="w-16 h-16 rounded-full bg-noir-800 flex items-center justify-center text-amber-400 text-xl font-bold shrink-0 border-[3px] border-noir-900">
+                    <div className="-mt-8 mb-2 relative z-10">
+                      <div className="w-16 h-16 rounded-full bg-noir-800 flex items-center justify-center text-amber-400 text-xl font-bold shrink-0 border-[3px] border-noir-900 overflow-hidden">
                         {agent.profileImageUrl ? (
                           <img src={agent.profileImageUrl} alt={agent.displayName} className="w-full h-full rounded-full object-cover" />
                         ) : (
@@ -245,8 +245,8 @@ export default function AgentMarketplacePage() {
 
               <div className="px-6 pb-6">
                 {/* Avatar overlapping banner */}
-                <div className="-mt-10 mb-3">
-                  <div className="w-20 h-20 rounded-full bg-noir-800 flex items-center justify-center text-amber-400 text-2xl font-bold shrink-0 border-4 border-noir-900">
+                <div className="-mt-10 mb-3 relative z-10">
+                  <div className="w-20 h-20 rounded-full bg-noir-800 flex items-center justify-center text-amber-400 text-2xl font-bold shrink-0 border-4 border-noir-900 overflow-hidden">
                     {selectedAgent.profileImageUrl ? (
                       <img src={selectedAgent.profileImageUrl} alt={selectedAgent.displayName} className="w-full h-full rounded-full object-cover" />
                     ) : (
