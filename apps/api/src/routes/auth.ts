@@ -63,23 +63,6 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send(tokens);
   });
 
-  // --- Admin Password Reset (temporary, secured by ADMIN_SEED_KEY) ---
-
-  app.post('/admin-reset-password', async (req, reply) => {
-    const { email, password, seedKey } = req.body as { email: string; password: string; seedKey: string };
-    const expectedKey = process.env.ADMIN_SEED_KEY || process.env.JWT_SECRET;
-    if (!seedKey || seedKey !== expectedKey) return reply.code(403).send({ error: 'Unauthorized' });
-
-    const { hash } = await import('bcrypt');
-    const passwordHash = await hash(password, 10);
-    const user = await app.prisma.user.update({
-      where: { email },
-      data: { passwordHash },
-      select: { id: true, email: true, role: true },
-    });
-    return { success: true, user };
-  });
-
   // --- Email Verification ---
 
   app.post('/verify-email', async (req, reply) => {
