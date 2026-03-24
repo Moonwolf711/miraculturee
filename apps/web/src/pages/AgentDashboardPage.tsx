@@ -265,9 +265,9 @@ export default function AgentDashboardPage() {
       <div className="max-w-4xl mx-auto px-4">
 
         {/* Profile header */}
-        <div className="bg-noir-900 border border-noir-700/50 rounded-2xl overflow-hidden mb-6">
+        <div className="bg-noir-900 border border-noir-700/50 rounded-2xl mb-6">
           {/* Banner */}
-          <div className="h-40 bg-noir-800 relative">
+          <div className="h-40 bg-noir-800 relative rounded-t-2xl overflow-hidden">
             {agent.bannerImageUrl ? (
               <img src={agent.bannerImageUrl} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -278,7 +278,7 @@ export default function AgentDashboardPage() {
           <div className="px-6 pb-6">
             <div className="-mt-12 flex flex-col sm:flex-row gap-5">
               {/* Avatar with border */}
-              <div className="w-24 h-24 rounded-full bg-noir-800 border-4 border-noir-900 flex items-center justify-center text-amber-400 text-3xl font-bold shrink-0 self-center sm:self-start overflow-hidden">
+              <div className="w-24 h-24 rounded-full bg-noir-800 border-4 border-noir-900 flex items-center justify-center text-amber-400 text-3xl font-bold shrink-0 self-center sm:self-start overflow-hidden relative z-10">
                 {agent.profileImageUrl ? (
                   <img src={agent.profileImageUrl} alt={agent.displayName} className="w-full h-full rounded-full object-cover" />
                 ) : agent.displayName.charAt(0).toUpperCase()}
