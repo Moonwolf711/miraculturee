@@ -48,6 +48,7 @@ const AgentMarketplacePage = lazyRetry(() => import('./pages/AgentMarketplacePag
 const AgentRegisterPage = lazyRetry(() => import('./pages/AgentRegisterPage.js'));
 const AgentDashboardPage = lazyRetry(() => import('./pages/AgentDashboardPage.js'));
 const ManagerAcceptPage = lazyRetry(() => import('./pages/ManagerAcceptPage.js'));
+const ManagerDashboardPage = lazyRetry(() => import('./pages/ManagerDashboardPage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -226,6 +227,14 @@ export default function App() {
               }
             />
             <Route path="/manager/accept/:token" element={<ManagerAcceptPage />} />
+            <Route
+              path="/manager/dashboard"
+              element={
+                <ProtectedRoute>
+                  <ManagerDashboardPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/terms" element={<TermsOfServicePage />} />
             {/* Catch-all 404 route */}
