@@ -385,6 +385,34 @@ export async function agentRoutes(app: FastifyInstance) {
     return pending;
   });
 
+  /** PUT /agents/admin/:id — admin updates any agent's profile */
+  app.put('/admin/:id', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const user = await app.prisma.user.findUnique({ where: { id: req.user.id }, select: { role: true } });
+    if (user?.role !== 'ADMIN' && user?.role !== 'DEVELOPER') return reply.code(403).send({ error: 'Admin only' });
+
+    const { id } = UuidParamSchema.parse(req.params);
+    const body = UpdateAgentProfileSchema.parse(req.body);
+
+    const agent = await app.prisma.promoterAgent.findUnique({ where: { id } });
+    if (!agent) return reply.code(404).send({ error: 'Agent not found' });
+
+    const merged = { ...agent, ...body };
+    const profileStrength = calcProfileStrength(merged as Record<string, unknown>);
+
+    const updated = await app.prisma.promoterAgent.update({
+      where: { id },
+      data: {
+        ...body,
+        state: body.state?.toUpperCase(),
+        socialLinks: body.socialLinks ?? undefined,
+        genres: body.genres ?? undefined,
+        skills: body.skills ?? undefined,
+        profileStrength,
+      },
+    });
+    return updated;
+  });
+
   // ─── Agent Subscription ($19.99/mo) ───
 
   const subService = new AgentSubscriptionService(app.prisma);
