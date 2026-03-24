@@ -33,6 +33,17 @@ export default function DashboardPage() {
   const activeTab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : 'overview';
   const setTab = (tab: Tab) => setSearchParams(tab === 'overview' ? {} : { tab });
 
+  // --- Role detection (check for agent/artist profiles regardless of role enum) ---
+  const [hasAgentProfile, setHasAgentProfile] = useState(false);
+  const [hasArtistProfile, setHasArtistProfile] = useState(false);
+  const [hasManagerProfile, setHasManagerProfile] = useState(false);
+
+  useEffect(() => {
+    api.get('/agents/profile').then(() => setHasAgentProfile(true)).catch(() => {});
+    api.get('/artist/profile').then(() => setHasArtistProfile(true)).catch(() => {});
+    api.get('/manager/profile').then(() => setHasManagerProfile(true)).catch(() => {});
+  }, []);
+
   // --- Dashboard Data ---
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [dashLoading, setDashLoading] = useState(true);
@@ -156,7 +167,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-8">
           <h1 className="font-display text-3xl tracking-wider text-warm-50">MY DASHBOARD</h1>
           <div className="flex gap-2">
-            {user?.role === 'AGENT' && (
+            {(hasAgentProfile || user?.role === 'AGENT') && (
               <Link
                 to="/agents/dashboard"
                 className="px-4 py-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg hover:bg-amber-500/20 hover:border-amber-500/50 transition-all text-sm font-medium flex items-center gap-2"
@@ -165,13 +176,22 @@ export default function DashboardPage() {
                 Agent Dashboard
               </Link>
             )}
-            {user?.role === 'ARTIST' && (
+            {(hasArtistProfile || user?.role === 'ARTIST') && (
               <Link
                 to="/artist/dashboard"
                 className="px-4 py-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg hover:bg-amber-500/20 hover:border-amber-500/50 transition-all text-sm font-medium flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
                 Artist Dashboard
+              </Link>
+            )}
+            {hasManagerProfile && (
+              <Link
+                to="/manager/dashboard"
+                className="px-4 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-lg hover:bg-blue-500/20 hover:border-blue-500/50 transition-all text-sm font-medium flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                Manager Dashboard
               </Link>
             )}
             {(user?.role === 'ADMIN' || user?.role === 'DEVELOPER') && (
