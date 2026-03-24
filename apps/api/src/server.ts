@@ -44,6 +44,7 @@ import { creditsRoutes } from './routes/credits.js';
 import { agentRoutes } from './routes/agents.js';
 import { uploadRoutes } from './routes/upload.js';
 import { managerRoutes } from './routes/manager.js';
+import { managerDashboardRoutes } from './routes/manager-dashboard.js';
 import { requireRole } from './middleware/authenticate.js';
 import { initWorkers } from './jobs/workers.js';
 import { setupCronJobs } from './cron.js';
@@ -104,6 +105,7 @@ async function start() {
   await app.register(agentRoutes, { prefix: '/agents' });
   await app.register(uploadRoutes, { prefix: '/upload' });
   await app.register(managerRoutes, { prefix: '/artist/managers' });
+  await app.register(managerDashboardRoutes, { prefix: '/manager' });
   // Webhook routes — use their own raw body parsers for Stripe signature verification
   await app.register(webhookRoutes, { prefix: '/webhook' });
   await app.register(connectWebhookRoutes, { prefix: '/connect-webhooks' });
