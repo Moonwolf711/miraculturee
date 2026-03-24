@@ -413,6 +413,34 @@ export async function agentRoutes(app: FastifyInstance) {
     return updated;
   });
 
+  /** POST /agents/admin/:id/reassign — admin reassigns agent profile to a different user */
+  app.post('/admin/:id/reassign', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const user = await app.prisma.user.findUnique({ where: { id: req.user.id }, select: { role: true } });
+    if (user?.role !== 'ADMIN') return reply.code(403).send({ error: 'Admin only' });
+
+    const { id } = UuidParamSchema.parse(req.params);
+    const { userId } = req.body as { userId: string };
+    if (!userId) return reply.code(400).send({ error: 'userId required' });
+
+    // Check target user exists
+    const targetUser = await app.prisma.user.findUnique({ where: { id: userId } });
+    if (!targetUser) return reply.code(404).send({ error: 'Target user not found' });
+
+    // Check agent exists
+    const agent = await app.prisma.promoterAgent.findUnique({ where: { id } });
+    if (!agent) return reply.code(404).send({ error: 'Agent not found' });
+
+    // Check target doesn't already have an agent profile
+    const existing = await app.prisma.promoterAgent.findUnique({ where: { userId } });
+    if (existing && existing.id !== id) return reply.code(409).send({ error: 'Target user already has an agent profile' });
+
+    const updated = await app.prisma.promoterAgent.update({
+      where: { id },
+      data: { userId },
+    });
+    return { success: true, agentId: updated.id, newUserId: userId };
+  });
+
   // ─── Agent Subscription ($19.99/mo) ───
 
   const subService = new AgentSubscriptionService(app.prisma);
