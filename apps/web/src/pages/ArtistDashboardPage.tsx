@@ -113,8 +113,27 @@ export default function ArtistDashboardPage() {
 
   // Artist profile edit state
   const [showProfileEdit, setShowProfileEdit] = useState(false);
-  const [profileForm, setProfileForm] = useState({ stageName: '', genre: '', bio: '' });
+  const [profileTab, setProfileTab] = useState<'basic' | 'media' | 'music' | 'socials' | 'location'>('basic');
+  const [profileForm, setProfileForm] = useState<Record<string, unknown>>({
+    stageName: '', bio: '', professionalType: '', hometown: '',
+    profileImageUrl: '', bannerImageUrl: '',
+    genres: [] as string[], instruments: [] as string[], yearsActive: '',
+    socialLinks: {} as Record<string, string>, followerCount: {} as Record<string, string>,
+    city: '', state: '',
+  });
   const [profileSaving, setProfileSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
+  // Event media edit state
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [eventMediaForm, setEventMediaForm] = useState<Record<string, unknown>>({
+    flyerImageUrl: '', flyerImage2Url: '', promoVideoUrl: '',
+    eventSocialLinks: {} as Record<string, string>, eventHashtag: '', lineupNotes: '',
+  });
+  const [eventMediaSaving, setEventMediaSaving] = useState(false);
+  const [uploadingFlyer, setUploadingFlyer] = useState(false);
+  const [uploadingFlyer2, setUploadingFlyer2] = useState(false);
 
   const [managers, setManagers] = useState<{ id: string; displayName: string; permission: string; bio: string | null; user: { email: string; name: string } }[]>([]);
   const [managersLoading, setManagersLoading] = useState(false);
@@ -206,10 +225,96 @@ export default function ArtistDashboardPage() {
     }
   }, [fetchDashboard]);
 
+  const GENRE_OPTIONS = ['EDM', 'Rap', 'Hip-Hop', 'R&B', 'Rock', 'Pop', 'Electronic', 'Country', 'Jazz', 'Latin', 'Reggae', 'Metal', 'Indie', 'Folk', 'Blues', 'Punk', 'Soul', 'Funk', 'Classical', 'Gospel', 'Afrobeats', 'K-Pop', 'House', 'Techno', 'Drum & Bass', 'Dubstep', 'Trap', 'Lo-Fi'];
+  const INSTRUMENT_OPTIONS = ['Vocals', 'Guitar', 'Bass', 'Drums', 'Keys/Piano', 'Synthesizer', 'Turntables/DJ', 'Saxophone', 'Trumpet', 'Violin', 'Cello', 'Flute', 'Percussion', 'Harmonica', 'Ukulele', 'Banjo', 'Production/DAW'];
+  const PROFESSIONAL_TYPES = ['DJ/Producer', 'Instrumentalist/Vocalist', 'Band/Label', 'Singer-Songwriter', 'MC/Rapper'];
+  const US_STATES: Record<string, string> = {
+    AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+    CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+    HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
+    KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+    MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri',
+    MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
+    NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio',
+    OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+    SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+    VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+    DC: 'Washington DC',
+  };
+
+  const handleArtistImageUpload = async (file: File, field: 'profileImageUrl' | 'bannerImageUrl') => {
+    const setter = field === 'profileImageUrl' ? setUploadingPhoto : setUploadingBanner;
+    setter(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/upload/profile-image`, {
+        method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const { url } = await res.json();
+      setProfileForm(prev => ({ ...prev, [field]: url }));
+    } catch {
+      // silent fail
+    } finally {
+      setter(false);
+    }
+  };
+
+  const handleEventImageUpload = async (file: File, field: 'flyerImageUrl' | 'flyerImage2Url') => {
+    const setter = field === 'flyerImageUrl' ? setUploadingFlyer : setUploadingFlyer2;
+    setter(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/upload/profile-image`, {
+        method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const { url } = await res.json();
+      setEventMediaForm(prev => ({ ...prev, [field]: url }));
+    } catch {
+      // silent fail
+    } finally {
+      setter(false);
+    }
+  };
+
+  const toggleArtistPill = (field: 'genres' | 'instruments', value: string) => {
+    setProfileForm(prev => {
+      const arr = (prev[field] as string[]) || [];
+      return {
+        ...prev,
+        [field]: arr.includes(value) ? arr.filter((v: string) => v !== value) : [...arr, value],
+      };
+    });
+  };
+
   const openProfileEdit = useCallback(() => {
-    api.get<{ stageName: string; genre: string | null; bio: string | null }>('/artist/profile')
+    api.get<Record<string, unknown>>('/artist/profile')
       .then((p) => {
-        setProfileForm({ stageName: p.stageName, genre: p.genre || '', bio: p.bio || '' });
+        setProfileForm({
+          stageName: (p.stageName as string) || '',
+          bio: (p.bio as string) || '',
+          professionalType: (p.professionalType as string) || '',
+          hometown: (p.hometown as string) || '',
+          profileImageUrl: (p.profileImageUrl as string) || '',
+          bannerImageUrl: (p.bannerImageUrl as string) || '',
+          genres: (p.genres as string[]) || [],
+          instruments: (p.instruments as string[]) || [],
+          yearsActive: p.yearsActive ?? '',
+          socialLinks: (p.socialLinks as Record<string, string>) || {},
+          followerCount: (p.followerCount as Record<string, string>) || {},
+          city: (p.city as string) || '',
+          state: (p.state as string) || '',
+        });
+        setProfileTab('basic');
         setShowProfileEdit(true);
       })
       .catch(() => setShowProfileEdit(true));
@@ -220,14 +325,64 @@ export default function ArtistDashboardPage() {
     try {
       await api.put('/artist/profile', {
         stageName: profileForm.stageName || undefined,
-        genre: profileForm.genre || undefined,
         bio: profileForm.bio || undefined,
+        professionalType: profileForm.professionalType || undefined,
+        hometown: profileForm.hometown || undefined,
+        profileImageUrl: profileForm.profileImageUrl || undefined,
+        bannerImageUrl: profileForm.bannerImageUrl || undefined,
+        genres: profileForm.genres,
+        instruments: profileForm.instruments,
+        yearsActive: profileForm.yearsActive ? Number(profileForm.yearsActive) : undefined,
+        socialLinks: profileForm.socialLinks,
+        followerCount: profileForm.followerCount,
+        city: profileForm.city || undefined,
+        state: profileForm.state || undefined,
       });
       setShowProfileEdit(false);
       fetchDashboard();
     } catch {}
     finally { setProfileSaving(false); }
   }, [profileForm, fetchDashboard]);
+
+  const openEventMediaEdit = useCallback((eventId: string) => {
+    // Fetch event data to populate form
+    api.get<Record<string, unknown>>(`/events/${eventId}`)
+      .then((e) => {
+        setEventMediaForm({
+          flyerImageUrl: (e.flyerImageUrl as string) || '',
+          flyerImage2Url: (e.flyerImage2Url as string) || '',
+          promoVideoUrl: (e.promoVideoUrl as string) || '',
+          eventSocialLinks: (e.eventSocialLinks as Record<string, string>) || {},
+          eventHashtag: (e.eventHashtag as string) || '',
+          lineupNotes: (e.lineupNotes as string) || '',
+        });
+        setEditingEventId(eventId);
+      })
+      .catch(() => {
+        setEventMediaForm({
+          flyerImageUrl: '', flyerImage2Url: '', promoVideoUrl: '',
+          eventSocialLinks: {}, eventHashtag: '', lineupNotes: '',
+        });
+        setEditingEventId(eventId);
+      });
+  }, []);
+
+  const saveEventMedia = useCallback(async () => {
+    if (!editingEventId) return;
+    setEventMediaSaving(true);
+    try {
+      await api.put(`/artist/events/${editingEventId}`, {
+        flyerImageUrl: eventMediaForm.flyerImageUrl || undefined,
+        flyerImage2Url: eventMediaForm.flyerImage2Url || undefined,
+        promoVideoUrl: eventMediaForm.promoVideoUrl || undefined,
+        eventSocialLinks: eventMediaForm.eventSocialLinks,
+        eventHashtag: eventMediaForm.eventHashtag || undefined,
+        lineupNotes: eventMediaForm.lineupNotes || undefined,
+      });
+      setEditingEventId(null);
+    } catch {}
+    finally { setEventMediaSaving(false); }
+  }, [editingEventId, eventMediaForm]);
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   const formatDate = (iso: string) =>
@@ -444,26 +599,33 @@ export default function ArtistDashboardPage() {
         ) : (
           <div className="space-y-3">
             {dashboard.upcomingEvents.map((event) => (
-              <Link
+              <div
                 key={event.id}
-                to={`/events/${event.id}`}
-                className="block bg-noir-800 border border-noir-700 rounded-xl p-5 hover:border-amber-500/30 transition-colors"
+                className="bg-noir-800 border border-noir-700 rounded-xl p-5 hover:border-amber-500/30 transition-colors"
               >
                 <div className="flex justify-between items-center">
-                  <div>
+                  <Link to={`/events/${event.id}`} className="flex-1 min-w-0">
                     <h3 className="text-warm-50 font-medium">{event.title}</h3>
                     <p className="text-sm text-gray-400 mt-1 font-body">
                       {event.venueName}, {event.venueCity} &middot; {formatDate(event.date)}
                     </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-warm-50 font-display text-lg">
-                      {event.supportedTickets}
+                  </Link>
+                  <div className="flex items-center gap-3 ml-4">
+                    <button
+                      onClick={() => openEventMediaEdit(event.id)}
+                      className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs uppercase tracking-wide font-semibold transition-colors"
+                    >
+                      Edit Media
+                    </button>
+                    <div className="text-right">
+                      <div className="text-warm-50 font-display text-lg">
+                        {event.supportedTickets}
+                      </div>
+                      <div className="text-xs uppercase tracking-wider text-gray-400">supported</div>
                     </div>
-                    <div className="text-xs uppercase tracking-wider text-gray-400">supported</div>
                   </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
@@ -635,60 +797,455 @@ export default function ArtistDashboardPage() {
         </div>
       </div>
 
-      {/* Profile edit modal */}
+      {/* Profile edit modal — rich tabbed version */}
       {showProfileEdit && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowProfileEdit(false)}>
-          <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display text-xl tracking-wider text-warm-50">EDIT PROFILE</h2>
-              <button onClick={() => setShowProfileEdit(false)} className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors" aria-label="Close">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        <div className="fixed inset-0 z-50 bg-noir-950/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowProfileEdit(false)}>
+          <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Modal header */}
+            <div className="sticky top-0 bg-noir-900 border-b border-noir-700/50 px-6 py-4 flex items-center justify-between z-10 rounded-t-2xl shrink-0">
+              <h2 className="text-lg font-display tracking-wider text-warm-50">Edit Artist Profile</h2>
+              <button onClick={() => setShowProfileEdit(false)} className="text-gray-500 hover:text-gray-300 transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <div className="space-y-4 mb-6">
+            {/* Tab navigation */}
+            <div className="flex gap-1 px-6 pt-4 pb-2 bg-noir-900 shrink-0 overflow-x-auto">
+              {([
+                { key: 'basic' as const, label: 'Basic' },
+                { key: 'media' as const, label: 'Media' },
+                { key: 'music' as const, label: 'Music' },
+                { key: 'socials' as const, label: 'Socials' },
+                { key: 'location' as const, label: 'Location' },
+              ]).map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setProfileTab(t.key)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                    profileTab === t.key
+                      ? 'bg-amber-500 text-noir-950'
+                      : 'text-gray-400 hover:text-gray-300 hover:bg-noir-800'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content */}
+            <div className="px-6 py-5 space-y-6 overflow-y-auto flex-1">
+              {/* BASIC TAB */}
+              {profileTab === 'basic' && (
+                <>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Stage Name</label>
+                    <input
+                      type="text"
+                      value={(profileForm.stageName as string) || ''}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, stageName: e.target.value }))}
+                      className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                      maxLength={100}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Professional Type</label>
+                    <select
+                      value={(profileForm.professionalType as string) || ''}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, professionalType: e.target.value }))}
+                      className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors"
+                    >
+                      <option value="">Select type...</option>
+                      {PROFESSIONAL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Bio</label>
+                    <textarea
+                      rows={5}
+                      maxLength={2000}
+                      value={(profileForm.bio as string) || ''}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, bio: e.target.value }))}
+                      className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600 resize-none"
+                      placeholder="Tell fans about yourself and your music..."
+                    />
+                    <p className="text-gray-600 text-xs mt-1 text-right">{((profileForm.bio as string) || '').length}/2000</p>
+                  </div>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Hometown</label>
+                    <input
+                      type="text"
+                      value={(profileForm.hometown as string) || ''}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, hometown: e.target.value }))}
+                      className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                      placeholder="Where are you from?"
+                      maxLength={100}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* MEDIA TAB */}
+              {profileTab === 'media' && (
+                <>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Banner Image</label>
+                    <label className="block cursor-pointer group">
+                      <div className="h-32 rounded-lg overflow-hidden bg-noir-800 border border-noir-700 border-dashed relative">
+                        {profileForm.bannerImageUrl ? (
+                          <img src={profileForm.bannerImageUrl as string} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-amber-500/10 via-noir-800 to-noir-900 flex items-center justify-center">
+                            <span className="text-gray-600 text-sm">Click or drag to upload banner</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-noir-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="text-gray-300 text-sm">{uploadingBanner ? 'Uploading...' : 'Change Banner'}</span>
+                        </div>
+                      </div>
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleArtistImageUpload(file, 'bannerImageUrl');
+                      }} />
+                    </label>
+                  </div>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Profile Photo</label>
+                    <label className="inline-block cursor-pointer group">
+                      <div className="w-24 h-24 rounded-full bg-noir-800 border-2 border-noir-700 border-dashed overflow-hidden relative flex items-center justify-center text-amber-400 text-3xl font-bold">
+                        {profileForm.profileImageUrl ? (
+                          <img src={profileForm.profileImageUrl as string} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          ((profileForm.stageName as string) || '?').charAt(0).toUpperCase()
+                        )}
+                        <div className="absolute inset-0 bg-noir-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
+                          {uploadingPhoto ? (
+                            <svg className="w-5 h-5 text-gray-300 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          ) : (
+                            <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                          )}
+                        </div>
+                      </div>
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleArtistImageUpload(file, 'profileImageUrl');
+                      }} />
+                    </label>
+                  </div>
+                </>
+              )}
+
+              {/* MUSIC TAB */}
+              {profileTab === 'music' && (
+                <>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Genres</label>
+                    <div className="flex flex-wrap gap-2">
+                      {GENRE_OPTIONS.map(g => {
+                        const selected = ((profileForm.genres as string[]) || []).includes(g);
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => toggleArtistPill('genres', g)}
+                            className={`px-3 py-1.5 rounded-full text-xs transition-colors ${
+                              selected
+                                ? 'bg-amber-500/15 border border-amber-500/40 text-amber-400'
+                                : 'border border-noir-700 text-gray-400 hover:border-amber-500/40'
+                            }`}
+                          >
+                            {g}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Instruments</label>
+                    <div className="flex flex-wrap gap-2">
+                      {INSTRUMENT_OPTIONS.map(i => {
+                        const selected = ((profileForm.instruments as string[]) || []).includes(i);
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => toggleArtistPill('instruments', i)}
+                            className={`px-3 py-1.5 rounded-full text-xs transition-colors ${
+                              selected
+                                ? 'bg-amber-500/15 border border-amber-500/40 text-amber-400'
+                                : 'border border-noir-700 text-gray-400 hover:border-amber-500/40'
+                            }`}
+                          >
+                            {i}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Years Active</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={60}
+                      value={(profileForm.yearsActive as string | number) ?? ''}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, yearsActive: e.target.value }))}
+                      className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                      placeholder="0"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* SOCIALS TAB */}
+              {profileTab === 'socials' && (
+                <>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Social Links</label>
+                    <div className="space-y-3">
+                      {([
+                        { key: 'instagram', label: 'Instagram', placeholder: 'username' },
+                        { key: 'twitter', label: 'Twitter / X', placeholder: 'username' },
+                        { key: 'tiktok', label: 'TikTok', placeholder: 'username' },
+                        { key: 'spotify', label: 'Spotify', placeholder: 'artist URL or ID' },
+                        { key: 'soundcloud', label: 'SoundCloud', placeholder: 'username' },
+                        { key: 'youtube', label: 'YouTube', placeholder: 'channel URL' },
+                        { key: 'website', label: 'Website', placeholder: 'https://...' },
+                      ]).map(({ key, label, placeholder }) => (
+                        <div key={key} className="flex items-center gap-3">
+                          <span className="text-gray-500 text-sm w-24 shrink-0">{label}</span>
+                          <input
+                            type="text"
+                            value={((profileForm.socialLinks as Record<string, string>) || {})[key] || ''}
+                            onChange={(e) => setProfileForm(prev => ({
+                              ...prev,
+                              socialLinks: { ...((prev.socialLinks as Record<string, string>) || {}), [key]: e.target.value },
+                            }))}
+                            className="flex-1 px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                            placeholder={placeholder}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Follower Counts (optional)</label>
+                    <div className="space-y-3">
+                      {([
+                        { key: 'instagram', label: 'Instagram' },
+                        { key: 'spotify', label: 'Spotify' },
+                        { key: 'tiktok', label: 'TikTok' },
+                        { key: 'soundcloud', label: 'SoundCloud' },
+                      ]).map(({ key, label }) => (
+                        <div key={key} className="flex items-center gap-3">
+                          <span className="text-gray-500 text-sm w-24 shrink-0">{label}</span>
+                          <input
+                            type="text"
+                            value={((profileForm.followerCount as Record<string, string>) || {})[key] || ''}
+                            onChange={(e) => setProfileForm(prev => ({
+                              ...prev,
+                              followerCount: { ...((prev.followerCount as Record<string, string>) || {}), [key]: e.target.value },
+                            }))}
+                            className="flex-1 px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                            placeholder="e.g. 12500"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* LOCATION TAB */}
+              {profileTab === 'location' && (
+                <>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">City</label>
+                    <input
+                      type="text"
+                      value={(profileForm.city as string) || ''}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, city: e.target.value }))}
+                      className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                      placeholder="Your city"
+                      maxLength={100}
+                    />
+                  </div>
+                  <div>
+                    <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">State</label>
+                    <select
+                      value={(profileForm.state as string) || ''}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, state: e.target.value }))}
+                      className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors"
+                    >
+                      <option value="">Select state...</option>
+                      {Object.entries(US_STATES).map(([code, name]) => (
+                        <option key={code} value={code}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal footer - sticky */}
+            <div className="sticky bottom-0 bg-noir-900 border-t border-noir-700/50 px-6 py-4 flex items-center justify-end gap-3 rounded-b-2xl shrink-0">
+              <button
+                onClick={() => setShowProfileEdit(false)}
+                className="px-6 py-2.5 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveProfile}
+                disabled={profileSaving || !(profileForm.stageName as string)?.trim()}
+                className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg transition-colors disabled:opacity-50"
+              >
+                {profileSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event media edit modal */}
+      {editingEventId && (
+        <div className="fixed inset-0 z-50 bg-noir-950/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditingEventId(null)}>
+          <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Modal header */}
+            <div className="sticky top-0 bg-noir-900 border-b border-noir-700/50 px-6 py-4 flex items-center justify-between z-10 rounded-t-2xl shrink-0">
+              <h2 className="text-lg font-display tracking-wider text-warm-50">Edit Event Media</h2>
+              <button onClick={() => setEditingEventId(null)} className="text-gray-500 hover:text-gray-300 transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-6 overflow-y-auto flex-1">
+              {/* Flyer image upload */}
               <div>
-                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-1">Stage Name</label>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Event Flyer</label>
+                <label className="block cursor-pointer group">
+                  <div className="h-40 rounded-lg overflow-hidden bg-noir-800 border border-noir-700 border-dashed relative">
+                    {eventMediaForm.flyerImageUrl ? (
+                      <img src={eventMediaForm.flyerImageUrl as string} alt="" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-gray-600 text-sm">Click or drag to upload flyer</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-noir-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-gray-300 text-sm">{uploadingFlyer ? 'Uploading...' : 'Change Flyer'}</span>
+                    </div>
+                  </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleEventImageUpload(file, 'flyerImageUrl');
+                  }} />
+                </label>
+              </div>
+
+              {/* 2nd Flyer */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Second Flyer (optional)</label>
+                <label className="block cursor-pointer group">
+                  <div className="h-32 rounded-lg overflow-hidden bg-noir-800 border border-noir-700 border-dashed relative">
+                    {eventMediaForm.flyerImage2Url ? (
+                      <img src={eventMediaForm.flyerImage2Url as string} alt="" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-gray-600 text-sm">Click or drag to upload second flyer</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-noir-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-gray-300 text-sm">{uploadingFlyer2 ? 'Uploading...' : 'Change Flyer'}</span>
+                    </div>
+                  </div>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleEventImageUpload(file, 'flyerImage2Url');
+                  }} />
+                </label>
+              </div>
+
+              {/* Promo Video URL */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Promo Video URL</label>
                 <input
                   type="text"
-                  value={profileForm.stageName}
-                  onChange={(e) => setProfileForm({ ...profileForm, stageName: e.target.value })}
-                  className="w-full bg-noir-800 border border-noir-700 rounded-lg px-4 py-2.5 text-warm-50 focus:border-amber-500/50 focus:outline-none"
-                  maxLength={100}
+                  value={(eventMediaForm.promoVideoUrl as string) || ''}
+                  onChange={(e) => setEventMediaForm(prev => ({ ...prev, promoVideoUrl: e.target.value }))}
+                  className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                  placeholder="YouTube or Vimeo URL"
                 />
               </div>
+
+              {/* Event social links */}
               <div>
-                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-1">Genre</label>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Event Social Links</label>
+                <div className="space-y-3">
+                  {([
+                    { key: 'instagram', label: 'Instagram', placeholder: 'Event IG post URL' },
+                    { key: 'facebook', label: 'Facebook', placeholder: 'Facebook event URL' },
+                    { key: 'eventbrite', label: 'Eventbrite', placeholder: 'Eventbrite listing URL' },
+                  ]).map(({ key, label, placeholder }) => (
+                    <div key={key} className="flex items-center gap-3">
+                      <span className="text-gray-500 text-sm w-24 shrink-0">{label}</span>
+                      <input
+                        type="text"
+                        value={((eventMediaForm.eventSocialLinks as Record<string, string>) || {})[key] || ''}
+                        onChange={(e) => setEventMediaForm(prev => ({
+                          ...prev,
+                          eventSocialLinks: { ...((prev.eventSocialLinks as Record<string, string>) || {}), [key]: e.target.value },
+                        }))}
+                        className="flex-1 px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                        placeholder={placeholder}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Event hashtag */}
+              <div>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Event Hashtag</label>
                 <input
                   type="text"
-                  value={profileForm.genre}
-                  onChange={(e) => setProfileForm({ ...profileForm, genre: e.target.value })}
-                  className="w-full bg-noir-800 border border-noir-700 rounded-lg px-4 py-2.5 text-warm-50 focus:border-amber-500/50 focus:outline-none"
-                  placeholder="e.g. Hip-Hop, Indie, Electronic"
-                  maxLength={100}
+                  value={(eventMediaForm.eventHashtag as string) || ''}
+                  onChange={(e) => setEventMediaForm(prev => ({ ...prev, eventHashtag: e.target.value }))}
+                  className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                  placeholder="#YourEventHashtag"
+                  maxLength={50}
                 />
               </div>
+
+              {/* Lineup notes */}
               <div>
-                <label className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-1">Bio</label>
+                <label className="font-display text-xs tracking-wider text-amber-500 uppercase mb-3 block">Lineup Notes</label>
                 <textarea
-                  value={profileForm.bio}
-                  onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
-                  rows={4}
-                  className="w-full bg-noir-800 border border-noir-700 rounded-lg px-4 py-2.5 text-warm-50 focus:border-amber-500/50 focus:outline-none resize-none"
-                  placeholder="Tell fans about yourself and your music"
-                  maxLength={2000}
+                  rows={3}
+                  value={(eventMediaForm.lineupNotes as string) || ''}
+                  onChange={(e) => setEventMediaForm(prev => ({ ...prev, lineupNotes: e.target.value }))}
+                  className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-colors placeholder-gray-600 resize-none"
+                  placeholder="w/ Special Guest DJ XYZ, opening set by..."
+                  maxLength={500}
                 />
-                <p className="text-gray-600 text-xs mt-1 text-right">{profileForm.bio.length}/2000</p>
               </div>
             </div>
 
-            <button
-              onClick={saveProfile}
-              disabled={profileSaving || !profileForm.stageName.trim()}
-              className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors"
-            >
-              {profileSaving ? 'Saving...' : 'Save Profile'}
-            </button>
+            {/* Modal footer */}
+            <div className="sticky bottom-0 bg-noir-900 border-t border-noir-700/50 px-6 py-4 flex items-center justify-end gap-3 rounded-b-2xl shrink-0">
+              <button
+                onClick={() => setEditingEventId(null)}
+                className="px-6 py-2.5 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEventMedia}
+                disabled={eventMediaSaving}
+                className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg transition-colors disabled:opacity-50"
+              >
+                {eventMediaSaving ? 'Saving...' : 'Save Media'}
+              </button>
+            </div>
           </div>
         </div>
       )}

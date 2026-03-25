@@ -40,17 +40,92 @@ export async function artistRoutes(app: FastifyInstance) {
     const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
     if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
 
-    const { stageName, genre, bio } = req.body as { stageName?: string; genre?: string; bio?: string };
+    const body = req.body as Record<string, unknown>;
     const data: Record<string, unknown> = {};
-    if (stageName !== undefined && stageName.trim()) data.stageName = stageName.trim();
-    if (genre !== undefined) data.genre = genre || null;
-    if (bio !== undefined) data.bio = bio || null;
+
+    // Basic fields
+    if (body.stageName !== undefined && typeof body.stageName === 'string' && body.stageName.trim()) {
+      data.stageName = (body.stageName as string).trim();
+    }
+    if (body.genre !== undefined) data.genre = body.genre || null;
+    if (body.bio !== undefined) data.bio = body.bio || null;
+    if (body.profileImageUrl !== undefined) data.profileImageUrl = body.profileImageUrl || null;
+    if (body.bannerImageUrl !== undefined) data.bannerImageUrl = body.bannerImageUrl || null;
+    if (body.city !== undefined) data.city = body.city || null;
+    if (body.state !== undefined) data.state = body.state || null;
+    if (body.websiteUrl !== undefined) data.websiteUrl = body.websiteUrl || null;
+    if (body.professionalType !== undefined) data.professionalType = body.professionalType || null;
+    if (body.hometown !== undefined) data.hometown = body.hometown || null;
+
+    // Numeric fields
+    if (body.yearsActive !== undefined) {
+      data.yearsActive = body.yearsActive ? Number(body.yearsActive) : null;
+    }
+
+    // Array fields
+    if (body.genres !== undefined && Array.isArray(body.genres)) {
+      data.genres = body.genres;
+      // Backward compat: set genre to first entry
+      data.genre = (body.genres as string[]).length > 0 ? (body.genres as string[])[0] : null;
+    }
+    if (body.instruments !== undefined && Array.isArray(body.instruments)) {
+      data.instruments = body.instruments;
+    }
+
+    // JSON fields
+    if (body.socialLinks !== undefined) data.socialLinks = body.socialLinks || null;
+    if (body.followerCount !== undefined) data.followerCount = body.followerCount || null;
 
     if (Object.keys(data).length === 0) {
       return reply.code(400).send({ error: 'No fields to update' });
     }
 
+    // Calculate profile strength
+    const merged = { ...artist, ...data };
+    let strength = 0;
+    if (merged.stageName) strength += 15;
+    if (merged.bio) strength += 15;
+    if (merged.profileImageUrl) strength += 15;
+    if (merged.bannerImageUrl) strength += 5;
+    if (merged.professionalType) strength += 10;
+    if (merged.hometown || merged.city) strength += 5;
+    if (merged.state) strength += 5;
+    if (Array.isArray(merged.genres) && (merged.genres as string[]).length > 0) strength += 10;
+    if (Array.isArray(merged.instruments) && (merged.instruments as string[]).length > 0) strength += 5;
+    if (merged.yearsActive != null) strength += 5;
+    if (merged.socialLinks && typeof merged.socialLinks === 'object' && Object.values(merged.socialLinks as Record<string, unknown>).some(Boolean)) strength += 10;
+    data.profileStrength = Math.min(strength, 100);
+
     const updated = await app.prisma.artist.update({ where: { id: artist.id }, data });
+    return updated;
+  });
+
+  /** PUT /artist/events/:eventId — update event media */
+  app.put('/events/:eventId', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { eventId } = req.params as { eventId: string };
+    const artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
+    if (!artist) return reply.code(404).send({ error: 'Artist profile not found' });
+
+    const event = await app.prisma.event.findFirst({
+      where: { id: eventId, artistId: artist.id },
+    });
+    if (!event) return reply.code(404).send({ error: 'Event not found or not owned by you' });
+
+    const body = req.body as Record<string, unknown>;
+    const data: Record<string, unknown> = {};
+
+    if (body.flyerImageUrl !== undefined) data.flyerImageUrl = body.flyerImageUrl || null;
+    if (body.flyerImage2Url !== undefined) data.flyerImage2Url = body.flyerImage2Url || null;
+    if (body.promoVideoUrl !== undefined) data.promoVideoUrl = body.promoVideoUrl || null;
+    if (body.eventSocialLinks !== undefined) data.eventSocialLinks = body.eventSocialLinks || null;
+    if (body.eventHashtag !== undefined) data.eventHashtag = body.eventHashtag || null;
+    if (body.lineupNotes !== undefined) data.lineupNotes = body.lineupNotes || null;
+
+    if (Object.keys(data).length === 0) {
+      return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    const updated = await app.prisma.event.update({ where: { id: eventId }, data });
     return updated;
   });
 

@@ -142,6 +142,19 @@ model Artist {
   stageName          String
   genre              String?
   bio                String?
+  profileImageUrl     String?
+  bannerImageUrl      String?
+  city                String?
+  state               String?
+  websiteUrl          String?
+  genres              String[]
+  instruments         String[]
+  professionalType    String?
+  yearsActive         Int?
+  hometown            String?
+  socialLinks         Json?
+  followerCount       Json?
+  profileStrength     Int       @default(0)
   stripeAccountId    String?
   isVerified         Boolean   @default(false)
   verifiedAt         DateTime?
@@ -248,6 +261,12 @@ model Event {
   localRadiusKm    Float       @default(50)
   type             EventType   @default(SHOW)
   status           EventStatus @default(DRAFT)
+  flyerImageUrl       String?
+  flyerImage2Url      String?
+  promoVideoUrl       String?
+  eventSocialLinks    Json?
+  eventHashtag        String?
+  lineupNotes         String?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
