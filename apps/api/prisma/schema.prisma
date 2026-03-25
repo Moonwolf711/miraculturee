@@ -132,6 +132,8 @@ model User {
   devInvitesAccepted   DeveloperInvite[] @relation("DevInvitesAccepted")
   promoterAgent        PromoterAgent?
   managedArtists       ArtistManager[]
+  localArtistProfile   LocalArtistProfile?
+  bookingRequestsSent  BookingRequest[]     @relation("BookingRequestsSent")
 }
 
 model Artist {
@@ -784,4 +786,102 @@ model NewsletterSubscriber {
   createdAt DateTime @default(now())
 
   @@index([active])
+}
+
+// ─── Local Artist EPK (Electronic Press Kit) ───
+
+model LocalArtistProfile {
+  id                  String    @id @default(uuid())
+  userId              String    @unique
+  stageName           String
+  city                String
+  state               String    // US state abbreviation (e.g. "NY", "CA")
+  bio                 String?
+  profileImageUrl     String?
+  bannerImageUrl      String?
+  genres              String[]
+  instruments         String[]
+  professionalType    String?   // DJ/Producer, Vocalist, Band, Instrumentalist, etc.
+  yearsActive         Int?
+  bookingEmail        String?
+  bookingRate         String?   // e.g. "$200-500", flexible text
+  availableForBooking Boolean   @default(true)
+  epkUrl              String?   // external EPK link
+  socialLinks         Json?     // { instagram, twitter, tiktok, spotify, soundcloud, youtube, website }
+  followerCount       Json?     // { instagram: Int, twitter: Int, tiktok: Int, spotify: Int, soundcloud: Int }
+  verificationStatus  String    @default("UNVERIFIED") // UNVERIFIED, VERIFIED
+  profileStrength     Int       @default(0)  // 0-100
+  totalShows          Int       @default(0)
+  totalTicketsSold    Int       @default(0)
+  avgTicketsPerShow   Float     @default(0)
+  lastBookedAt        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releases        LocalArtistRelease[]
+  pastShows       LocalArtistShow[]
+  bookingRequests BookingRequest[]     @relation("BookingRequestsReceived")
+
+  @@index([city, state])
+  @@index([state])
+  @@index([availableForBooking])
+}
+
+model LocalArtistRelease {
+  id              String    @id @default(uuid())
+  artistProfileId String
+  title           String
+  type            String    // Single, EP, Album, Mixtape, Remix
+  platform        String?   // Spotify, SoundCloud, Apple Music, YouTube, etc.
+  url             String?
+  releaseDate     DateTime?
+  streamCount     Int?      // self-reported
+  coverImageUrl   String?
+  createdAt       DateTime  @default(now())
+
+  artistProfile LocalArtistProfile @relation(fields: [artistProfileId], references: [id], onDelete: Cascade)
+
+  @@index([artistProfileId])
+}
+
+model LocalArtistShow {
+  id              String    @id @default(uuid())
+  artistProfileId String
+  venueName       String
+  venueCity       String
+  eventTitle      String?
+  date            DateTime
+  role            String    // Headliner, Direct Support, Opener, Guest, Resident
+  ticketsSold     Int?
+  totalAttendance Int?
+  promoterName    String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  artistProfile LocalArtistProfile @relation(fields: [artistProfileId], references: [id], onDelete: Cascade)
+
+  @@index([artistProfileId, date])
+}
+
+model BookingRequest {
+  id            String    @id @default(uuid())
+  localArtistId String
+  requesterId   String
+  eventTitle    String
+  venueName     String
+  eventDate     DateTime
+  offeredRole   String    // Opener, Direct Support, Co-Headliner
+  compensation  String?   // text description
+  message       String?
+  status        String    @default("PENDING") // PENDING, ACCEPTED, DECLINED, CANCELLED
+  respondedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  localArtist LocalArtistProfile @relation("BookingRequestsReceived", fields: [localArtistId], references: [id], onDelete: Cascade)
+  requester   User               @relation("BookingRequestsSent", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@index([localArtistId, status])
+  @@index([requesterId])
 }
