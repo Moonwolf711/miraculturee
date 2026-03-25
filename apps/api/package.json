@@ -27,6 +27,7 @@
     "@simplewebauthn/types": "^11.0.0",
     "@tidal-music/api": "^0.8.1",
     "@types/seedrandom": "^3.0.8",
+    "agentdb": "3.0.0-alpha.10",
     "arctic": "^3.5.0",
     "bcrypt": "^5.1.1",
     "bullmq": "^5.30.0",

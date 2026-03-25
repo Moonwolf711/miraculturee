@@ -3,6 +3,7 @@ import type { POSClient } from '@miraculturee/pos';
 import type { SupportPurchaseResult } from '@miraculturee/shared';
 import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
 import { CampaignStateMachineService } from './campaign-state-machine.service.js';
+import { UserPreferencesService } from './user-preferences.service.js';
 
 export class SupportService {
   constructor(
@@ -106,10 +107,25 @@ export class SupportService {
       data: { status: 'completed', stripePaymentId },
     });
 
-    // Update campaign funding if there's an active campaign for this event
-    const event = await this.prisma.event.findUnique({
+    // Record preference signal for AgentDB
+    const eventWithArtist = await this.prisma.event.findUnique({
       where: { id: supportTicket.eventId },
+      include: { artist: { select: { stageName: true, genre: true } } },
     });
+    if (eventWithArtist) {
+      const prefs = new UserPreferencesService(this.prisma);
+      prefs.recordPreference({
+        userId: supportTicket.userId,
+        type: 'support',
+        artistName: eventWithArtist.artist.stageName,
+        genre: eventWithArtist.artist.genre,
+        venueCity: eventWithArtist.venueCity,
+        amountCents: supportTicket.totalAmountCents,
+      }).catch(() => {}); // Fire-and-forget, don't block the purchase flow
+    }
+
+    // Update campaign funding if there's an active campaign for this event
+    const event = eventWithArtist;
     if (event) {
       const donationCents = event.ticketPriceCents * supportTicket.ticketCount;
       // Find campaign in any active lifecycle state (not just ACTIVE)
