@@ -49,6 +49,9 @@ const AgentRegisterPage = lazyRetry(() => import('./pages/AgentRegisterPage.js')
 const AgentDashboardPage = lazyRetry(() => import('./pages/AgentDashboardPage.js'));
 const ManagerAcceptPage = lazyRetry(() => import('./pages/ManagerAcceptPage.js'));
 const ManagerDashboardPage = lazyRetry(() => import('./pages/ManagerDashboardPage.js'));
+const LocalArtistRegisterPage = lazyRetry(() => import('./pages/LocalArtistRegisterPage.js'));
+const LocalArtistDashboardPage = lazyRetry(() => import('./pages/LocalArtistDashboardPage.js'));
+const LocalArtistMarketplacePage = lazyRetry(() => import('./pages/LocalArtistMarketplacePage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -232,6 +235,23 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <ManagerDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/local-artists" element={<LocalArtistMarketplacePage />} />
+            <Route
+              path="/local-artists/register"
+              element={
+                <ProtectedRoute>
+                  <LocalArtistRegisterPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/local-artists/dashboard"
+              element={
+                <ProtectedRoute>
+                  <LocalArtistDashboardPage />
                 </ProtectedRoute>
               }
             />
