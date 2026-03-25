@@ -8,6 +8,7 @@ import {
   UuidParamSchema,
 } from '@miraculturee/shared';
 import { AgentSubscriptionService } from '../services/agent-subscription.service.js';
+import { getMemory } from '../lib/agentdb.js';
 
 export async function agentRoutes(app: FastifyInstance) {
   // ─── Public: Browse agent marketplace ───
@@ -171,6 +172,23 @@ export async function agentRoutes(app: FastifyInstance) {
       },
     });
 
+    // Index in AgentDB for semantic search (fire-and-forget)
+    void (async () => {
+      try {
+        const memory = await getMemory();
+        await memory.indexAgent(agent.id, {
+          displayName: body.displayName,
+          city: body.city,
+          state: body.state.toUpperCase(),
+          bio: body.bio ?? '',
+          genres: body.genres ?? [],
+          skills: body.skills ?? [],
+        });
+      } catch (err) {
+        app.log.error(err, '[AgentDB] Failed to index new agent profile');
+      }
+    })();
+
     // Notify admins about new agent registration (fire and forget)
     void (async () => {
       if (!app.emailService) return;
@@ -240,6 +258,24 @@ export async function agentRoutes(app: FastifyInstance) {
         profileStrength,
       },
     });
+
+    // Re-index in AgentDB for semantic search (fire-and-forget)
+    void (async () => {
+      try {
+        const memory = await getMemory();
+        await memory.indexAgent(updated.id, {
+          displayName: merged.displayName as string,
+          city: merged.city as string,
+          state: (merged.state as string).toUpperCase(),
+          bio: (merged.bio as string) ?? '',
+          genres: (merged.genres as string[]) ?? [],
+          skills: (merged.skills as string[]) ?? [],
+        });
+      } catch (err) {
+        app.log.error(err, '[AgentDB] Failed to re-index agent profile');
+      }
+    })();
+
     return updated;
   });
 

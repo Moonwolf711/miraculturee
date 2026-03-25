@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { UuidParamSchema } from '@miraculturee/shared';
+import { getMemory } from '../lib/agentdb.js';
 
 // ─── Zod Schemas ───
 
@@ -367,6 +368,23 @@ export async function localArtistRoutes(app: FastifyInstance) {
       },
     });
 
+    // Index in AgentDB for semantic search (fire-and-forget)
+    void (async () => {
+      try {
+        const memory = await getMemory();
+        await memory.indexArtist(profile.id, {
+          stageName: body.stageName,
+          city: body.city,
+          state: body.state.toUpperCase(),
+          bio: body.bio ?? '',
+          genres: body.genres ?? [],
+          professionalType: body.professionalType ?? '',
+        });
+      } catch (err) {
+        app.log.error(err, '[AgentDB] Failed to index new artist profile');
+      }
+    })();
+
     return reply.code(201).send(profile);
   });
 
@@ -395,6 +413,23 @@ export async function localArtistRoutes(app: FastifyInstance) {
         profileStrength,
       },
     });
+
+    // Re-index in AgentDB for semantic search (fire-and-forget)
+    void (async () => {
+      try {
+        const memory = await getMemory();
+        await memory.indexArtist(updated.id, {
+          stageName: merged.stageName as string,
+          city: merged.city as string,
+          state: (merged.state as string).toUpperCase(),
+          bio: (merged.bio as string) ?? '',
+          genres: (merged.genres as string[]) ?? [],
+          professionalType: (merged.professionalType as string) ?? '',
+        });
+      } catch (err) {
+        app.log.error(err, '[AgentDB] Failed to re-index artist profile');
+      }
+    })();
 
     return updated;
   });
