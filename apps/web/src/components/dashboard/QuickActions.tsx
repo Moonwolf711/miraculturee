@@ -79,7 +79,7 @@ export default function QuickActions({ setTab }: QuickActionsProps) {
       <QuickAction to="/events" icon={<SearchIcon />} label="Find Events" sublabel="Near Me" />
       <QuickAction to="/events" icon={<HeartIcon />} label="Support" sublabel="Artists" />
       <QuickAction to="/events" icon={<DiceIcon />} label="Enter" sublabel="Raffles" />
-      <QuickAction to="/dashboard?tab=tickets" icon={<TicketIcon />} label="My" sublabel="Tickets" onClick={() => setTab('tickets')} />
+      <QuickAction to="/dashboard?tab=my-shows" icon={<TicketIcon />} label="My" sublabel="Shows" onClick={() => setTab('my-shows')} />
     </div>
   );
 }

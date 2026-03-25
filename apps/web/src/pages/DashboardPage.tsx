@@ -8,20 +8,20 @@ import { useAuth } from '../hooks/useAuth.js';
 import DashboardStats from '../components/dashboard/DashboardStats.js';
 import ImpactScore from '../components/dashboard/ImpactScore.js';
 import ActivityFeed, { ArtistRelationshipCard, SupportedCampaignCard } from '../components/dashboard/ActivityFeed.js';
-import UpcomingTickets, { ContextualEventCard, EmptyState, LoadingList, LoadingGrid } from '../components/dashboard/UpcomingTickets.js';
+import UpcomingTickets, { EmptyState, LoadingList, LoadingGrid } from '../components/dashboard/UpcomingTickets.js';
 import NotificationsPanel from '../components/dashboard/NotificationsPanel.js';
 import AccountSettings from '../components/dashboard/AccountSettings.js';
 import SecuritySettings from '../components/dashboard/SecuritySettings.js';
-import CampaignsTab from '../components/dashboard/CampaignsTab.js';
 import TransactionsTab from '../components/dashboard/TransactionsTab.js';
-import RafflesTab from '../components/dashboard/RafflesTab.js';
+import ForYouTab from '../components/dashboard/ForYouTab.js';
+import MyShowsTab from '../components/dashboard/MyShowsTab.js';
 import QuickActions, { OnboardingChecklist } from '../components/dashboard/QuickActions.js';
 
 // --- Types ---
 import type {
   DashboardData, ImpactData, SupportedCampaign, ActivityFeedItem,
   ArtistRelationship, PaginatedNotifications, PaginatedTransactions,
-  Transaction, CampaignItem, Tab,
+  Tab,
 } from '../components/dashboard/types.js';
 import { TABS, TAB_LABELS } from '../components/dashboard/types.js';
 
@@ -114,53 +114,7 @@ export default function DashboardPage() {
     if (activeTab === 'transactions') fetchTransactions();
   }, [activeTab, fetchTransactions]);
 
-  // --- Raffles data ---
-  const [raffles, setRaffles] = useState<Transaction[] | null>(null);
-  const [rafflesLoading, setRafflesLoading] = useState(false);
-
-  useEffect(() => {
-    if (activeTab !== 'raffles') return;
-    setRafflesLoading(true);
-    api.get<{ data: Transaction[]; total: number }>('/user/transactions?limit=50')
-      .then((res) => { setRaffles(res.data.filter((t) => t.type === 'RAFFLE_ENTRY')); })
-      .catch(() => {})
-      .finally(() => setRafflesLoading(false));
-  }, [activeTab]);
-
-  // --- Campaigns ---
   const { user } = useAuth();
-  const [campaigns, setCampaigns] = useState<CampaignItem[]>([]);
-  const [campaignsLoading, setCampaignsLoading] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const fetchCampaigns = useCallback(async () => {
-    setCampaignsLoading(true);
-    try {
-      const res = await api.get<{ campaigns: CampaignItem[] }>('/artist/campaigns?limit=50');
-      setCampaigns(res.campaigns);
-    } catch { /* artist profile may not exist yet */ }
-    setCampaignsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'campaigns') fetchCampaigns();
-  }, [activeTab, fetchCampaigns]);
-
-  const getEventUrl = (eventId: string) => `https://www.mira-culture.com/events/${eventId}`;
-
-  const shareToTwitter = (c: CampaignItem) => {
-    const text = `${c.headline}\n\n${c.message.slice(0, 200)}${c.message.length > 200 ? '...' : ''}\n\nGet tickets:`;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(getEventUrl(c.eventId))}`, '_blank');
-  };
-
-  const shareToFacebook = (c: CampaignItem) => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getEventUrl(c.eventId))}`, '_blank');
-  };
-
-  const copyShareText = (c: CampaignItem) => {
-    const text = `${c.headline}\n\n${c.message}\n\nGet tickets: ${getEventUrl(c.eventId)}`;
-    navigator.clipboard.writeText(text).then(() => { setCopiedId(c.id); setTimeout(() => setCopiedId(null), 2000); });
-  };
 
   return (
     <div className="min-h-screen bg-noir-950 px-4 py-8 sm:py-12">
@@ -219,7 +173,7 @@ export default function DashboardPage() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-8 overflow-x-auto border-b border-noir-800 -mx-4 px-4 sm:mx-0 sm:px-0">
-          {TABS.filter((tab) => tab !== 'campaigns' || user?.role === 'ADMIN').map((tab) => (
+          {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setTab(tab)}
@@ -281,36 +235,11 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Campaigns Tab */}
-        {activeTab === 'campaigns' && user?.role === 'ADMIN' && (
-          <CampaignsTab
-            campaigns={campaigns} loading={campaignsLoading} copiedId={copiedId}
-            onShareTwitter={shareToTwitter} onShareFacebook={shareToFacebook} onCopyShareText={copyShareText}
-            onSocialShare={(c, platform) => {
-              const text = `${c.headline}\n\n${c.message.slice(0, 200)}\n\nGet tickets: ${getEventUrl(c.eventId)}`;
-              window.open(`https://www.${platform}/`, '_blank');
-              navigator.clipboard.writeText(text);
-              setCopiedId(c.id + '-' + (platform === 'instagram.com' ? 'ig' : 'tt'));
-              setTimeout(() => setCopiedId(null), 3000);
-            }}
-          />
-        )}
+        {/* For You Tab */}
+        {activeTab === 'for-you' && <ForYouTab />}
 
-        {/* Raffles Tab */}
-        {activeTab === 'raffles' && <RafflesTab raffles={raffles} loading={rafflesLoading} />}
-
-        {/* Tickets Tab */}
-        {activeTab === 'tickets' && (
-          <div>
-            {dashLoading ? <LoadingList /> : dashboard && dashboard.upcomingTickets.length > 0 ? (
-              <div className="space-y-3">
-                {dashboard.upcomingTickets.map((t) => <ContextualEventCard key={t.id} ticket={t} />)}
-              </div>
-            ) : (
-              <EmptyState message="No tickets yet." ctaText="Browse Events" ctaLink="/events" />
-            )}
-          </div>
-        )}
+        {/* My Shows Tab */}
+        {activeTab === 'my-shows' && <MyShowsTab />}
 
         {/* Notifications Tab */}
         {activeTab === 'notifications' && (

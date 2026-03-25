@@ -138,14 +138,32 @@ export interface PaginatedTransactions {
   totalPages: number;
 }
 
-export const TABS = ['overview', 'campaigns', 'raffles', 'tickets', 'notifications', 'transactions', 'account', 'security'] as const;
+export interface Recommendation {
+  artistName: string | null;
+  genre: string | null;
+  venueCity: string | null;
+  relevanceScore: number;
+}
+
+export interface TopGenre {
+  genre: string;
+  count: number;
+  weight: number;
+}
+
+export interface SimilarFan {
+  id: string;
+  name: string | null;
+  city: string | null;
+}
+
+export const TABS = ['overview', 'for-you', 'my-shows', 'notifications', 'transactions', 'account', 'security'] as const;
 export type Tab = (typeof TABS)[number];
 
 export const TAB_LABELS: Record<Tab, string> = {
   overview: 'Overview',
-  campaigns: 'Campaigns',
-  raffles: 'Raffles',
-  tickets: 'Tickets',
+  'for-you': 'For You',
+  'my-shows': 'My Shows',
   notifications: 'Notifications',
   transactions: 'Transactions',
   account: 'Account',
