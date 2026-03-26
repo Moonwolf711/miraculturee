@@ -73,43 +73,55 @@ export async function getTidalProfile(accessToken: string): Promise<{
   email: string;
   countryCode: string;
 }> {
-  // Use the OpenAPI userInfo endpoint (works with user.read scope)
-  const res = await fetch('https://openapi.tidal.com/v2/userInfo', {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/json',
-    },
-  });
-  if (res.ok) {
-    const data = await res.json();
-    return {
-      id: String(data.userId ?? data.uid ?? data.sub ?? ''),
-      username: data.username ?? data.email ?? '',
-      firstName: data.firstName ?? '',
-      lastName: data.lastName ?? '',
-      email: data.email ?? '',
-      countryCode: data.countryCode ?? '',
-    };
+  // The access token from Tidal is a JWT — decode the payload for user info
+  try {
+    const parts = accessToken.split('.');
+    if (parts.length === 3) {
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+      if (payload.uid || payload.sub) {
+        return {
+          id: String(payload.uid ?? payload.sub ?? ''),
+          username: payload.username ?? payload.email ?? payload.sub ?? '',
+          firstName: payload.firstName ?? payload.given_name ?? '',
+          lastName: payload.lastName ?? payload.family_name ?? '',
+          email: payload.email ?? '',
+          countryCode: payload.countryCode ?? '',
+        };
+      }
+    }
+  } catch {
+    // Not a JWT or decode failed, try API endpoints
   }
 
-  // Fallback: try the login.tidal.com userinfo (standard OIDC)
-  const res2 = await fetch('https://login.tidal.com/oauth2/userinfo', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (res2.ok) {
-    const data = await res2.json();
-    return {
-      id: String(data.sub ?? data.uid ?? ''),
-      username: data.preferred_username ?? data.email ?? '',
-      firstName: data.given_name ?? '',
-      lastName: data.family_name ?? '',
-      email: data.email ?? '',
-      countryCode: '',
-    };
+  // Fallback: try OpenAPI /users/me with the new scope
+  const endpoints = [
+    'https://openapi.tidal.com/v2/userInfo',
+    'https://auth.tidal.com/v1/oauth2/userinfo',
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          id: String(data.userId ?? data.uid ?? data.sub ?? ''),
+          username: data.username ?? data.email ?? data.preferred_username ?? '',
+          firstName: data.firstName ?? data.given_name ?? '',
+          lastName: data.lastName ?? data.family_name ?? '',
+          email: data.email ?? '',
+          countryCode: data.countryCode ?? '',
+        };
+      }
+    } catch { /* try next */ }
   }
 
-  const err = await res2.text();
-  throw new Error(`Tidal profile fetch failed (${res.status}/${res2.status}): ${err}`);
+  throw new Error('Tidal profile fetch failed: unable to extract user info from token or API');
 }
 
 /** Search Tidal for an artist by name using the public API. */
