@@ -1,5 +1,7 @@
-const SOUNDCLOUD_AUTH_URL = 'https://soundcloud.com/connect';
-const SOUNDCLOUD_TOKEN_URL = 'https://api.soundcloud.com/oauth2/token';
+import crypto from 'node:crypto';
+
+const SOUNDCLOUD_AUTH_URL = 'https://secure.soundcloud.com/authorize';
+const SOUNDCLOUD_TOKEN_URL = 'https://secure.soundcloud.com/oauth/token';
 const SOUNDCLOUD_API_URL = 'https://api.soundcloud.com';
 
 export function getSoundCloudConfig() {
@@ -12,19 +14,30 @@ export function getSoundCloudConfig() {
   return { clientId, clientSecret, redirectUri };
 }
 
-export function getSoundCloudAuthorizeUrl(state: string): string {
+/** Generate PKCE code_verifier and code_challenge (S256) */
+export function generatePKCE(): { codeVerifier: string; codeChallenge: string } {
+  const codeVerifier = crypto.randomBytes(32).toString('base64url');
+  const codeChallenge = crypto
+    .createHash('sha256')
+    .update(codeVerifier)
+    .digest('base64url');
+  return { codeVerifier, codeChallenge };
+}
+
+export function getSoundCloudAuthorizeUrl(state: string, codeChallenge: string): string {
   const { clientId, redirectUri } = getSoundCloudConfig();
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: 'non-expiring',
     state,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
   });
   return `${SOUNDCLOUD_AUTH_URL}?${params.toString()}`;
 }
 
-export async function exchangeSoundCloudCode(code: string): Promise<{
+export async function exchangeSoundCloudCode(code: string, codeVerifier: string): Promise<{
   access_token: string;
   refresh_token: string;
   expires_in: number;
@@ -40,11 +53,35 @@ export async function exchangeSoundCloudCode(code: string): Promise<{
       client_secret: clientSecret,
       redirect_uri: redirectUri,
       code,
+      code_verifier: codeVerifier,
     }),
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`SoundCloud token exchange failed: ${err}`);
+    throw new Error(`SoundCloud token exchange failed (${res.status}): ${err}`);
+  }
+  return res.json();
+}
+
+export async function refreshSoundCloudToken(refreshToken: string): Promise<{
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}> {
+  const { clientId, clientSecret } = getSoundCloudConfig();
+  const res = await fetch(SOUNDCLOUD_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`SoundCloud token refresh failed (${res.status}): ${err}`);
   }
   return res.json();
 }
@@ -61,7 +98,7 @@ export async function getSoundCloudProfile(accessToken: string): Promise<{
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`SoundCloud profile fetch failed: ${err}`);
+    throw new Error(`SoundCloud profile fetch failed (${res.status}): ${err}`);
   }
   return res.json();
 }

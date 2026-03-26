@@ -1,5 +1,10 @@
 import type { FastifyInstance } from 'fastify';
-import { getSoundCloudAuthorizeUrl, exchangeSoundCloudCode, getSoundCloudProfile } from '../../lib/oauth/soundcloud-client.js';
+import {
+  getSoundCloudAuthorizeUrl,
+  exchangeSoundCloudCode,
+  getSoundCloudProfile,
+  generatePKCE,
+} from '../../lib/oauth/soundcloud-client.js';
 import { ArtistVerificationService } from '../../services/artistVerification.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://mira-culture.com';
@@ -31,8 +36,15 @@ export async function soundcloudOAuthRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'Artist profile required' });
     }
 
-    const state = app.jwt.sign({ userId: req.user.id, artistId: artist.id, provider: 'soundcloud' } as any, { expiresIn: '10m' });
-    const url = getSoundCloudAuthorizeUrl(state);
+    // Generate PKCE pair and embed code_verifier in the signed state JWT
+    const { codeVerifier, codeChallenge } = generatePKCE();
+
+    const state = app.jwt.sign(
+      { userId: req.user.id, artistId: artist.id, provider: 'soundcloud', cv: codeVerifier } as any,
+      { expiresIn: '10m' },
+    );
+
+    const url = getSoundCloudAuthorizeUrl(state, codeChallenge);
     return reply.redirect(url);
   });
 
@@ -44,9 +56,9 @@ export async function soundcloudOAuthRoutes(app: FastifyInstance) {
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=soundcloud_denied`);
     }
 
-    let payload: { userId: string; artistId: string; provider: string };
+    let payload: { userId: string; artistId: string; provider: string; cv: string };
     try {
-      payload = app.jwt.verify<{ userId: string; artistId: string; provider: string }>(state);
+      payload = app.jwt.verify<{ userId: string; artistId: string; provider: string; cv: string }>(state);
     } catch {
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=invalid_state`);
     }
@@ -56,7 +68,7 @@ export async function soundcloudOAuthRoutes(app: FastifyInstance) {
     }
 
     try {
-      const tokens = await exchangeSoundCloudCode(code);
+      const tokens = await exchangeSoundCloudCode(code, payload.cv);
       const profile = await getSoundCloudProfile(tokens.access_token);
 
       await verificationService.connectSocialAccount(payload.artistId, {
@@ -72,8 +84,6 @@ export async function soundcloudOAuthRoutes(app: FastifyInstance) {
         rawProfile: profile,
       });
 
-      // SoundCloud connected but does NOT verify identity or trigger event matching
-      // Only Spotify verification unlocks campaigns
       return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=soundcloud`);
     } catch (err) {
       app.log.error(err, 'SoundCloud OAuth callback failed');
