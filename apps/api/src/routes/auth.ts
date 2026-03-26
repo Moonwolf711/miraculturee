@@ -81,10 +81,16 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/logout', async (req, reply) => {
     const { refreshToken } = req.body as { refreshToken?: string };
     if (refreshToken) {
-      await app.prisma.user.updateMany({
-        where: { refreshToken },
-        data: { refreshToken: null },
-      });
+      // Decode the JWT to get the user ID (refresh tokens are now hashed in DB)
+      try {
+        const decoded = app.jwt.verify(refreshToken) as { id: string };
+        await app.prisma.user.update({
+          where: { id: decoded.id },
+          data: { refreshToken: null },
+        });
+      } catch {
+        // Token invalid/expired — still return success for logout
+      }
     }
     return reply.send({ message: 'Logged out' });
   });

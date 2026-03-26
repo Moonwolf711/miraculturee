@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { randomBytes } from 'crypto';
 import { hash } from 'bcrypt';
+import IORedis from 'ioredis';
 import {
   Google,
   Facebook,
@@ -18,34 +19,62 @@ const API_URL = process.env.API_URL || 'https://miracultureeapi-production-cca9.
 const SALT_ROUNDS = 10;
 
 // ---------------------------------------------------------------------------
-// In-memory OAuth state store (10-minute TTL). Fine for MVP; swap for Redis
-// in production if running multiple instances.
+// Redis-backed OAuth state store (10-minute TTL). Supports multi-instance
+// deployments. Falls back to in-memory Map if Redis is unavailable.
 // ---------------------------------------------------------------------------
 interface OAuthStateEntry {
   codeVerifier: string;
   expiresAt: number;
 }
 
-const stateStore = new Map<string, OAuthStateEntry>();
+const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+const STATE_TTL_SECONDS = 600; // 10 minutes
+const STATE_KEY_PREFIX = 'oauth:state:';
 
-function storeState(state: string, codeVerifier: string): void {
-  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
-  stateStore.set(state, { codeVerifier, expiresAt });
+let redis: IORedis | null = null;
+try {
+  redis = new IORedis(REDIS_URL, { maxRetriesPerRequest: 3, enableReadyCheck: false, lazyConnect: true });
+  redis.connect().catch(() => { redis = null; });
+} catch { redis = null; }
+
+// In-memory fallback for when Redis is not available
+const fallbackStore = new Map<string, OAuthStateEntry>();
+
+async function storeState(state: string, codeVerifier: string): Promise<void> {
+  const entry: OAuthStateEntry = { codeVerifier, expiresAt: Date.now() + STATE_TTL_SECONDS * 1000 };
+  if (redis) {
+    try {
+      await redis.set(STATE_KEY_PREFIX + state, JSON.stringify(entry), 'EX', STATE_TTL_SECONDS);
+      return;
+    } catch { /* fall through to in-memory */ }
+  }
+  fallbackStore.set(state, entry);
 }
 
-function consumeState(state: string): OAuthStateEntry | null {
-  const entry = stateStore.get(state);
+async function consumeState(state: string): Promise<OAuthStateEntry | null> {
+  if (redis) {
+    try {
+      const key = STATE_KEY_PREFIX + state;
+      const raw = await redis.get(key);
+      if (!raw) return null;
+      await redis.del(key); // single-use
+      const entry: OAuthStateEntry = JSON.parse(raw);
+      if (Date.now() > entry.expiresAt) return null;
+      return entry;
+    } catch { /* fall through to in-memory */ }
+  }
+  const entry = fallbackStore.get(state);
   if (!entry) return null;
-  stateStore.delete(state);
+  fallbackStore.delete(state);
   if (Date.now() > entry.expiresAt) return null;
   return entry;
 }
 
-// Periodic cleanup of expired entries (every 5 minutes)
+// Periodic cleanup of expired in-memory fallback entries
 setInterval(() => {
   const now = Date.now();
-  for (const [key, entry] of stateStore) {
-    if (now > entry.expiresAt) stateStore.delete(key);
+  for (const [key, entry] of fallbackStore) {
+    if (now > entry.expiresAt) fallbackStore.delete(key);
   }
 }, 5 * 60 * 1000).unref();
 
@@ -108,22 +137,62 @@ async function generateTokens(
   const accessToken = app.jwt.sign(payload);
   const refreshToken = app.jwt.sign(payload, { expiresIn: '7d' });
 
+  // Store a bcrypt hash of the refresh token — never store raw tokens
+  const refreshTokenHash = await hash(refreshToken, SALT_ROUNDS);
   await app.prisma.user.update({
     where: { id: user.id },
-    data: { refreshToken },
+    data: { refreshToken: refreshTokenHash },
   });
 
   return { accessToken, refreshToken };
 }
 
 // ---------------------------------------------------------------------------
-// Redirect helper: sends user back to frontend with tokens (or error)
+// Temporary token code store: short-lived codes exchanged for tokens via POST.
+// Tokens are NEVER passed in URL params (prevents exposure in browser history,
+// server logs, and Referrer headers).
+// ---------------------------------------------------------------------------
+interface TokenCodeEntry {
+  tokens: { accessToken: string; refreshToken: string };
+  expiresAt: number;
+}
+
+const tokenCodeStore = new Map<string, TokenCodeEntry>();
+
+// Periodic cleanup of expired token codes (every 2 minutes)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of tokenCodeStore) {
+    if (now > entry.expiresAt) tokenCodeStore.delete(key);
+  }
+}, 2 * 60 * 1000).unref();
+
+function storeTokenCode(tokens: { accessToken: string; refreshToken: string }): string {
+  const code = randomBytes(32).toString('hex');
+  tokenCodeStore.set(code, {
+    tokens,
+    expiresAt: Date.now() + 60 * 1000, // 1-minute TTL
+  });
+  return code;
+}
+
+function consumeTokenCode(code: string): { accessToken: string; refreshToken: string } | null {
+  const entry = tokenCodeStore.get(code);
+  if (!entry) return null;
+  tokenCodeStore.delete(code); // Single-use
+  if (Date.now() > entry.expiresAt) return null;
+  return entry.tokens;
+}
+
+// ---------------------------------------------------------------------------
+// Redirect helper: sends user back to frontend with a short-lived code (not tokens)
 // ---------------------------------------------------------------------------
 function redirectWithTokens(
   reply: any,
   tokens: { accessToken: string; refreshToken: string },
 ): void {
-  const url = `${FRONTEND_URL}/auth/callback?accessToken=${encodeURIComponent(tokens.accessToken)}&refreshToken=${encodeURIComponent(tokens.refreshToken)}`;
+  const code = storeTokenCode(tokens);
+  const url = `${FRONTEND_URL}/auth/callback?code=${encodeURIComponent(code)}`;
   (reply as any).redirect(url);
 }
 
@@ -136,6 +205,19 @@ function redirectWithError(reply: any, error: string): void {
 // ---------------------------------------------------------------------------
 export async function socialOAuthRoutes(app: FastifyInstance) {
   const callbackRateLimit = { max: 10, timeWindow: '1 minute' };
+
+  // Token code exchange endpoint — frontend POSTs the code to get tokens
+  app.post('/exchange-code', { config: { rateLimit: callbackRateLimit } }, async (req, reply) => {
+    const { code } = req.body as { code?: string };
+    if (!code) {
+      return reply.code(400).send({ error: 'code is required' });
+    }
+    const tokens = consumeTokenCode(code);
+    if (!tokens) {
+      return reply.code(401).send({ error: 'Invalid or expired code' });
+    }
+    return reply.send(tokens);
+  });
 
   // =========================================================================
   // GOOGLE
@@ -150,7 +232,7 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
     app.get('/google/redirect', async (_req, reply) => {
       const state = generateState();
       const codeVerifier = generateCodeVerifier();
-      storeState(state, codeVerifier);
+      await storeState(state, codeVerifier);
 
       const url = google.createAuthorizationURL(state, codeVerifier, ['openid', 'email', 'profile']);
       return reply.redirect(url.toString());
@@ -163,7 +245,7 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
         return redirectWithError(reply, 'google_denied');
       }
 
-      const entry = consumeState(state);
+      const entry = await consumeState(state);
       if (!entry) {
         return redirectWithError(reply, 'invalid_state');
       }
@@ -208,7 +290,7 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
 
     app.get('/facebook/redirect', async (_req, reply) => {
       const state = generateState();
-      storeState(state, '');
+      await storeState(state, '');
 
       const url = facebook.createAuthorizationURL(state, ['email', 'public_profile']);
       return reply.redirect(url.toString());
@@ -221,7 +303,7 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
         return redirectWithError(reply, 'facebook_denied');
       }
 
-      const entry = consumeState(state);
+      const entry = await consumeState(state);
       if (!entry) {
         return redirectWithError(reply, 'invalid_state');
       }
@@ -284,7 +366,7 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
 
     app.get('/apple/redirect', async (_req, reply) => {
       const state = generateState();
-      storeState(state, '');
+      await storeState(state, '');
 
       const url = apple.createAuthorizationURL(state, ['name', 'email']);
       return reply.redirect(url.toString());
@@ -297,7 +379,7 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
         return redirectWithError(reply, 'apple_denied');
       }
 
-      const entry = consumeState(state);
+      const entry = await consumeState(state);
       if (!entry) {
         return redirectWithError(reply, 'invalid_state');
       }
@@ -350,7 +432,7 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
     app.get('/microsoft/redirect', async (_req, reply) => {
       const state = generateState();
       const codeVerifier = generateCodeVerifier();
-      storeState(state, codeVerifier);
+      await storeState(state, codeVerifier);
 
       const url = microsoft.createAuthorizationURL(state, codeVerifier, ['openid', 'email', 'profile']);
       return reply.redirect(url.toString());
@@ -363,7 +445,7 @@ export async function socialOAuthRoutes(app: FastifyInstance) {
         return redirectWithError(reply, 'microsoft_denied');
       }
 
-      const entry = consumeState(state);
+      const entry = await consumeState(state);
       if (!entry) {
         return redirectWithError(reply, 'invalid_state');
       }

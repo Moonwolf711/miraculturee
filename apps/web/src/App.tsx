@@ -103,13 +103,30 @@ function OAuthCallback() {
   const { refreshUser } = useAuth();
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const accessToken = params.get('accessToken');
-    const refreshToken = params.get('refreshToken');
+    const code = params.get('code');
     const error = params.get('error');
-    if (accessToken && refreshToken) {
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      refreshUser().then(() => navigate('/events', { replace: true }));
+
+    if (code) {
+      // Exchange the short-lived code for tokens via POST (tokens never in URL)
+      const apiBase = import.meta.env.VITE_API_URL || '/api';
+      fetch(`${apiBase}/auth/exchange-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Code exchange failed');
+          return res.json();
+        })
+        .then((tokens: { accessToken: string; refreshToken: string }) => {
+          localStorage.setItem('accessToken', tokens.accessToken);
+          localStorage.setItem('refreshToken', tokens.refreshToken);
+          return refreshUser();
+        })
+        .then(() => navigate('/events', { replace: true }))
+        .catch(() => {
+          navigate('/login', { replace: true, state: { oauthError: 'Login failed. Please try again.' } });
+        });
     } else {
       const errorMessages: Record<string, string> = {
         google_denied: 'Google login was cancelled.',

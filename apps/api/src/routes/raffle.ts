@@ -113,6 +113,15 @@ export async function raffleRoutes(app: FastifyInstance) {
     return reply.code(201).send(result);
   });
 
+  // Authenticated: check if the current user has entered a specific pool
+  app.get('/:poolId/my-entry', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { poolId } = PoolIdParamSchema.parse(req.params);
+    const entry = await app.prisma.raffleEntry.findFirst({
+      where: { poolId, userId: req.user.id },
+    });
+    return reply.send({ hasEntry: !!entry, entryId: entry?.id ?? null });
+  });
+
   // Public: get draw results
   app.get('/:poolId/results', async (req) => {
     const { poolId } = PoolIdParamSchema.parse(req.params);
@@ -127,6 +136,11 @@ export async function raffleRoutes(app: FastifyInstance) {
 
   // Admin: close pool and publish seed hash (before draw)
   app.post('/:poolId/close', { preHandler: [app.authenticate] }, async (req, reply) => {
+    // Only ADMIN users can close raffle pools
+    if (req.user.role !== 'ADMIN') {
+      return reply.code(403).send({ error: 'Only administrators can close raffle pools' });
+    }
+
     const { poolId } = PoolIdParamSchema.parse(req.params);
     await raffleService.closePool(poolId);
     return reply.code(200).send({ message: 'Pool closed and seed hash published' });

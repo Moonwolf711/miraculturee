@@ -202,10 +202,22 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string): Promise<TokenPair> {
-    const user = await this.prisma.user.findFirst({
-      where: { refreshToken },
-    });
-    if (!user) {
+    // Decode the refresh token to get the user ID, then verify the hash
+    let decoded: { id: string };
+    try {
+      decoded = this.app.jwt.verify(refreshToken) as { id: string };
+    } catch {
+      throw Object.assign(new Error('Invalid refresh token'), { statusCode: 401 });
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: decoded.id } });
+    if (!user || !user.refreshToken) {
+      throw Object.assign(new Error('Invalid refresh token'), { statusCode: 401 });
+    }
+
+    // Compare the provided token against the stored hash
+    const valid = await compare(refreshToken, user.refreshToken);
+    if (!valid) {
       throw Object.assign(new Error('Invalid refresh token'), { statusCode: 401 });
     }
 
@@ -281,9 +293,11 @@ export class AuthService {
     const accessToken = this.app.jwt.sign(payload);
     const refreshToken = this.app.jwt.sign(payload, { expiresIn: '7d' });
 
+    // Store a bcrypt hash of the refresh token — never store raw tokens
+    const refreshTokenHash = await hash(refreshToken, SALT_ROUNDS);
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { refreshToken },
+      data: { refreshToken: refreshTokenHash },
     });
 
     return { accessToken, refreshToken };

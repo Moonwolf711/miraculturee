@@ -106,6 +106,8 @@ export default function EventDetailPage() {
   const [receiverTwitter, setReceiverTwitter] = useState('');
   const [thankYouMessage, setThankYouMessage] = useState('');
   const [freeEntryAvailable, setFreeEntryAvailable] = useState(false);
+  const [userHasEntryChecked, setUserHasEntryChecked] = useState(false);
+  const [userHasEntryResult, setUserHasEntryResult] = useState(false);
   const [claimingTicket, setClaimingTicket] = useState(false);
 
   const fetchEvent = useCallback(() => {
@@ -132,6 +134,25 @@ export default function EventDetailPage() {
       .then((res) => setFreeEntryAvailable(res.freeEntryAvailable))
       .catch(() => {}); // Silent fail
   }, [user]);
+
+  // Check if current user has already entered the main raffle pool
+  useEffect(() => {
+    if (!user || !event?.rafflePools?.[0]?.id) {
+      setUserHasEntryChecked(false);
+      setUserHasEntryResult(false);
+      return;
+    }
+    const poolId = event.rafflePools[0].id;
+    api.get<{ hasEntry: boolean }>(`/raffle/${poolId}/my-entry`)
+      .then((res) => {
+        setUserHasEntryResult(res.hasEntry);
+        setUserHasEntryChecked(true);
+      })
+      .catch(() => {
+        setUserHasEntryChecked(true);
+        setUserHasEntryResult(false);
+      });
+  }, [user, event?.rafflePools]);
 
   /* ---------- WebSocket real-time updates ---------- */
   const wsChannel = id ? `event:${id}` : null;
@@ -435,7 +456,7 @@ export default function EventDetailPage() {
   const isShowDay = new Date(event.date).setHours(0, 0, 0, 0) <= Date.now();
   const mainPool = event.rafflePools[0];
   const everyoneWins = mainPool && mainPool.uniqueEntrants > 0 && mainPool.uniqueEntrants <= 10;
-  const userHasEntry = mainPool ? mainPool.totalEntries > 0 : false; // TODO: check if current user entered
+  const userHasEntry = userHasEntryChecked ? userHasEntryResult : false;
 
   return (
     <div className="min-h-screen bg-noir-950">
