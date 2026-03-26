@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { getTidalAuthorizeUrl, exchangeTidalCode, getTidalProfile, getTidalArtistById, getTidalClientToken } from '../../lib/oauth/tidal-client.js';
+import { getTidalAuthorizeUrl, exchangeTidalCode, getTidalProfile, getTidalArtistById, getTidalClientToken, generatePKCE } from '../../lib/oauth/tidal-client.js';
 import { ArtistVerificationService } from '../../services/artistVerification.js';
 import { ArtistMatchingService } from '../../services/artist-matching.service.js';
 
@@ -64,11 +64,13 @@ export async function tidalOAuthRoutes(app: FastifyInstance) {
       ]);
     }
 
+    const { codeVerifier, codeChallenge } = generatePKCE();
+
     const state = app.jwt.sign(
-      { userId: req.user.id, artistId: artist.id, provider: 'tidal', tidalArtistId } as any,
+      { userId: req.user.id, artistId: artist.id, provider: 'tidal', tidalArtistId, cv: codeVerifier } as any,
       { expiresIn: '10m' },
     );
-    const url = getTidalAuthorizeUrl(state);
+    const url = getTidalAuthorizeUrl(state, codeChallenge);
     return reply.redirect(url);
   });
 
@@ -80,7 +82,7 @@ export async function tidalOAuthRoutes(app: FastifyInstance) {
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=tidal_denied`);
     }
 
-    let payload: { userId: string; artistId: string; provider: string; tidalArtistId?: string };
+    let payload: { userId: string; artistId: string; provider: string; tidalArtistId?: string; cv: string };
     try {
       payload = app.jwt.verify<typeof payload>(state);
     } catch {
@@ -92,7 +94,7 @@ export async function tidalOAuthRoutes(app: FastifyInstance) {
     }
 
     try {
-      const tokens = await exchangeTidalCode(code);
+      const tokens = await exchangeTidalCode(code, payload.cv);
       const userProfile = await getTidalProfile(tokens.access_token);
       const userDisplayName = userProfile.username || `${userProfile.firstName} ${userProfile.lastName}`.trim();
 

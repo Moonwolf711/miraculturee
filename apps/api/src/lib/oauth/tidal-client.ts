@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 const TIDAL_AUTH_URL = 'https://login.tidal.com/authorize';
 const TIDAL_TOKEN_URL = 'https://auth.tidal.com/v1/oauth2/token';
 const TIDAL_API_URL = 'https://openapi.tidal.com';
@@ -12,7 +14,17 @@ export function getTidalConfig() {
   return { clientId, clientSecret, redirectUri };
 }
 
-export function getTidalAuthorizeUrl(state: string): string {
+/** Generate PKCE code_verifier and code_challenge (S256) */
+export function generatePKCE(): { codeVerifier: string; codeChallenge: string } {
+  const codeVerifier = crypto.randomBytes(32).toString('base64url');
+  const codeChallenge = crypto
+    .createHash('sha256')
+    .update(codeVerifier)
+    .digest('base64url');
+  return { codeVerifier, codeChallenge };
+}
+
+export function getTidalAuthorizeUrl(state: string, codeChallenge: string): string {
   const { clientId, redirectUri } = getTidalConfig();
   const params = new URLSearchParams({
     response_type: 'code',
@@ -20,11 +32,13 @@ export function getTidalAuthorizeUrl(state: string): string {
     redirect_uri: redirectUri,
     scope: 'user.read',
     state,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
   });
   return `${TIDAL_AUTH_URL}?${params.toString()}`;
 }
 
-export async function exchangeTidalCode(code: string): Promise<{
+export async function exchangeTidalCode(code: string, codeVerifier: string): Promise<{
   access_token: string;
   refresh_token: string;
   expires_in: number;
@@ -41,11 +55,12 @@ export async function exchangeTidalCode(code: string): Promise<{
       grant_type: 'authorization_code',
       code,
       redirect_uri: redirectUri,
+      code_verifier: codeVerifier,
     }),
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Tidal token exchange failed: ${err}`);
+    throw new Error(`Tidal token exchange failed (${res.status}): ${err}`);
   }
   return res.json();
 }
