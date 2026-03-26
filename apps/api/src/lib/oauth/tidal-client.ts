@@ -73,29 +73,43 @@ export async function getTidalProfile(accessToken: string): Promise<{
   email: string;
   countryCode: string;
 }> {
-  const res = await fetch('https://api.tidal.com/v1/users/me', {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  // Use the OpenAPI userInfo endpoint (works with user.read scope)
+  const res = await fetch('https://openapi.tidal.com/v2/userInfo', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+    },
   });
-  if (!res.ok) {
-    // Fallback: try the sessions endpoint
-    const res2 = await fetch('https://api.tidal.com/v1/sessions', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!res2.ok) {
-      const err = await res2.text();
-      throw new Error(`Tidal profile fetch failed: ${err}`);
-    }
-    const session = await res2.json();
+  if (res.ok) {
+    const data = await res.json();
     return {
-      id: String(session.userId),
-      username: session.username || '',
-      firstName: '',
-      lastName: '',
-      email: '',
-      countryCode: session.countryCode || '',
+      id: String(data.userId ?? data.uid ?? data.sub ?? ''),
+      username: data.username ?? data.email ?? '',
+      firstName: data.firstName ?? '',
+      lastName: data.lastName ?? '',
+      email: data.email ?? '',
+      countryCode: data.countryCode ?? '',
     };
   }
-  return res.json();
+
+  // Fallback: try the login.tidal.com userinfo (standard OIDC)
+  const res2 = await fetch('https://login.tidal.com/oauth2/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res2.ok) {
+    const data = await res2.json();
+    return {
+      id: String(data.sub ?? data.uid ?? ''),
+      username: data.preferred_username ?? data.email ?? '',
+      firstName: data.given_name ?? '',
+      lastName: data.family_name ?? '',
+      email: data.email ?? '',
+      countryCode: '',
+    };
+  }
+
+  const err = await res2.text();
+  throw new Error(`Tidal profile fetch failed (${res.status}/${res2.status}): ${err}`);
 }
 
 /** Search Tidal for an artist by name using the public API. */
