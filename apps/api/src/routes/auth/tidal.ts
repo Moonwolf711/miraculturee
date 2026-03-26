@@ -50,13 +50,8 @@ export async function tidalOAuthRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
 
-    // Tidal artist ID is REQUIRED — artist must provide their artist page URL
-    const tidalArtistId = (req.query as { tidalArtistId?: string }).tidalArtistId;
-    if (!tidalArtistId) {
-      return reply.code(400).send({
-        error: 'Tidal artist URL is required. Paste your Tidal artist page link to verify.',
-      });
-    }
+    // Tidal artist ID is optional — if provided, we verify ownership
+    const tidalArtistId = (req.query as { tidalArtistId?: string }).tidalArtistId || null;
 
     // Auto-create artist profile if one doesn't exist yet
     let artist = await app.prisma.artist.findUnique({ where: { userId: req.user.id } });
@@ -96,70 +91,77 @@ export async function tidalOAuthRoutes(app: FastifyInstance) {
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=invalid_state`);
     }
 
-    if (!payload.tidalArtistId) {
-      return reply.redirect(`${FRONTEND_URL}/artist/verify?error=missing_artist_url`);
-    }
-
     try {
       const tokens = await exchangeTidalCode(code);
       const userProfile = await getTidalProfile(tokens.access_token);
-
-      // Get a client token for public API calls (artist lookup)
-      const clientToken = await getTidalClientToken();
-
-      // Fetch the claimed Tidal artist profile
-      const artistProfile = await getTidalArtistById(clientToken, payload.tidalArtistId);
-
-      if (!artistProfile) {
-        app.log.warn(`Tidal artist ID not found: ${payload.tidalArtistId}`);
-        return reply.redirect(`${FRONTEND_URL}/artist/verify?error=artist_not_found`);
-      }
-
-      // ── Artist ownership verification ──
       const userDisplayName = userProfile.username || `${userProfile.firstName} ${userProfile.lastName}`.trim();
-      const isNameMatch = namesMatch(userDisplayName, artistProfile.name);
-      const isIdMatch = String(userProfile.id) === String(artistProfile.id);
 
-      if (!isNameMatch && !isIdMatch) {
-        app.log.warn(
-          `Tidal artist verification failed: user "${userDisplayName}" (${userProfile.id}) ` +
-          `does not match artist "${artistProfile.name}" (${artistProfile.id})`,
-        );
-        return reply.redirect(
-          `${FRONTEND_URL}/artist/verify?error=artist_mismatch` +
-          `&artistName=${encodeURIComponent(artistProfile.name)}` +
-          `&userName=${encodeURIComponent(userDisplayName)}`,
-        );
+      // If artist ID was provided, verify ownership
+      if (payload.tidalArtistId) {
+        const clientToken = await getTidalClientToken();
+        const artistProfile = await getTidalArtistById(clientToken, payload.tidalArtistId);
+
+        if (!artistProfile) {
+          app.log.warn(`Tidal artist ID not found: ${payload.tidalArtistId}`);
+          return reply.redirect(`${FRONTEND_URL}/artist/verify?error=artist_not_found`);
+        }
+
+        const isNameMatch = namesMatch(userDisplayName, artistProfile.name);
+        const isIdMatch = String(userProfile.id) === String(artistProfile.id);
+
+        if (!isNameMatch && !isIdMatch) {
+          app.log.warn(
+            `Tidal artist verification failed: user "${userDisplayName}" (${userProfile.id}) ` +
+            `does not match artist "${artistProfile.name}" (${artistProfile.id})`,
+          );
+          return reply.redirect(
+            `${FRONTEND_URL}/artist/verify?error=artist_mismatch` +
+            `&artistName=${encodeURIComponent(artistProfile.name)}` +
+            `&userName=${encodeURIComponent(userDisplayName)}`,
+          );
+        }
+
+        app.log.info(`Tidal artist verified: user "${userDisplayName}" matched artist "${artistProfile.name}"`);
+
+        await verificationService.connectSocialAccount(payload.artistId, {
+          provider: 'TIDAL',
+          providerUserId: artistProfile.id,
+          providerUsername: artistProfile.name,
+          profileUrl: artistProfile.url,
+          followerCount: artistProfile.popularity ?? 0,
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+          scopes: 'user.read',
+          rawProfile: { user: userProfile, artist: artistProfile },
+        });
+
+        await app.prisma.artist.update({
+          where: { id: payload.artistId },
+          data: { stageName: artistProfile.name },
+        }).catch(() => {});
+
+        const matches = await matchingService.findMatchingEvents(artistProfile.name, payload.artistId);
+        return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=tidal&matches=${matches.length}`);
       }
 
-      app.log.info(
-        `Tidal artist verified: user "${userDisplayName}" matched artist "${artistProfile.name}"`,
-      );
+      // No artist ID — just connect the Tidal account (like SoundCloud)
+      app.log.info(`Tidal connected (no artist verification): user "${userDisplayName}"`);
 
-      // Verification passed — save the connection
       await verificationService.connectSocialAccount(payload.artistId, {
         provider: 'TIDAL',
-        providerUserId: artistProfile.id,
-        providerUsername: artistProfile.name,
-        profileUrl: artistProfile.url,
-        followerCount: artistProfile.popularity ?? 0,
+        providerUserId: String(userProfile.id),
+        providerUsername: userDisplayName,
+        profileUrl: `https://tidal.com`,
+        followerCount: 0,
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
         scopes: 'user.read',
-        rawProfile: { user: userProfile, artist: artistProfile },
+        rawProfile: { user: userProfile },
       });
 
-      // Update artist record with verified Tidal artist ID and name
-      await app.prisma.artist.update({
-        where: { id: payload.artistId },
-        data: { stageName: artistProfile.name },
-      }).catch(() => {});
-
-      // Match events using the verified artist name
-      const matches = await matchingService.findMatchingEvents(artistProfile.name, payload.artistId);
-
-      return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=tidal&matches=${matches.length}`);
+      return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=tidal`);
     } catch (err) {
       app.log.error(err, 'Tidal OAuth callback failed');
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=tidal_failed`);

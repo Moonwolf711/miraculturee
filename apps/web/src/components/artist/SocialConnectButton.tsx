@@ -71,20 +71,13 @@ export default function SocialConnectButton({ provider, connected, onDisconnect 
       connectUrl += `${sep}spotifyArtistId=${encodeURIComponent(artistId)}`;
     }
 
-    // For Tidal, artist URL is REQUIRED to verify artist identity
-    if (provider === 'tidal') {
-      if (!artistUrl.trim()) {
-        setUrlError('Your Tidal artist URL is required to verify your identity.');
-        return;
-      }
+    // For Tidal, artist URL is optional — if provided, enables ownership verification
+    if (provider === 'tidal' && artistUrl.trim()) {
       const artistId = parseTidalArtistId(artistUrl);
-      if (!artistId) {
-        setUrlError('Invalid Tidal artist URL. Paste your artist page link (e.g. tidal.com/artist/12345)');
-        return;
+      if (artistId) {
+        const sep = connectUrl.includes('?') ? '&' : '?';
+        connectUrl += `${sep}tidalArtistId=${encodeURIComponent(artistId)}`;
       }
-      setUrlError('');
-      const sep = connectUrl.includes('?') ? '&' : '?';
-      connectUrl += `${sep}tidalArtistId=${encodeURIComponent(artistId)}`;
     }
 
     window.location.href = connectUrl;
@@ -106,7 +99,7 @@ export default function SocialConnectButton({ provider, connected, onDisconnect 
 
   return (
     <div className="space-y-2">
-      {(provider === 'spotify' || provider === 'tidal') && (
+      {(provider === 'spotify') && (
         <div>
           <input
             type="text"
