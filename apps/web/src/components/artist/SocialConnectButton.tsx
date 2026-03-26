@@ -55,20 +55,13 @@ export default function SocialConnectButton({ provider, connected, onDisconnect 
     const token = localStorage.getItem('accessToken');
     let connectUrl = `${API_URL}/auth/${provider}/connect${token ? `?token=${token}` : ''}`;
 
-    // For Spotify, artist URL is REQUIRED to verify artist identity
-    if (provider === 'spotify') {
-      if (!artistUrl.trim()) {
-        setUrlError('Your Spotify artist URL is required to verify your identity.');
-        return;
-      }
+    // For Spotify, artist URL is optional — if provided, enables ownership verification
+    if (provider === 'spotify' && artistUrl.trim()) {
       const artistId = parseSpotifyArtistId(artistUrl);
-      if (!artistId) {
-        setUrlError('Invalid Spotify artist URL. Paste your artist page link (e.g. open.spotify.com/artist/...)');
-        return;
+      if (artistId) {
+        const sep = connectUrl.includes('?') ? '&' : '?';
+        connectUrl += `${sep}spotifyArtistId=${encodeURIComponent(artistId)}`;
       }
-      setUrlError('');
-      const sep = connectUrl.includes('?') ? '&' : '?';
-      connectUrl += `${sep}spotifyArtistId=${encodeURIComponent(artistId)}`;
     }
 
     // For Tidal, artist URL is optional — if provided, enables ownership verification
@@ -99,7 +92,7 @@ export default function SocialConnectButton({ provider, connected, onDisconnect 
 
   return (
     <div className="space-y-2">
-      {(provider === 'spotify') && (
+      {false && (provider === 'spotify') && (
         <div>
           <input
             type="text"
