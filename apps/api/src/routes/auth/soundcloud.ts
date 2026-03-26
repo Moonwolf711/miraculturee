@@ -68,8 +68,12 @@ export async function soundcloudOAuthRoutes(app: FastifyInstance) {
     }
 
     try {
+      app.log.info({ code: code.slice(0, 8) + '...', cv: payload.cv.slice(0, 8) + '...' }, 'SoundCloud: exchanging code for token');
       const tokens = await exchangeSoundCloudCode(code, payload.cv);
+      app.log.info({ hasAccessToken: !!tokens.access_token }, 'SoundCloud: token exchange success');
+
       const profile = await getSoundCloudProfile(tokens.access_token);
+      app.log.info({ username: profile.username, followers: profile.followers_count }, 'SoundCloud: profile fetched');
 
       await verificationService.connectSocialAccount(payload.artistId, {
         provider: 'SOUNDCLOUD',
@@ -85,8 +89,8 @@ export async function soundcloudOAuthRoutes(app: FastifyInstance) {
       });
 
       return reply.redirect(`${FRONTEND_URL}/artist/verify?verified=soundcloud`);
-    } catch (err) {
-      app.log.error(err, 'SoundCloud OAuth callback failed');
+    } catch (err: any) {
+      app.log.error({ err: err?.message ?? err, stack: err?.stack }, 'SoundCloud OAuth callback failed');
       return reply.redirect(`${FRONTEND_URL}/artist/verify?error=soundcloud_failed`);
     }
   });
