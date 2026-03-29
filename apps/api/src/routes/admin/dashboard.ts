@@ -293,6 +293,60 @@ export default async function adminDashboardRoutes(app: FastifyInstance) {
   });
 
   /**
+   * POST /admin/outreach-blast
+   * Send outreach/invite emails to a list of external users.
+   * Expects: { users: [{ email, name }], source?: string, dryRun?: boolean }
+   * Does NOT create accounts — just sends the marketing email.
+   */
+  app.post('/outreach-blast', async (req) => {
+    const body = req.body as {
+      users: { email: string; name: string }[];
+      source?: string;
+      dryRun?: boolean;
+    };
+
+    if (!body.users || !Array.isArray(body.users) || body.users.length === 0) {
+      return { error: 'users array is required', sent: 0 };
+    }
+
+    const source = body.source || 'Wooking For Love';
+    const dryRun = body.dryRun === true;
+    const results = { sent: 0, skipped: 0, errors: 0, dryRun, total: body.users.length, details: [] as string[] };
+
+    if (!app.emailService && !dryRun) {
+      return { error: 'Email service not configured (RESEND_API_KEY missing)', sent: 0 };
+    }
+
+    for (const entry of body.users) {
+      const email = entry.email?.trim().toLowerCase();
+      const name = entry.name?.trim() || email?.split('@')[0] || 'there';
+
+      if (!email || !email.includes('@')) {
+        results.skipped++;
+        continue;
+      }
+
+      if (dryRun) {
+        results.sent++;
+        if (results.sent <= 5) results.details.push(`Would send to: ${name} <${email}>`);
+        continue;
+      }
+
+      try {
+        await app.emailService!.sendOutreachInvite(email, name, source);
+        results.sent++;
+        // Rate limit: ~2/sec to stay within Resend limits
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (err) {
+        results.errors++;
+        results.details.push(`Failed: ${email} — ${err instanceof Error ? err.message : 'unknown'}`);
+      }
+    }
+
+    return results;
+  });
+
+  /**
    * POST /admin/import-users
    * Bulk pre-create accounts from an external platform (e.g. WFL casting portal).
    * Expects: { users: [{ email, name }], source: string, sendEmail?: boolean }

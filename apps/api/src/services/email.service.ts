@@ -525,6 +525,90 @@ export class EmailService {
     }
   }
 
+  async sendOutreachInvite(to: string, recipientName: string, source: string): Promise<void> {
+    const subject = `${recipientName}, the music scene needs you`;
+    const html = layout(`
+      ${heading("You're Part of the Scene. Now Help Shape It.")}
+      ${paragraph(`Hey ${recipientName} — you applied to <strong>${source}</strong>, which means you already care about live music and the culture around it. We built something for people like you.`)}
+
+      <div style="background-color:#1a1a1a;border-radius:8px;padding:24px;margin:20px 0;border-left:3px solid #f59e0b;">
+        <p style="margin:0 0 8px;font-size:15px;color:#f59e0b;font-weight:600;">What is MiraCulture?</p>
+        <p style="margin:0;font-size:14px;color:#d4d4d4;line-height:1.7;">
+          A fan-powered ticketing platform where <strong style="color:#fff;">fans fund affordable concert tickets</strong> and win them through <strong style="color:#fff;">cryptographically fair $5 raffles</strong>. No scalpers. No bots. No $300 service fees. Just real fans getting into real shows.
+        </p>
+      </div>
+
+      ${heading('How It Works')}
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 24px;">
+        <tr>
+          <td style="padding:12px 16px;background:#1a1a1a;border-radius:8px 8px 0 0;border-bottom:1px solid #222;">
+            <span style="color:#f59e0b;font-weight:700;font-size:18px;">1.</span>
+            <span style="color:#e5e5e5;font-size:14px;margin-left:8px;"><strong>Artists launch campaigns</strong> for their upcoming shows</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px;background:#1a1a1a;border-bottom:1px solid #222;">
+            <span style="color:#f59e0b;font-weight:700;font-size:18px;">2.</span>
+            <span style="color:#e5e5e5;font-size:14px;margin-left:8px;"><strong>Fans donate</strong> to unlock affordable tickets ($5&ndash;$10)</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px;background:#1a1a1a;border-bottom:1px solid #222;">
+            <span style="color:#f59e0b;font-weight:700;font-size:18px;">3.</span>
+            <span style="color:#e5e5e5;font-size:14px;margin-left:8px;"><strong>Local fans win tickets</strong> via provably fair cryptographic raffle</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px;background:#1a1a1a;border-radius:0 0 8px 8px;">
+            <span style="color:#f59e0b;font-weight:700;font-size:18px;">4.</span>
+            <span style="color:#e5e5e5;font-size:14px;margin-left:8px;"><strong>100% of support</strong> goes directly to the artist. Always.</span>
+          </td>
+        </tr>
+      </table>
+
+      <div style="background-color:#1a1a1a;border-radius:8px;padding:24px;margin:20px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td width="50%" style="padding:8px;text-align:center;">
+              <p style="margin:0;color:#f59e0b;font-size:22px;font-weight:700;">For Fans</p>
+              <p style="margin:8px 0 0;color:#a3a3a3;font-size:13px;line-height:1.6;">
+                $5 raffle entries<br/>
+                Face-value tickets<br/>
+                Zero scalper markup<br/>
+                Support artists directly
+              </p>
+            </td>
+            <td width="50%" style="padding:8px;text-align:center;border-left:1px solid #333;">
+              <p style="margin:0;color:#f59e0b;font-size:22px;font-weight:700;">For Artists</p>
+              <p style="margin:8px 0 0;color:#a3a3a3;font-size:13px;line-height:1.6;">
+                Keep 100% of support<br/>
+                Build real fan relationships<br/>
+                Bonus from surplus donations<br/>
+                Free campaign tools
+              </p>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      ${paragraph('Signing up takes 30 seconds. Browse events, enter raffles, support your favorite artists — and if you <em>are</em> an artist, create your profile and start running campaigns for free.')}
+
+      ${ctaButton('Join MiraCulture — It\'s Free', 'https://mira-culture.com/register')}
+
+      <p style="margin:24px 0 0;font-size:12px;color:#525252;text-align:center;line-height:1.6;">
+        Questions? Reply to this email or hit us at <a href="mailto:support@mira-culture.com" style="color:#f59e0b;">support@mira-culture.com</a>
+      </p>
+    `);
+
+    try {
+      await this.resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
+    } catch (error) {
+      console.error('[EmailService] Failed to send outreach invite:', error);
+      throw error;
+    }
+  }
+
   async sendWelcomeImport(to: string, data: WelcomeImportData): Promise<void> {
     const subject = `You're in! Your MiraCulture account is ready`;
     const html = layout(`
