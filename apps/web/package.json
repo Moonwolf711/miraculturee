@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node server.cjs dist",
     "dev:local": "vite",
-    "build": "cd ../.. && pnpm --filter @miraculturee/shared build && cd apps/web && tsc -b && vite build",
+    "build": "cd ../.. && pnpm --filter @miraculturee/shared build && cd apps/web && rm -rf dist && tsc -b && vite build",
     "start": "node server.cjs dist",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
