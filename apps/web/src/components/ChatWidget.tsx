@@ -2,43 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 
-// Web Speech API type declarations (not in default TS lib)
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-}
-interface SpeechRecognitionResultList {
-  length: number;
-  [index: number]: SpeechRecognitionResult;
-}
-interface SpeechRecognitionResult {
-  isFinal: boolean;
-  [index: number]: SpeechRecognitionAlternative;
-}
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
-interface SpeechRecognition extends EventTarget {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  maxAlternatives: number;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: Event) => void) | null;
-  onend: (() => void) | null;
-  start(): void;
-  stop(): void;
-  abort(): void;
-}
-interface SpeechRecognitionConstructor {
-  new (): SpeechRecognition;
-}
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
+// Web Speech API — use any-casts at call sites since the types
+// aren't in the default TS lib and declare-global causes bundler issues.
 
 // ---------------------------------------------------------------------------
 // Navigation Route Map
@@ -483,10 +448,12 @@ export default function ChatWidget() {
 
   // Voice-to-text via Web Speech API
   const [listening, setListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
   const sendRef = useRef<(text?: string) => void>(() => {});
 
-  const supportsVoice = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+  const supportsVoice = typeof window !== 'undefined' &&
+    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
 
   const toggleVoice = useCallback(() => {
     if (listening && recognitionRef.current) {
@@ -495,23 +462,24 @@ export default function ChatWidget() {
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
 
-    const recognition = new SpeechRecognition();
+    const recognition = new SR();
     recognition.lang = 'en-US';
     recognition.interimResults = true;
     recognition.continuous = false;
     recognition.maxAlternatives = 1;
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
       let transcript = '';
       for (let i = 0; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
       }
       setInput(transcript);
 
-      // Auto-send when speech is final
       if (event.results[event.results.length - 1].isFinal) {
         setTimeout(() => {
           sendRef.current(transcript);
