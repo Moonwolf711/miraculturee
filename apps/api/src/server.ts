@@ -112,7 +112,7 @@ async function start() {
   await app.register(localArtistRoutes, { prefix: '/local-artists' });
   await app.register(preferencesRoutes, { prefix: '/preferences' });
   await app.register(semanticSearchRoutes, { prefix: '/search' });
-  // Public platform stats (no auth)
+  // Public platform stats (no auth) — v2
   app.get('/stats/public', async () => {
     const [fanCount, artistCount, eventCount] = await Promise.all([
       app.prisma.user.count(),
