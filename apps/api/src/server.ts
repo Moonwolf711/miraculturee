@@ -112,6 +112,27 @@ async function start() {
   await app.register(localArtistRoutes, { prefix: '/local-artists' });
   await app.register(preferencesRoutes, { prefix: '/preferences' });
   await app.register(semanticSearchRoutes, { prefix: '/search' });
+  // Email opt-in (public, no auth)
+  app.get('/subscribe', async (req, reply) => {
+    const { email, name, source } = req.query as Record<string, string>;
+    if (!email) {
+      return reply.type('text/html').send('<html><body style="background:#0a0a0a;color:#e5e5e5;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;"><div style="text-align:center"><h1 style="color:#f59e0b">Missing email</h1></div></body></html>');
+    }
+
+    try {
+      await app.prisma.emailSubscriber.upsert({
+        where: { email: email.toLowerCase().trim() },
+        update: {},
+        create: { email: email.toLowerCase().trim(), name: name || null, source: source || 'outreach' },
+      });
+    } catch {
+      // ignore duplicates
+    }
+
+    // Redirect to register page with a welcome message
+    return reply.redirect('https://mira-culture.com/register?subscribed=true');
+  });
+
   // Public platform stats (no auth) — v2
   app.get('/stats/public', async () => {
     const [fanCount, artistCount, eventCount] = await Promise.all([

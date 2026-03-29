@@ -904,3 +904,11 @@ model BookingRequest {
   @@index([localArtistId, status])
   @@index([requesterId])
 }
+
+model EmailSubscriber {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  source    String?
+  optedInAt DateTime @default(now())
+}
