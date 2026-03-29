@@ -31,6 +31,123 @@ export async function artistRoutes(app: FastifyInstance) {
     return artist;
   }
 
+  /** GET /artist/public/:id — public artist profile (no auth required) */
+  app.get('/public/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+
+    const artist = await app.prisma.artist.findUnique({
+      where: { id },
+      include: {
+        socialAccounts: {
+          select: {
+            provider: true,
+            providerUsername: true,
+            profileUrl: true,
+            followerCount: true,
+          },
+        },
+        events: {
+          where: { status: { not: 'DRAFT' } },
+          orderBy: { date: 'desc' },
+          take: 10,
+          select: {
+            id: true,
+            name: true,
+            date: true,
+            venueName: true,
+            city: true,
+            state: true,
+            flyerImageUrl: true,
+            status: true,
+          },
+        },
+        campaigns: {
+          where: { status: { in: ['ACTIVE', 'FUNDED', 'COMPLETED'] } },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            status: true,
+            goalAmount: true,
+            currentAmount: true,
+            ticketPrice: true,
+          },
+        },
+      },
+    });
+
+    if (!artist || artist.isPlaceholder) {
+      return reply.code(404).send({ error: 'Artist not found' });
+    }
+
+    // Return only public-safe fields
+    return {
+      id: artist.id,
+      stageName: artist.stageName,
+      bio: artist.bio,
+      profileImageUrl: artist.profileImageUrl,
+      bannerImageUrl: artist.bannerImageUrl,
+      genres: artist.genres,
+      instruments: artist.instruments,
+      professionalType: artist.professionalType,
+      yearsActive: artist.yearsActive,
+      hometown: artist.hometown,
+      city: artist.city,
+      state: artist.state,
+      socialLinks: artist.socialLinks,
+      followerCount: artist.followerCount,
+      isVerified: artist.isVerified,
+      profileStrength: artist.profileStrength,
+      successfulCampaigns: artist.successfulCampaigns,
+      socialAccounts: artist.socialAccounts,
+      events: artist.events,
+      campaigns: artist.campaigns,
+      createdAt: artist.createdAt,
+    };
+  });
+
+  /** GET /artist/public — list all public artists */
+  app.get('/public', async (req) => {
+    const { limit = '20', offset = '0', genre, search } = req.query as Record<string, string>;
+
+    const where: Record<string, unknown> = {
+      isPlaceholder: false,
+      isVerified: true,
+    };
+
+    if (genre) {
+      where.genres = { has: genre };
+    }
+
+    if (search) {
+      where.stageName = { contains: search, mode: 'insensitive' };
+    }
+
+    const [artists, total] = await Promise.all([
+      app.prisma.artist.findMany({
+        where,
+        orderBy: { successfulCampaigns: 'desc' },
+        take: Math.min(Number(limit), 50),
+        skip: Number(offset),
+        select: {
+          id: true,
+          stageName: true,
+          bio: true,
+          profileImageUrl: true,
+          genres: true,
+          professionalType: true,
+          city: true,
+          state: true,
+          isVerified: true,
+          successfulCampaigns: true,
+        },
+      }),
+      app.prisma.artist.count({ where }),
+    ]);
+
+    return { artists, total };
+  });
+
   app.get('/dashboard', { preHandler: [app.authenticate] }, async (req) => {
     return artistService.getDashboard(req.user.id);
   });
