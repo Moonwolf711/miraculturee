@@ -36,10 +36,7 @@ export default defineConfig({
           if (id.includes('react-router-dom') || id.includes('@remix-run/router') || id.includes('react-router')) {
             return 'vendor-router';
           }
-          /* SEO / Helmet */
-          if (id.includes('react-helmet-async')) {
-            return 'vendor-seo';
-          }
+          /* SEO / Helmet — bundled into main chunk */
           /* Socket.io client */
           if (id.includes('socket.io-client') || id.includes('engine.io')) {
             return 'vendor-socket';
