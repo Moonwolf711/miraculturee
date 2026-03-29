@@ -787,3 +787,144 @@
     background-size: 128px 128px;
   }
 }
+
+/* -------------------------------------------------------
+   Atlaskit Dark Mode — Noir Theme Overrides
+   Scoped to .ak-noir-override so they only apply on the
+   Account page and don't bleed into other pages.
+   ------------------------------------------------------- */
+.ak-noir-override {
+  /* Surface tokens → noir palette */
+  --ds-surface: #0f0f0f;
+  --ds-surface-overlay: #1a1a1a;
+  --ds-surface-raised: #1a1a1a;
+  --ds-surface-sunken: #0a0a0a;
+
+  /* Background tokens */
+  --ds-background-input: #151515;
+  --ds-background-input-hovered: #1a1a1a;
+  --ds-background-input-pressed: #1a1a1a;
+  --ds-background-neutral: #1a1a1a;
+  --ds-background-neutral-hovered: #222;
+  --ds-background-neutral-pressed: #2a2a2a;
+  --ds-background-neutral-subtle: transparent;
+  --ds-background-brand-bold: #f59e0b;
+  --ds-background-brand-bold-hovered: #fbbf24;
+  --ds-background-brand-bold-pressed: #d97706;
+  --ds-background-selected: rgba(245, 158, 11, 0.12);
+  --ds-background-selected-hovered: rgba(245, 158, 11, 0.18);
+  --ds-background-selected-bold: #f59e0b;
+  --ds-background-danger: rgba(239, 68, 68, 0.1);
+  --ds-background-success: rgba(16, 185, 129, 0.1);
+
+  /* Text tokens */
+  --ds-text: #e5e5e5;
+  --ds-text-subtle: #a3a3a3;
+  --ds-text-subtlest: #737373;
+  --ds-text-brand: #f59e0b;
+  --ds-text-selected: #fbbf24;
+  --ds-text-inverse: #0a0a0a;
+  --ds-text-danger: #ef4444;
+  --ds-text-success: #10b981;
+  --ds-text-warning: #f59e0b;
+
+  /* Border tokens */
+  --ds-border: #2a2a2a;
+  --ds-border-input: #333;
+  --ds-border-focused: #f59e0b;
+  --ds-border-brand: #f59e0b;
+  --ds-border-selected: #f59e0b;
+  --ds-border-danger: #ef4444;
+  --ds-border-success: #10b981;
+
+  /* Link tokens */
+  --ds-link: #fbbf24;
+  --ds-link-pressed: #d97706;
+
+  /* Icon tokens */
+  --ds-icon: #a3a3a3;
+  --ds-icon-brand: #f59e0b;
+  --ds-icon-selected: #fbbf24;
+
+  /* Elevation / shadow tokens */
+  --ds-shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --ds-shadow-overlay: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* Atlaskit form field styling within noir theme */
+.ak-noir-override [data-ds--text-field--container] {
+  background-color: #151515 !important;
+  border-color: #333 !important;
+  color: #e5e5e5 !important;
+}
+
+.ak-noir-override [data-ds--text-field--container]:focus-within {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25) !important;
+}
+
+.ak-noir-override [data-ds--text-field--input] {
+  color: #e5e5e5 !important;
+}
+
+.ak-noir-override [data-ds--text-field--input]::placeholder {
+  color: #525252 !important;
+}
+
+/* Tab styling */
+.ak-noir-override [role="tablist"] {
+  border-bottom-color: #2a2a2a !important;
+  padding: 0 1.5rem;
+}
+
+.ak-noir-override [role="tab"] {
+  color: #a3a3a3 !important;
+  font-family: 'Outfit', sans-serif !important;
+  font-weight: 500 !important;
+}
+
+.ak-noir-override [role="tab"][aria-selected="true"] {
+  color: #f59e0b !important;
+}
+
+.ak-noir-override [role="tab"]::after {
+  background-color: #f59e0b !important;
+}
+
+/* Toggle overrides */
+.ak-noir-override [data-checked] label {
+  background-color: #f59e0b !important;
+}
+
+/* Button overrides — primary buttons use amber */
+.ak-noir-override button[data-appearance="primary"] {
+  background-color: #f59e0b !important;
+  color: #0a0a0a !important;
+  font-weight: 600 !important;
+}
+
+.ak-noir-override button[data-appearance="primary"]:hover {
+  background-color: #fbbf24 !important;
+}
+
+/* Section message overrides */
+.ak-noir-override section[data-ds--section-message] {
+  border-radius: 0.75rem;
+}
+
+/* Heading overrides — don't apply the global font-display uppercase */
+.ak-noir-override [data-ds--heading] {
+  font-family: 'Outfit', sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  line-height: 1.3 !important;
+}
+
+/* Form label overrides */
+.ak-noir-override label {
+  font-family: 'Outfit', sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  line-height: 1.4 !important;
+  color: #a3a3a3 !important;
+}
