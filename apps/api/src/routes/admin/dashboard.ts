@@ -395,7 +395,7 @@ export default async function adminDashboardRoutes(app: FastifyInstance) {
             email,
             name,
             passwordHash,
-            role: 'USER',
+            role: 'FAN',
           },
         });
 

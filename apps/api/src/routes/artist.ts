@@ -46,33 +46,6 @@ export async function artistRoutes(app: FastifyInstance) {
             followerCount: true,
           },
         },
-        events: {
-          where: { status: { not: 'DRAFT' } },
-          orderBy: { date: 'desc' },
-          take: 10,
-          select: {
-            id: true,
-            name: true,
-            date: true,
-            venueName: true,
-            city: true,
-            state: true,
-            flyerImageUrl: true,
-            status: true,
-          },
-        },
-        campaigns: {
-          where: { status: { in: ['ACTIVE', 'FUNDED', 'COMPLETED'] } },
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-          select: {
-            id: true,
-            status: true,
-            goalAmount: true,
-            currentAmount: true,
-            ticketPrice: true,
-          },
-        },
       },
     });
 
@@ -80,7 +53,36 @@ export async function artistRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: 'Artist not found' });
     }
 
-    // Return only public-safe fields
+    // Fetch events and campaigns separately to avoid Prisma select type issues
+    const [events, campaigns] = await Promise.all([
+      app.prisma.event.findMany({
+        where: { artistId: id, status: { not: 'DRAFT' } },
+        orderBy: { date: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          title: true,
+          date: true,
+          venueName: true,
+          venueCity: true,
+          flyerImageUrl: true,
+          status: true,
+        },
+      }),
+      app.prisma.campaign.findMany({
+        where: { artistId: id, status: { in: ['ACTIVE', 'GOAL_REACHED', 'TICKETS_OPEN'] } },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          status: true,
+          goalCents: true,
+          fundedCents: true,
+          discountCents: true,
+        },
+      }),
+    ]);
+
     return {
       id: artist.id,
       stageName: artist.stageName,
@@ -100,8 +102,8 @@ export async function artistRoutes(app: FastifyInstance) {
       profileStrength: artist.profileStrength,
       successfulCampaigns: artist.successfulCampaigns,
       socialAccounts: artist.socialAccounts,
-      events: artist.events,
-      campaigns: artist.campaigns,
+      events: events.map(e => ({ ...e, name: e.title, city: e.venueCity })),
+      campaigns,
       createdAt: artist.createdAt,
     };
   });
