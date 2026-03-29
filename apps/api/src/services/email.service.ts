@@ -525,11 +525,15 @@ export class EmailService {
     }
   }
 
-  async sendOutreachInvite(to: string, recipientName: string, source: string): Promise<void> {
+  async sendOutreachInvite(to: string, recipientName: string, _source: string): Promise<void> {
     const subject = `${recipientName}, the music scene needs you`;
+
     const html = layout(`
+      <div style="text-align:center;margin-bottom:24px;">
+        <img src="https://mira-culture.com/logo-gold.png" alt="MiraCulture" width="400" height="auto" style="display:inline-block;max-width:100%;" />
+      </div>
       ${heading("You're Part of the Scene. Now Help Shape It.")}
-      ${paragraph(`Hey ${recipientName} — you applied to <strong>${source}</strong>, which means you already care about live music and the culture around it. We built something for people like you.`)}
+      ${paragraph(`Hey ${recipientName} — if you care about live music and the culture around it, we built something for you.`)}
 
       <div style="background-color:#1a1a1a;border-radius:8px;padding:24px;margin:20px 0;border-left:3px solid #f59e0b;">
         <p style="margin:0 0 8px;font-size:15px;color:#f59e0b;font-weight:600;">What is MiraCulture?</p>
