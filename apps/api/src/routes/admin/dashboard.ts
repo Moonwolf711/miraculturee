@@ -328,6 +328,34 @@ export default async function adminDashboardRoutes(app: FastifyInstance) {
   });
 
   /**
+   * POST /admin/backfill-outreach
+   * Bulk insert sent outreach email records for tracking.
+   */
+  app.post('/backfill-outreach', async (req) => {
+    const { emails } = req.body as { emails: { resendId: string; email: string; name?: string; subject?: string; status?: string }[] };
+    if (!emails || !Array.isArray(emails)) return { error: 'emails array required', inserted: 0 };
+
+    let inserted = 0;
+    for (const e of emails) {
+      try {
+        await app.prisma.outreachEmail.upsert({
+          where: { resendId: e.resendId },
+          update: { status: e.status || 'sent' },
+          create: {
+            resendId: e.resendId,
+            email: e.email,
+            name: e.name || null,
+            subject: e.subject || null,
+            status: e.status || 'sent',
+          },
+        });
+        inserted++;
+      } catch { /* skip duplicates */ }
+    }
+    return { inserted, total: emails.length };
+  });
+
+  /**
    * POST /admin/outreach-blast
    * Send outreach/invite emails to a list of external users.
    * Expects: { users: [{ email, name }], source?: string, dryRun?: boolean }
