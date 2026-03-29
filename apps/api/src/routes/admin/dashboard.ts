@@ -293,6 +293,41 @@ export default async function adminDashboardRoutes(app: FastifyInstance) {
   });
 
   /**
+   * GET /admin/outreach-stats
+   * Dashboard data for outreach email campaigns
+   */
+  app.get('/outreach-stats', async () => {
+    const [total, delivered, opened, clicked, bounced, subscribers, recentOpens] = await Promise.all([
+      app.prisma.outreachEmail.count(),
+      app.prisma.outreachEmail.count({ where: { status: 'delivered' } }),
+      app.prisma.outreachEmail.count({ where: { openedAt: { not: null } } }),
+      app.prisma.outreachEmail.count({ where: { clickedAt: { not: null } } }),
+      app.prisma.outreachEmail.count({ where: { status: 'bounced' } }),
+      app.prisma.emailSubscriber.count(),
+      app.prisma.outreachEmail.findMany({
+        where: { openedAt: { not: null } },
+        orderBy: { openedAt: 'desc' },
+        take: 50,
+        select: { email: true, name: true, openedAt: true, clickedAt: true, opens: true, clicks: true, status: true },
+      }),
+    ]);
+
+    return {
+      summary: {
+        total,
+        delivered,
+        opened,
+        clicked,
+        bounced,
+        subscribers,
+        openRate: total > 0 ? Math.round((opened / total) * 100) : 0,
+        clickRate: total > 0 ? Math.round((clicked / total) * 100) : 0,
+      },
+      recentOpens,
+    };
+  });
+
+  /**
    * POST /admin/outreach-blast
    * Send outreach/invite emails to a list of external users.
    * Expects: { users: [{ email, name }], source?: string, dryRun?: boolean }

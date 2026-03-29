@@ -54,6 +54,7 @@ const LocalArtistDashboardPage = lazyRetry(() => import('./pages/LocalArtistDash
 const LocalArtistMarketplacePage = lazyRetry(() => import('./pages/LocalArtistMarketplacePage.js'));
 const AccountPage = lazyRetry(() => import('./pages/AccountPage.js'));
 const ArtistProfilePage = lazyRetry(() => import('./pages/ArtistProfilePage.js'));
+const OutreachDashboardPage = lazyRetry(() => import('./pages/OutreachDashboardPage.js'));
 
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
@@ -275,6 +276,14 @@ export default function App() {
               }
             />
             <Route path="/artists/:id" element={<ArtistProfilePage />} />
+            <Route
+              path="/admin/outreach"
+              element={
+                <AdminRoute>
+                  <OutreachDashboardPage />
+                </AdminRoute>
+              }
+            />
             <Route
               path="/account"
               element={

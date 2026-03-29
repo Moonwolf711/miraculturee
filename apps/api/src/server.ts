@@ -112,6 +112,59 @@ async function start() {
   await app.register(localArtistRoutes, { prefix: '/local-artists' });
   await app.register(preferencesRoutes, { prefix: '/preferences' });
   await app.register(semanticSearchRoutes, { prefix: '/search' });
+  // Resend webhook — tracks email opens, clicks, bounces
+  app.post('/webhooks/resend', async (req, reply) => {
+    const body = req.body as {
+      type: string;
+      data: { email_id: string; to?: string[]; created_at?: string };
+    };
+
+    if (!body.type || !body.data?.email_id) {
+      return reply.code(400).send({ error: 'Invalid webhook payload' });
+    }
+
+    const resendId = body.data.email_id;
+    const now = new Date();
+
+    try {
+      const existing = await app.prisma.outreachEmail.findUnique({ where: { resendId } });
+      if (!existing) return reply.code(200).send({ ok: true });
+
+      const update: Record<string, unknown> = {};
+
+      switch (body.type) {
+        case 'email.delivered':
+          update.status = 'delivered';
+          break;
+        case 'email.opened':
+          update.status = 'opened';
+          update.opens = { increment: 1 };
+          if (!existing.openedAt) update.openedAt = now;
+          break;
+        case 'email.clicked':
+          update.status = 'clicked';
+          update.clicks = { increment: 1 };
+          if (!existing.clickedAt) update.clickedAt = now;
+          break;
+        case 'email.bounced':
+          update.status = 'bounced';
+          update.bouncedAt = now;
+          break;
+        case 'email.complained':
+          update.status = 'complained';
+          break;
+      }
+
+      if (Object.keys(update).length > 0) {
+        await app.prisma.outreachEmail.update({ where: { resendId }, data: update });
+      }
+    } catch {
+      // ignore — non-critical
+    }
+
+    return reply.code(200).send({ ok: true });
+  });
+
   // Email opt-in (public, no auth)
   app.get('/subscribe', async (req, reply) => {
     const { email, name, source } = req.query as Record<string, string>;

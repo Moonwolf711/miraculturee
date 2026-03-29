@@ -912,3 +912,21 @@ model EmailSubscriber {
   source    String?
   optedInAt DateTime @default(now())
 }
+
+model OutreachEmail {
+  id         String   @id @default(uuid())
+  resendId   String   @unique
+  email      String
+  name       String?
+  subject    String?
+  sentAt     DateTime @default(now())
+  status     String   @default("sent")
+  openedAt   DateTime?
+  clickedAt  DateTime?
+  bouncedAt  DateTime?
+  opens      Int      @default(0)
+  clicks     Int      @default(0)
+
+  @@index([email])
+  @@index([status])
+}
