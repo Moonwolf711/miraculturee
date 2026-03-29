@@ -112,6 +112,16 @@ async function start() {
   await app.register(localArtistRoutes, { prefix: '/local-artists' });
   await app.register(preferencesRoutes, { prefix: '/preferences' });
   await app.register(semanticSearchRoutes, { prefix: '/search' });
+  // Public platform stats (no auth)
+  app.get('/stats/public', async () => {
+    const [fanCount, artistCount, eventCount] = await Promise.all([
+      app.prisma.user.count(),
+      app.prisma.artist.count({ where: { isPlaceholder: false } }),
+      app.prisma.event.count({ where: { status: { not: 'DRAFT' } } }),
+    ]);
+    return { fanCount, artistCount, eventCount };
+  });
+
   // Webhook routes — use their own raw body parsers for Stripe signature verification
   await app.register(webhookRoutes, { prefix: '/webhook' });
   await app.register(connectWebhookRoutes, { prefix: '/connect-webhooks' });

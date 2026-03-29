@@ -455,6 +455,13 @@ function NewsletterForm() {
 export default function HomePage() {
   const { offset } = useMouseParallax(0.015);
   const { events: tickerEvents, loading: tickerLoading } = useTickerEvents();
+  const [fanCount, setFanCount] = useState(0);
+
+  useEffect(() => {
+    api.get<{ fanCount: number }>('/stats/public')
+      .then((data) => setFanCount(data.fanCount))
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="bg-noir-950 min-h-screen">
@@ -631,7 +638,7 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { target: 2000, suffix: '+', label: 'Fans Registered' },
+              { target: fanCount, suffix: '+', label: 'Fans Registered' },
               { target: 100, suffix: '%', label: 'Direct to Artists' },
               { target: 0, suffix: '%', label: 'Scalper Rate' },
               { target: 5, suffix: '', label: 'Dollar Raffle Entry' },
