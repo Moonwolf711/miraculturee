@@ -76,6 +76,11 @@ export interface AgentApprovalData {
   note: string | null;
 }
 
+export interface WelcomeImportData {
+  userName: string;
+  source: string;
+}
+
 // ---------------------------------------------------------------------------
 // Shared template helpers
 // ---------------------------------------------------------------------------
@@ -517,6 +522,24 @@ export class EmailService {
       await this.resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
     } catch (error) {
       console.error('[EmailService] Failed to send agent approval result:', error);
+    }
+  }
+
+  async sendWelcomeImport(to: string, data: WelcomeImportData): Promise<void> {
+    const subject = `You're in! Your MiraCulture account is ready`;
+    const html = layout(`
+      ${heading('Welcome to MiraCulture!')}
+      ${paragraph(`Hey ${data.userName}! Because you signed up on <strong>${data.source}</strong>, we've created a MiraCulture account for you automatically.`)}
+      ${paragraph('MiraCulture is a fan-powered ticketing platform where you can support artists, enter $5 ticket raffles, and never deal with scalpers again. Every raffle is cryptographically fair.')}
+      ${paragraph('To get started, just set your password and you\'re in:')}
+      ${ctaButton('Set Your Password', 'https://mira-culture.com/forgot-password')}
+      ${paragraph('<em style="color:#737373;">Use the "Forgot Password" flow with your email to create your password. Your account is already set up and waiting.</em>')}
+    `);
+
+    try {
+      await this.resend.emails.send({ from: FROM_ADDRESS, to, subject, html });
+    } catch (error) {
+      console.error('[EmailService] Failed to send welcome import:', error);
     }
   }
 }

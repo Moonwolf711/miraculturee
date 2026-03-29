@@ -3,6 +3,8 @@
  */
 
 import type { FastifyInstance } from 'fastify';
+import { hash } from 'bcrypt';
+import { randomBytes } from 'crypto';
 
 export default async function adminDashboardRoutes(app: FastifyInstance) {
   /**
@@ -288,5 +290,74 @@ export default async function adminDashboardRoutes(app: FastifyInstance) {
       directTickets: totalDirectTickets,
       recentSignups,
     };
+  });
+
+  /**
+   * POST /admin/import-users
+   * Bulk pre-create accounts from an external platform (e.g. WFL casting portal).
+   * Expects: { users: [{ email, name }], source: string, sendEmail?: boolean }
+   * Skips existing emails. Creates with random password — user resets via forgot-password.
+   */
+  app.post('/import-users', async (req) => {
+    const body = req.body as {
+      users: { email: string; name: string }[];
+      source?: string;
+      sendEmail?: boolean;
+    };
+
+    if (!body.users || !Array.isArray(body.users) || body.users.length === 0) {
+      return { error: 'users array is required', imported: 0, skipped: 0 };
+    }
+
+    const source = body.source || 'Wooking For Love';
+    const sendEmail = body.sendEmail !== false;
+    const results = { imported: 0, skipped: 0, errors: 0, details: [] as string[] };
+
+    for (const entry of body.users) {
+      const email = entry.email?.trim().toLowerCase();
+      const name = entry.name?.trim();
+
+      if (!email || !name) {
+        results.errors++;
+        results.details.push(`Skipped: missing email or name`);
+        continue;
+      }
+
+      // Check if already exists
+      const existing = await app.prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        results.skipped++;
+        results.details.push(`Skipped: ${email} (already exists)`);
+        continue;
+      }
+
+      try {
+        // Create with random password — user will reset via forgot-password
+        const randomPassword = randomBytes(32).toString('hex');
+        const passwordHash = await hash(randomPassword, 10);
+
+        await app.prisma.user.create({
+          data: {
+            email,
+            name,
+            passwordHash,
+            role: 'USER',
+          },
+        });
+
+        results.imported++;
+        results.details.push(`Imported: ${email}`);
+
+        // Send welcome email
+        if (sendEmail && app.emailService) {
+          void app.emailService.sendWelcomeImport(email, { userName: name, source });
+        }
+      } catch (err) {
+        results.errors++;
+        results.details.push(`Error: ${email} — ${err instanceof Error ? err.message : 'unknown'}`);
+      }
+    }
+
+    return results;
   });
 }

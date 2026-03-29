@@ -28,7 +28,12 @@ export default function RegisterPage() {
       await register(email, password, name, 'FAN');
       navigate('/events');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Registration failed.');
+      const msg = err instanceof Error ? err.message : 'Registration failed.';
+      if (msg.includes('already registered') || msg.includes('409')) {
+        setError('ALREADY_REGISTERED');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -55,8 +60,20 @@ export default function RegisterPage() {
           </h1>
 
           {error && (
-            <div role="alert" className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm animate-fade-in">
-              {error}
+            <div role="alert" className={`px-4 py-3 rounded-lg mb-6 text-sm animate-fade-in ${
+              error === 'ALREADY_REGISTERED'
+                ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                : 'bg-red-500/10 border border-red-500/20 text-red-400'
+            }`}>
+              {error === 'ALREADY_REGISTERED' ? (
+                <>
+                  An account with this email already exists.{' '}
+                  <Link to="/login" className="underline font-semibold hover:text-amber-300">Sign in</Link>
+                  {' '}or{' '}
+                  <Link to="/forgot-password" className="underline font-semibold hover:text-amber-300">reset your password</Link>
+                  {' '}to get started.
+                </>
+              ) : error}
             </div>
           )}
 
