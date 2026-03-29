@@ -103,9 +103,7 @@ function layout(content: string): string {
           <!-- Logo Header -->
           <tr>
             <td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid #1a1a1a;">
-              <h1 style="margin:0;font-size:28px;font-weight:700;letter-spacing:-0.5px;">
-                <span style="color:#f59e0b;">M</span><span style="color:#ffffff;">iraCulture</span>
-              </h1>
+              <img src="https://mira-culture.com/logo-gold.png" alt="MiraCulture" width="400" style="display:inline-block;max-width:100%;" />
             </td>
           </tr>
           <!-- Content -->
@@ -118,7 +116,7 @@ function layout(content: string): string {
           <tr>
             <td style="padding:24px 40px;border-top:1px solid #1a1a1a;text-align:center;">
               <p style="margin:0;font-size:13px;color:#737373;line-height:1.6;">
-                MiraCulture &mdash; Fan-Powered Ticket Redistribution
+                MiraCulture | Where Fans Power the Show
               </p>
               <p style="margin:8px 0 0;font-size:12px;color:#525252;">
                 You received this email because you have an account at MiraCulture.
@@ -529,9 +527,6 @@ export class EmailService {
     const subject = `${recipientName}, the music scene needs you`;
 
     const html = layout(`
-      <div style="text-align:center;margin-bottom:24px;">
-        <img src="https://mira-culture.com/logo-gold.png" alt="MiraCulture" width="400" height="auto" style="display:inline-block;max-width:100%;" />
-      </div>
       ${heading("You're Part of the Scene. Now Help Shape It.")}
       ${paragraph(`Hey ${recipientName} — if you care about live music and the culture around it, we built something for you.`)}
 
@@ -598,7 +593,7 @@ export class EmailService {
 
       ${paragraph('Signing up takes 30 seconds. Browse events, enter raffles, support your favorite artists — and if you <em>are</em> an artist, create your profile and start running campaigns for free.')}
 
-      ${ctaButton('Join MiraCulture — It\'s Free', 'https://mira-culture.com/register')}
+      ${ctaButton('Join MiraCulture for Free', 'https://mira-culture.com/register')}
 
       <p style="margin:24px 0 0;font-size:12px;color:#525252;text-align:center;line-height:1.6;">
         Questions? Reply to this email or hit us at <a href="mailto:support@mira-culture.com" style="color:#f59e0b;">support@mira-culture.com</a>
