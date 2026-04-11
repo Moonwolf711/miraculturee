@@ -193,9 +193,15 @@ workflows:
           security find-identity -v -p codesigning || true
       - name: Set build number
         script: |
+          # Timestamp-based build number. Prevents the
+          # 'bundle version must be higher than previously uploaded'
+          # 409 error that hits when get-latest-testflight-build-number
+          # returns 0 because an earlier build is still processing.
+          # Happened on hehe-app on 2026-04-11. Applying preemptively.
           cd apps/ios/ios/App
-          LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" 2>/dev/null || echo "0")
-          agvtool new-version -all $(($LATEST + 1))
+          NEW_BUILD_NUMBER=$(date +%s)
+          agvtool new-version -all "$NEW_BUILD_NUMBER"
+          echo "Build number set to $NEW_BUILD_NUMBER (unix timestamp)"
       - name: Build .ipa for App Store
         script: |
           set -e
