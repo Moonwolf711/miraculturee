@@ -1,9 +1,16 @@
 source "https://rubygems.org"
 
-gem "fastlane", "~> 2.222"
-gem "cocoapods", "~> 1.15"
+# Bundler version pin. Codemagic's Ruby 3.4.7 ships with bundler 4.0.1
+# which breaks fastlane (requires bundler >= 1.12, < 3.0) AND Capacitor
+# cap sync's internal `bundle exec pod install`. Install 2.7.2 explicitly
+# via `gem install bundler:2.7.2` in codemagic.yaml, and set
+# BUNDLER_VERSION=2.7.2 as a workflow env var so `bundle` picks 2.7.2
+# everywhere. Without this, every build fails at 'cap sync ios'.
+# See codemagic.yaml 'Install bundler 2.7.2' step.
 
-# Plugins — none needed yet. Uncomment and run `bundle exec fastlane
-# add_plugin <name>` to add one later.
-# plugins_path = File.expand_path("../fastlane/Pluginfile", __FILE__)
-# eval_gemfile(plugins_path) if File.exist?(plugins_path)
+gem "fastlane", "~> 2.222"
+
+# NOTE: cocoapods is intentionally NOT pinned here — Codemagic provides
+# it via `cocoapods: default` in the workflow environment, and adding
+# a Gemfile entry for it causes version collisions with Capacitor's
+# internal pod install invocation.

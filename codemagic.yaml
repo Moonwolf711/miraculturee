@@ -99,24 +99,22 @@ workflows:
     integrations:
       app_store_connect: wavdrop
     environment:
-      # Reference the app-level env var group that holds
-      # CERTIFICATE_PRIVATE_KEY (uploaded earlier from mira_culture.p12).
-      # Without this explicit groups declaration, Codemagic DOES NOT
+      # Reference the app-level env var group that holds CERT_KEY_B64
+      # (base64-encoded RSA 2048 PEM for the persistent distribution
+      # cert). Without this groups declaration, Codemagic does NOT
       # inject variables from the ios_signing group into the build
-      # environment — even though they're set on the miraculturee
-      # Codemagic app. Build 69da36f9 failed at fetch-signing-files
-      # with 'argument --certificate-key: Provided value "" is not
-      # valid' because $CERTIFICATE_PRIVATE_KEY was empty.
-      #
-      # ios_signing: block still intentionally omitted — Codemagic's
-      # pre-phase profile validator chokes on bundle IDs with no
-      # profiles yet. Script-phase handles signing below.
+      # environment — even if they're set on the app.
       groups:
         - ios_signing
       vars:
         BUNDLE_ID: com.miraculturee.app
         XCODE_SCHEME: "App"
         APP_STORE_APPLE_ID: "6762042598"  # App Store Connect numeric ID for com.miraculturee.app
+        # Force bundler 2.7.2 for the whole build. Codemagic's Ruby
+        # 3.4.7 ships with bundler 4.0.1 which breaks both fastlane
+        # (requires < 3.0) and Capacitor's `cap sync` internal
+        # `bundle exec pod install`. See 'Install bundler 2.7.2' step.
+        BUNDLER_VERSION: "2.7.2"
       node: 20.11.1
       xcode: latest
       cocoapods: default
@@ -129,6 +127,16 @@ workflows:
         - pattern: "ios-v*"
           include: true
     scripts:
+      - name: Install bundler 2.7.2 (compat with fastlane + cap sync)
+        script: |
+          # MUST run before any 'bundle' or 'cap sync' invocation.
+          # Codemagic's Ruby 3.4.7 ships with bundler 4.0.1 which is
+          # incompatible with fastlane (< 3.0) and with Capacitor's
+          # auto 'bundle exec pod install' path. Installing 2.7.2 and
+          # exporting BUNDLER_VERSION=2.7.2 (see workflow env vars)
+          # forces every subsequent `bundle` call to use 2.7.2.
+          gem install bundler:2.7.2 --no-document
+          bundle _2.7.2_ --version
       - *install_pnpm
       - *pnpm_install
       - *build_web
