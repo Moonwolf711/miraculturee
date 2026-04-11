@@ -126,6 +126,25 @@ workflows:
         script: |
           cd apps/ios/ios/App
           pod install --repo-update
+      - name: Fetch or create signing files
+        script: |
+          # The `integrations: app_store_connect: wavdrop` binding above
+          # makes Codemagic inject APP_STORE_CONNECT_* env vars but does
+          # NOT automatically create provisioning profiles — it only
+          # looks up existing ones. Since com.miraculturee.app is brand
+          # new, no profile exists yet, so we explicitly call
+          # fetch-signing-files --create to have the App Store Connect
+          # API generate a fresh distribution cert + profile on first
+          # run. CERTIFICATE_PRIVATE_KEY was uploaded from mira_culture.p12
+          # earlier in the session so the cert is deterministic across
+          # builds (avoids hitting Apple's 3-distribution-cert limit).
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --certificate-key "$CERTIFICATE_PRIVATE_KEY"
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Set build number
         script: |
           cd apps/ios/ios/App
@@ -134,10 +153,6 @@ workflows:
       - name: Build .ipa for App Store
         script: |
           cd apps/ios/ios/App
-          # Codemagic's ios_signing block + integration binding above
-          # means keychain + certs + profiles are already prepared.
-          # Use the .xcworkspace so Pods are linked.
-          xcode-project use-profiles
           xcode-project build-ipa \
             --workspace App.xcworkspace \
             --scheme "$XCODE_SCHEME" \
