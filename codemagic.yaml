@@ -152,22 +152,28 @@ workflows:
           CERT_KEY_CONTENT=$(cat /tmp/cert_key.pem)
           keychain initialize
           echo "--- Revoking existing distribution certs ---"
+          # Robust parser: handles both list-wrapped and bare-array
+          # JSON shapes, and ignores empty / non-200 responses.
           app-store-connect certificates list \
             --type IOS_DISTRIBUTION \
-            --json 2>/dev/null | \
-          python3 -c "
-          import sys, json
+            --json > /tmp/certs.json 2>&1 || true
+          echo "certs.json length: $(wc -c < /tmp/certs.json)"
+          python3 <<'PY'
+          import json, subprocess
           try:
-              data = json.load(sys.stdin)
-              for c in data:
-                  print(c.get('id',''))
-          except Exception: pass
-          " | while read cert_id; do
-            if [ -n "$cert_id" ]; then
-              echo "Revoking: $cert_id"
-              app-store-connect certificates revoke "$cert_id" 2>/dev/null || true
-            fi
-          done
+              with open('/tmp/certs.json') as f:
+                  data = json.load(f)
+          except Exception as e:
+              print('parse failed:', e)
+              data = []
+          if isinstance(data, dict):
+              data = data.get('data', [])
+          for c in data:
+              cid = c.get('id') if isinstance(c, dict) else None
+              if cid:
+                  print('Revoking cert:', cid)
+                  subprocess.run(['app-store-connect','certificates','revoke',cid], check=False)
+          PY
           echo "--- Fetching signing files ---"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
@@ -192,14 +198,9 @@ workflows:
           agvtool new-version -all $(($LATEST + 1))
       - name: Build .ipa for App Store
         script: |
+          set -e
           cd apps/ios/ios/App
-          # Raw xcodebuild archive with explicit signing flags.
-          # `xcode-project build-ipa --workspace ... --config Release`
-          # invokes xcodebuild internally but only passes CODE_SIGN_STYLE=Manual,
-          # not DEVELOPMENT_TEAM or CODE_SIGN_IDENTITY — so Manual signing
-          # fails with "requires a provisioning profile". Passing the
-          # three flags + -allowProvisioningUpdates here matches the
-          # pattern wavdrop's successful 3/29 build used.
+          # Archive with explicit signing flags.
           xcodebuild archive \
             -workspace App.xcworkspace \
             -scheme "$XCODE_SCHEME" \
@@ -211,11 +212,14 @@ workflows:
             "CODE_SIGN_IDENTITY=Apple Distribution" \
             CODE_SIGN_STYLE=Manual \
             -allowProvisioningUpdates
-          # Export the archive to an .ipa for TestFlight upload.
-          # xcode-project build-ipa --archive auto-generates the
-          # correct export_options.plist from use-profiles output.
-          xcode-project build-ipa \
-            --archive $CM_BUILD_DIR/build/App.xcarchive
+          # Export via raw xcodebuild -exportArchive with the
+          # export_options.plist that xcode-project use-profiles
+          # wrote earlier to /Users/builder/export_options.plist.
+          mkdir -p $CM_BUILD_DIR/build/ios/ipa
+          xcodebuild -exportArchive \
+            -archivePath $CM_BUILD_DIR/build/App.xcarchive \
+            -exportPath $CM_BUILD_DIR/build/ios/ipa \
+            -exportOptionsPlist /Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
