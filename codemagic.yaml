@@ -158,12 +158,31 @@ workflows:
       - name: Build .ipa for App Store
         script: |
           cd apps/ios/ios/App
+          # Raw xcodebuild archive with explicit signing flags.
+          # `xcode-project build-ipa --workspace ... --config Release`
+          # invokes xcodebuild internally but only passes CODE_SIGN_STYLE=Manual,
+          # not DEVELOPMENT_TEAM or CODE_SIGN_IDENTITY — so Manual signing
+          # fails with "requires a provisioning profile". Passing the
+          # three flags + -allowProvisioningUpdates here matches the
+          # pattern wavdrop's successful 3/29 build used.
+          xcodebuild archive \
+            -workspace App.xcworkspace \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination generic/platform=iOS \
+            -archivePath $CM_BUILD_DIR/build/App.xcarchive \
+            DEVELOPMENT_TEAM=GMQY9LD9C2 \
+            "CODE_SIGN_IDENTITY=Apple Distribution" \
+            CODE_SIGN_STYLE=Manual \
+            -allowProvisioningUpdates
+          # Export the archive to an .ipa for TestFlight upload.
+          # xcode-project build-ipa --archive auto-generates the
+          # correct export_options.plist from use-profiles output.
           xcode-project build-ipa \
-            --workspace App.xcworkspace \
-            --scheme "$XCODE_SCHEME" \
-            --config Release
+            --archive $CM_BUILD_DIR/build/App.xcarchive
     artifacts:
-      - apps/ios/ios/App/build/ios/ipa/*.ipa
+      - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM.zip
