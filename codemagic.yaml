@@ -141,16 +141,21 @@ workflows:
         script: |
           set -e
           cd apps/ios/ios/App
+          # UNSET poisoned CERTIFICATE_PRIVATE_KEY before running the
+          # app-store-connect CLI. Root cause: the Codemagic 'wavdrop'
+          # team-level integration injects a CERTIFICATE_PRIVATE_KEY
+          # env var whose stored value is corrupted (likely by JSON
+          # newline handling during an earlier upload). The CLI
+          # auto-reads the env var as the default for --certificate-key
+          # and immediately errors with 'Provided value ******** is not
+          # valid'. We can't delete or fix the integration's stored
+          # value via REST API — only by unsetting the env var in
+          # our own script phase. Once unset, fetch-signing-files
+          # auto-generates a fresh RSA cert-key per build (acceptable
+          # until Apple's 3-cert limit is hit).
+          unset CERTIFICATE_PRIVATE_KEY
+          echo "after unset: CERT_KEY_LEN=${#CERTIFICATE_PRIVATE_KEY}"
           keychain initialize
-          # NOTE: --certificate-key intentionally OMITTED.
-          # The persistent CERTIFICATE_PRIVATE_KEY env var we uploaded
-          # from mira_culture.p12 was being rejected by the CLI as
-          # "not a valid value" — likely JSON newline encoding lost
-          # the PEM line breaks during REST API upload. Letting
-          # fetch-signing-files auto-generate a fresh RSA key each
-          # build for now. Side effect: a new distribution cert is
-          # created each run, so we'll hit Apple's 3-certs-per-team
-          # limit every ~3 builds until I fix the stored key.
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
