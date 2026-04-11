@@ -3,7 +3,31 @@ dist/
 .turbo/
 .env
 .env.local
+.env.*.local
 *.log
 .DS_Store
 coverage/
 *.tsbuildinfo
+
+# --- iOS / Apple signing secrets — NEVER commit ---
+# App Store Connect API private keys (.p8)
+AuthKey_*.p8
+*.p8
+# Distribution / developer certs and private keys
+*.p12
+*.pem
+*.cer
+*.certSigningRequest
+# Provisioning profiles
+*.mobileprovision
+*.provisionprofile
+# Fastlane keystores and match artifacts
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+# Generic secret file patterns
+*.key
+secrets.json
+secrets.yml
+secrets.yaml
