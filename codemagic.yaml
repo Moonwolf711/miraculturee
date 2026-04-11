@@ -141,40 +141,25 @@ workflows:
         script: |
           set -e
           cd apps/ios/ios/App
-          # EXACT pattern from wavdrop's proven 3/29 build, which
-          # successfully archived. Unset poisoned team-integration
-          # env var, generate a fresh RSA key inline, revoke all
-          # orphaned distribution certs (so we stay under Apple's
-          # 3-per-team limit), then create a fresh cert + profile
-          # using our fresh key.
+          # PERSISTENT KEY STRATEGY — see hehe-app/codemagic.yaml for
+          # the full rationale. Short version: CERT_KEY_B64 is a
+          # base64-encoded RSA private key on the Codemagic app env.
+          # Decoded here, passed to fetch-signing-files. First build
+          # creates a distribution cert matching this key; subsequent
+          # builds find and reuse it. No cert churn.
           unset CERTIFICATE_PRIVATE_KEY
-          openssl genrsa -out /tmp/cert_key.pem 2048
+          if [ -z "${CERT_KEY_B64:-}" ]; then
+            echo "ERROR: CERT_KEY_B64 env var is empty or unset" >&2
+            exit 2
+          fi
+          echo "$CERT_KEY_B64" | base64 -d > /tmp/cert_key.pem
           CERT_KEY_CONTENT=$(cat /tmp/cert_key.pem)
+          if ! grep -q "BEGIN PRIVATE KEY" /tmp/cert_key.pem; then
+            echo "ERROR: decoded key is not a valid PEM" >&2
+            exit 2
+          fi
+
           keychain initialize
-          echo "--- Revoking existing distribution certs ---"
-          # Robust parser: handles both list-wrapped and bare-array
-          # JSON shapes, and ignores empty / non-200 responses.
-          app-store-connect certificates list \
-            --type IOS_DISTRIBUTION \
-            --json > /tmp/certs.json 2>&1 || true
-          echo "certs.json length: $(wc -c < /tmp/certs.json)"
-          python3 <<'PY'
-          import json, subprocess
-          try:
-              with open('/tmp/certs.json') as f:
-                  data = json.load(f)
-          except Exception as e:
-              print('parse failed:', e)
-              data = []
-          if isinstance(data, dict):
-              data = data.get('data', [])
-          for c in data:
-              cid = c.get('id') if isinstance(c, dict) else None
-              if cid:
-                  print('Revoking cert:', cid)
-                  subprocess.run(['app-store-connect','certificates','revoke',cid], check=False)
-          PY
-          echo "--- Fetching signing files ---"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
@@ -184,13 +169,9 @@ workflows:
             --project App.xcodeproj \
             --warn-only \
             --verbose
-          echo "=== project.pbxproj signing attributes AFTER use-profiles ==="
-          grep -nE "PROVISIONING_PROFILE_SPECIFIER|CODE_SIGN_IDENTITY|CODE_SIGN_STYLE|DEVELOPMENT_TEAM" App.xcodeproj/project.pbxproj || echo "(no signing attrs found)"
-          echo "=== Profiles on disk ==="
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" 2>/dev/null || echo "(no MobileDevice/Provisioning Profiles)"
-          ls -la "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/" 2>/dev/null || echo "(no Xcode/UserData)"
-          echo "=== Identities in codesigning keychain ==="
-          security find-identity -v -p codesigning || true
+
+          # Scrub the decoded key from disk.
+          shred -u /tmp/cert_key.pem 2>/dev/null || rm -f /tmp/cert_key.pem
       - name: Set build number
         script: |
           # Timestamp-based build number. Prevents the
