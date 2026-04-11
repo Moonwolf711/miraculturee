@@ -1,0 +1,10 @@
+# Appfile is used for identifying lanes against Apple IDs when fastlane
+# runs interactively. We auth via App Store Connect API key instead, so
+# most values are optional — we only set app_identifier + team_id so
+# commands like `fastlane run produce` don't prompt.
+
+app_identifier("com.miraculturee.app")
+team_id("GMQY9LD9C2")
+
+# Itunes Connect user id / Apple Developer portal id are intentionally
+# omitted. With api_key auth set in Fastfile, they're not used.

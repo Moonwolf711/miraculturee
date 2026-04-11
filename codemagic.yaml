@@ -183,52 +183,30 @@ workflows:
           NEW_BUILD_NUMBER=$(date +%s)
           agvtool new-version -all "$NEW_BUILD_NUMBER"
           echo "Build number set to $NEW_BUILD_NUMBER (unix timestamp)"
-      - name: Build .ipa for App Store
+      # Build + upload via fastlane. Replaces the prior raw xcodebuild
+      # archive + exportArchive + Codemagic publishing block. User
+      # directive 2026-04-11: "always push via fastlane". Fastfile lives
+      # at apps/ios/ios/App/fastlane/Fastfile. Signing state is already
+      # wired by the 'Fetch or create signing files' step above — gym
+      # inherits the keychain + profiles.
+      - name: Install Ruby gems for fastlane
         script: |
-          set -e
           cd apps/ios/ios/App
-          # Archive with explicit signing flags.
-          xcodebuild archive \
-            -workspace App.xcworkspace \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination generic/platform=iOS \
-            -archivePath $CM_BUILD_DIR/build/App.xcarchive \
-            DEVELOPMENT_TEAM=GMQY9LD9C2 \
-            "CODE_SIGN_IDENTITY=Apple Distribution" \
-            CODE_SIGN_STYLE=Manual \
-            -allowProvisioningUpdates
-          # Export via raw xcodebuild -exportArchive with the
-          # export_options.plist that xcode-project use-profiles
-          # wrote earlier to /Users/builder/export_options.plist.
-          mkdir -p $CM_BUILD_DIR/build/ios/ipa
-          xcodebuild -exportArchive \
-            -archivePath $CM_BUILD_DIR/build/App.xcarchive \
-            -exportPath $CM_BUILD_DIR/build/ios/ipa \
-            -exportOptionsPlist /Users/builder/export_options.plist
+          bundle config set --local path 'vendor/bundle'
+          bundle install
+      - name: Build + upload via fastlane beta
+        script: |
+          cd apps/ios/ios/App
+          bundle exec fastlane beta
     artifacts:
-      - build/ios/ipa/*.ipa
+      - apps/ios/ios/App/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM.zip
-    publishing:
-      app_store_connect:
-        # Integration-based auth — uses the same 'wavdrop' binding
-        # declared above, no raw env vars needed.
-        auth: integration
-        # NOTE: 'submit_to_testflight: true' is intentionally OMITTED.
-        # Even without beta_groups, that flag triggers Codemagic's
-        # external beta review submission flow, which requires the
-        # Beta App Information form to be filled in. Without the
-        # flag, Codemagic still uploads the build — internal testers
-        # (Apple IDs with Internal Tester role on the team) get the
-        # build automatically after Apple's processing completes.
-        #
-        # To also submit to external beta review: fill in the form at
-        # https://appstoreconnect.apple.com/apps/6762042598/testflight/test-info
-        # then re-add 'submit_to_testflight: true'.
-        submit_to_app_store: false
+    # No 'publishing:' block — fastlane handles TestFlight upload
+    # inside the 'Build + upload via fastlane beta' script step above.
+    # Codemagic's build page will show 'Publishing: skipped', which is
+    # correct and intended: the upload already happened.
 
   # ---------------------------------------------------------------
   # iOS Sideload — unsigned IPA, no ASC login required.

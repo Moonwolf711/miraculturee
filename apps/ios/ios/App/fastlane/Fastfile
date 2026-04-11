@@ -1,0 +1,109 @@
+# miraculturee Fastfile
+#
+# Lanes:
+#   beta    — build archive + upload to TestFlight
+#   release — build archive + submit to App Store Review
+#
+# Auth: uses Codemagic's 'wavdrop' App Store Connect integration which
+# injects APP_STORE_CONNECT_{ISSUER_ID,KEY_IDENTIFIER,PRIVATE_KEY}.
+# Fastlane reads these via app_store_connect_api_key.
+#
+# Signing: Codemagic's prior `app-store-connect fetch-signing-files`
+# step (using the persistent CERT_KEY_B64 PEM) already installed the
+# distribution cert + provisioning profile in the build keychain and
+# wrote the signing attrs into project.pbxproj via `xcode-project
+# use-profiles`. This Fastfile inherits that state and does NOT try
+# to re-fetch certs — that would cause cert churn against Apple's
+# 3-per-team limit. If you run this locally (not on Codemagic), you
+# must run `app-store-connect fetch-signing-files` yourself first,
+# OR switch to fastlane `match` with an encrypted certs git repo.
+
+default_platform(:ios)
+
+WORKSPACE     = "App.xcworkspace"
+SCHEME        = "App"
+CONFIG        = "Release"
+EXPORT_METHOD = "app-store"
+TEAM_ID       = "GMQY9LD9C2"
+
+platform :ios do
+  before_all do
+    # Fail fast if the Codemagic env vars aren't present — running
+    # fastlane locally without them will silently attempt interactive
+    # auth, which wastes a build slot.
+    UI.user_error!("APP_STORE_CONNECT_ISSUER_ID missing")   if ENV["APP_STORE_CONNECT_ISSUER_ID"].to_s.empty?
+    UI.user_error!("APP_STORE_CONNECT_KEY_IDENTIFIER missing") if ENV["APP_STORE_CONNECT_KEY_IDENTIFIER"].to_s.empty?
+    UI.user_error!("APP_STORE_CONNECT_PRIVATE_KEY missing") if ENV["APP_STORE_CONNECT_PRIVATE_KEY"].to_s.empty?
+  end
+
+  desc "Build archive and upload to TestFlight"
+  lane :beta do
+    api_key = app_store_connect_api_key(
+      key_id:      ENV["APP_STORE_CONNECT_KEY_IDENTIFIER"],
+      issuer_id:   ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_PRIVATE_KEY"],
+      is_key_content_base64: false,
+      in_house: false
+    )
+
+    build_app(
+      workspace:     WORKSPACE,
+      scheme:        SCHEME,
+      configuration: CONFIG,
+      export_method: EXPORT_METHOD,
+      clean:         false,
+      # Signing is already wired by use-profiles — pass DEVELOPMENT_TEAM
+      # + manual style so gym doesn't try to auto-detect.
+      xcargs: "DEVELOPMENT_TEAM=#{TEAM_ID} CODE_SIGN_IDENTITY='Apple Distribution' CODE_SIGN_STYLE=Manual",
+      export_options: {
+        method: EXPORT_METHOD,
+        teamID: TEAM_ID,
+        signingStyle: "manual"
+      }
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+      # External beta review is OFF — internal testers get the build
+      # automatically once Apple finishes processing. To enable external
+      # beta, fill in the Beta App Info form at
+      # https://appstoreconnect.apple.com/apps/6762042598/testflight/test-info
+      # then set skip_submission: false and add distribute_external: true.
+      skip_submission: true
+    )
+  end
+
+  desc "Build archive and submit to App Store Review"
+  lane :release do
+    api_key = app_store_connect_api_key(
+      key_id:      ENV["APP_STORE_CONNECT_KEY_IDENTIFIER"],
+      issuer_id:   ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_PRIVATE_KEY"],
+      is_key_content_base64: false,
+      in_house: false
+    )
+
+    build_app(
+      workspace:     WORKSPACE,
+      scheme:        SCHEME,
+      configuration: CONFIG,
+      export_method: EXPORT_METHOD,
+      clean:         false,
+      xcargs: "DEVELOPMENT_TEAM=#{TEAM_ID} CODE_SIGN_IDENTITY='Apple Distribution' CODE_SIGN_STYLE=Manual",
+      export_options: {
+        method: EXPORT_METHOD,
+        teamID: TEAM_ID,
+        signingStyle: "manual"
+      }
+    )
+
+    upload_to_app_store(
+      api_key: api_key,
+      skip_metadata: true,
+      skip_screenshots: true,
+      submit_for_review: false,
+      force: true
+    )
+  end
+end
