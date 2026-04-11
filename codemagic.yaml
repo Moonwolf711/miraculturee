@@ -185,6 +185,7 @@ workflows:
         XCODE_SCHEME: "App"
       node: 20.11.1
       xcode: latest
+      cocoapods: default
     cache:
       <<: *pnpm_cache
     triggering:
@@ -198,17 +199,22 @@ workflows:
       - *pnpm_install
       - *build_web
       - *sync_capacitor
-      - name: Resolve Swift Package Manager dependencies
+      - name: Install CocoaPods dependencies
         script: |
+          # Capacitor 6 plugins still ship as CocoaPods pods, and the
+          # project.pbxproj that `cap add ios` generated on Windows is
+          # pure CocoaPods (6 [CP] script phases, 4 Pods_App framework
+          # links, 0 SPM refs). We must `pod install` before xcodebuild
+          # can find the Capacitor module.
           cd apps/ios/ios/App
-          xcodebuild -resolvePackageDependencies \
-            -project App.xcodeproj \
-            -scheme App
+          pod install --repo-update
       - name: Build unsigned archive
         script: |
           cd apps/ios/ios/App
+          # Use .xcworkspace (not .xcodeproj) so xcodebuild can see
+          # the Pods project that CocoaPods just generated.
           xcodebuild archive \
-            -project App.xcodeproj \
+            -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
