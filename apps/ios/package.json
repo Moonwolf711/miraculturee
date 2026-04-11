@@ -1,0 +1,36 @@
+{
+  "name": "@miraculturee/ios",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Capacitor iOS wrapper for the miraculturee web app — builds from apps/web and packages as a native iOS app for App Store / TestFlight via Codemagic.",
+  "scripts": {
+    "build:web": "pnpm --filter @miraculturee/web build",
+    "copy:dist": "rm -rf www && cp -r ../web/dist www",
+    "build": "pnpm run build:web && pnpm run copy:dist && pnpm run cap:sync",
+    "cap:init": "cap init miraculturee com.miraculturee.app --web-dir=www",
+    "cap:add:ios": "cap add ios",
+    "cap:sync": "cap sync ios",
+    "cap:open:ios": "cap open ios",
+    "ios:build": "pnpm run build && pnpm run cap:open:ios",
+    "lint": "echo 'iOS wrapper — lint handled by @miraculturee/web'",
+    "test": "echo 'iOS wrapper — tests handled by @miraculturee/web'"
+  },
+  "dependencies": {
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/browser": "^6.0.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/device": "^6.0.0",
+    "@capacitor/haptics": "^6.0.0",
+    "@capacitor/ios": "^6.1.0",
+    "@capacitor/keyboard": "^6.0.0",
+    "@capacitor/preferences": "^6.0.0",
+    "@capacitor/push-notifications": "^6.0.0",
+    "@capacitor/splash-screen": "^6.0.0",
+    "@capacitor/status-bar": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0",
+    "typescript": "^5.7.0"
+  }
+}

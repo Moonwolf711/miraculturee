@@ -789,6 +789,240 @@
 }
 
 /* -------------------------------------------------------
+   iOS 26 Liquid Glass — Web analog utilities
+
+   Mirrors SwiftUI's glassEffect / GlassEffectContainer /
+   interactive / glassEffectID morphing using CSS
+   backdrop-filter. Degrades gracefully on older browsers
+   via the @supports fallback block below.
+
+   Prefix: .lq-*
+   ------------------------------------------------------- */
+@layer components {
+  /* Base liquid glass — regular variant, capsule shape */
+  .lq-glass {
+    position: relative;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(30px) saturate(1.8);
+    -webkit-backdrop-filter: blur(30px) saturate(1.8);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.15) inset,
+      0 -1px 0 0 rgba(0, 0, 0, 0.15) inset,
+      0 8px 32px rgba(0, 0, 0, 0.35);
+    transition: all 0.4s var(--transition-smooth);
+    isolation: isolate;
+  }
+
+  /* Specular highlight — mimics the top-edge light catch
+     that Liquid Glass renders on iOS 26 material. */
+  .lq-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.02) 35%,
+      transparent 55%
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Shape variants — parity with SwiftUI shape arg */
+  .lq-glass-rect { border-radius: 16px; }
+  .lq-glass-circle { border-radius: 50%; }
+
+  /* Tint variants — parity with .tint(Color) modifier */
+  .lq-glass-tint-amber {
+    background: rgba(245, 158, 11, 0.14);
+    border-color: rgba(245, 158, 11, 0.28);
+  }
+  .lq-glass-tint-amber::before {
+    background: linear-gradient(
+      180deg,
+      rgba(251, 191, 36, 0.3) 0%,
+      rgba(245, 158, 11, 0.04) 35%,
+      transparent 55%
+    );
+  }
+  .lq-glass-tint-blue {
+    background: rgba(59, 130, 246, 0.14);
+    border-color: rgba(59, 130, 246, 0.28);
+  }
+  .lq-glass-tint-white {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+
+  /* Interactive — parity with .interactive() modifier */
+  .lq-glass-interactive {
+    cursor: pointer;
+    will-change: transform, box-shadow, background;
+  }
+  .lq-glass-interactive:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.25) inset,
+      0 -1px 0 0 rgba(0, 0, 0, 0.15) inset,
+      0 12px 40px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(245, 158, 11, 0.15);
+  }
+  .lq-glass-interactive:active {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 0.08s;
+  }
+  .lq-glass-interactive.lq-glass-tint-amber:hover {
+    background: rgba(245, 158, 11, 0.22);
+  }
+
+  /* Button styles — parity with .buttonStyle(.glass) / .glassProminent */
+  .lq-btn-glass {
+    @apply inline-flex items-center gap-2 px-6 py-3 font-semibold text-sm
+           uppercase tracking-wide text-white;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 9999px;
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.2) inset,
+      0 -1px 0 0 rgba(0, 0, 0, 0.15) inset,
+      0 8px 24px rgba(0, 0, 0, 0.35);
+    transition: all 0.3s var(--transition-smooth);
+    cursor: pointer;
+  }
+  .lq-btn-glass:hover {
+    background: rgba(255, 255, 255, 0.14);
+    transform: translateY(-1px);
+  }
+  .lq-btn-glass:active {
+    transform: translateY(0) scale(0.97);
+  }
+
+  .lq-btn-glass-prominent {
+    background: linear-gradient(180deg, #fbbf24, #f59e0b);
+    color: #0a0a0a;
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.4) inset,
+      0 -1px 0 0 rgba(0, 0, 0, 0.2) inset,
+      0 8px 24px rgba(245, 158, 11, 0.35),
+      0 0 40px rgba(245, 158, 11, 0.15);
+  }
+  .lq-btn-glass-prominent:hover {
+    background: linear-gradient(180deg, #fcd34d, #fbbf24);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.5) inset,
+      0 -1px 0 0 rgba(0, 0, 0, 0.2) inset,
+      0 12px 32px rgba(245, 158, 11, 0.45),
+      0 0 60px rgba(245, 158, 11, 0.25);
+  }
+
+  /* GlassEffectContainer — parity with SwiftUI container
+     that enables morphing + shared blur between children. */
+  .lq-glass-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--lq-gap, 40px);
+    padding: var(--lq-gap, 40px);
+    isolation: isolate;
+  }
+  .lq-glass-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(10, 10, 10, 0.2);
+    backdrop-filter: blur(40px) saturate(1.4);
+    -webkit-backdrop-filter: blur(40px) saturate(1.4);
+    z-index: -1;
+    pointer-events: none;
+  }
+  .lq-glass-container-tight { --lq-gap: 16px; }
+  .lq-glass-container-loose { --lq-gap: 64px; }
+
+  /* Morph transitions — parity with withAnimation +
+     glassEffectID on view hierarchy changes. */
+  .lq-morph-enter {
+    animation: lqMorphIn 0.45s var(--transition-smooth) both;
+  }
+  .lq-morph-exit {
+    animation: lqMorphOut 0.35s var(--transition-smooth) both;
+  }
+  @keyframes lqMorphIn {
+    0%   { opacity: 0; transform: scale(0.6) translateY(8px); filter: blur(8px); }
+    60%  { opacity: 1; filter: blur(0); }
+    100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+  }
+  @keyframes lqMorphOut {
+    0%   { opacity: 1; transform: scale(1) translateY(0); }
+    100% { opacity: 0; transform: scale(0.7) translateY(4px); filter: blur(6px); }
+  }
+
+  /* Scroll edge effects — parity with UIScrollView.topEdgeEffect.
+     Apply to sticky headers / toolbars for soft content fadeout. */
+  .lq-scroll-edge-top {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: linear-gradient(
+      180deg,
+      rgba(10, 10, 10, 0.72) 0%,
+      rgba(10, 10, 10, 0.55) 55%,
+      rgba(10, 10, 10, 0) 100%
+    );
+    backdrop-filter: blur(24px) saturate(1.6);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  }
+  .lq-scroll-edge-bottom {
+    position: sticky;
+    bottom: 0;
+    z-index: 50;
+    background: linear-gradient(
+      0deg,
+      rgba(10, 10, 10, 0.72) 0%,
+      rgba(10, 10, 10, 0.55) 55%,
+      rgba(10, 10, 10, 0) 100%
+    );
+    backdrop-filter: blur(24px) saturate(1.6);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    mask-image: linear-gradient(0deg, #000 55%, transparent 100%);
+    -webkit-mask-image: linear-gradient(0deg, #000 55%, transparent 100%);
+  }
+
+  /* Fallback for browsers without backdrop-filter */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .lq-glass,
+    .lq-btn-glass,
+    .lq-glass-container::before {
+      background: rgba(20, 20, 20, 0.92);
+      border-color: rgba(245, 158, 11, 0.2);
+    }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .lq-morph-enter,
+    .lq-morph-exit {
+      animation: none !important;
+    }
+    .lq-glass-interactive:hover,
+    .lq-btn-glass:hover,
+    .lq-btn-glass-prominent:hover {
+      transform: none !important;
+    }
+  }
+}
+
+/* -------------------------------------------------------
    Atlaskit Dark Mode — Noir Theme Overrides
    Scoped to .ak-noir-override so they only apply on the
    Account page and don't bleed into other pages.

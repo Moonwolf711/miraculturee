@@ -1,0 +1,200 @@
+# Codemagic CI/CD for miraculturee iOS (Capacitor)
+#
+# Workflows:
+#   ios-release  — full App Store distribution build → TestFlight
+#   ios-adhoc    — ad-hoc signed .ipa for internal device testing
+#   web-build    — web-only smoke test (no mac needed) for PRs
+#
+# Secrets required in Codemagic environment groups:
+#   ios_signing:
+#     - APP_STORE_CONNECT_KEY_IDENTIFIER
+#     - APP_STORE_CONNECT_ISSUER_ID
+#     - APP_STORE_CONNECT_PRIVATE_KEY
+#     - CERTIFICATE_PRIVATE_KEY
+#   miraculturee_env:
+#     - VITE_API_URL              (e.g. https://miracultureeapi-production-cca9.up.railway.app)
+#     - VITE_STRIPE_PUBLISHABLE_KEY
+#     - VITE_HCAPTCHA_SITE_KEY
+#     - VITE_SOCKET_URL
+
+definitions:
+  scripts:
+    - &install_pnpm
+      name: Install pnpm
+      script: |
+        npm install -g pnpm@9.15.0
+        pnpm --version
+
+    - &pnpm_install
+      name: Install dependencies
+      script: |
+        pnpm install --frozen-lockfile
+
+    - &build_web
+      name: Build @miraculturee/shared + @miraculturee/web
+      script: |
+        pnpm --filter @miraculturee/shared build
+        pnpm --filter @miraculturee/web build
+
+    - &sync_capacitor
+      name: Copy web dist → iOS and cap sync
+      script: |
+        cd apps/ios
+        rm -rf www
+        cp -r ../web/dist www
+        pnpm exec cap sync ios
+
+    - &cocoapods_install
+      name: Install CocoaPods dependencies
+      script: |
+        cd apps/ios/ios/App
+        pod install --repo-update
+
+  cache:
+    - &pnpm_cache
+      cache_paths:
+        - $HOME/.pnpm-store
+        - node_modules
+        - apps/web/node_modules
+        - apps/api/node_modules
+        - apps/ios/node_modules
+        - packages/shared/node_modules
+
+    - &pods_cache
+      cache_paths:
+        - $HOME/Library/Caches/CocoaPods
+        - $HOME/.cocoapods
+        - apps/ios/ios/App/Pods
+
+workflows:
+  # ---------------------------------------------------------------
+  # iOS Release → TestFlight
+  # ---------------------------------------------------------------
+  ios-release:
+    name: iOS Release (TestFlight)
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - ios_signing
+        - miraculturee_env
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.miraculturee.app
+      vars:
+        XCODE_WORKSPACE: "apps/ios/ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+        APP_STORE_APPLE_ID: 0000000000 # TODO: replace with numeric App Store Connect ID
+      node: 20.11.1
+      xcode: latest
+      cocoapods: default
+    cache:
+      <<: *pnpm_cache
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "ios-v*"
+          include: true
+    scripts:
+      - *install_pnpm
+      - *pnpm_install
+      - *build_web
+      - *sync_capacitor
+      - *cocoapods_install
+      - name: Set build number
+        script: |
+          cd apps/ios/ios/App
+          BUILD_NUMBER=$(($(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID") + 1))
+          agvtool new-version -all $BUILD_NUMBER
+      - name: Build .ipa for App Store
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM.zip
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - internal-testers
+        submit_to_app_store: false
+
+  # ---------------------------------------------------------------
+  # iOS Ad-hoc build for device testing (not App Store)
+  # ---------------------------------------------------------------
+  ios-adhoc:
+    name: iOS Ad-Hoc Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - ios_signing
+        - miraculturee_env
+      ios_signing:
+        distribution_type: ad_hoc
+        bundle_identifier: com.miraculturee.app
+      vars:
+        XCODE_WORKSPACE: "apps/ios/ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+      node: 20.11.1
+      xcode: latest
+      cocoapods: default
+    cache:
+      <<: *pnpm_cache
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: "ios/*"
+          include: true
+    scripts:
+      - *install_pnpm
+      - *pnpm_install
+      - *build_web
+      - *sync_capacitor
+      - *cocoapods_install
+      - name: Build ad-hoc .ipa
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+
+  # ---------------------------------------------------------------
+  # Web-only smoke build — runs on every PR, no mac required.
+  # Verifies the web build still succeeds and the dist can be
+  # copied into the iOS wrapper. Catches breakages early.
+  # ---------------------------------------------------------------
+  web-build:
+    name: Web Build (smoke)
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      groups:
+        - miraculturee_env
+      node: 20.11.1
+    cache:
+      <<: *pnpm_cache
+    triggering:
+      events:
+        - pull_request
+    scripts:
+      - *install_pnpm
+      - *pnpm_install
+      - *build_web
+      - name: Simulate iOS wrapper copy step
+        script: |
+          mkdir -p apps/ios/www
+          cp -r apps/web/dist/* apps/ios/www/
+          ls -lah apps/ios/www | head -20
+    artifacts:
+      - apps/web/dist/**
