@@ -25,6 +25,12 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+
+  # FLEX — in-app dev tools (view hierarchy, network, keychain, runtime).
+  # :configurations => ['Debug'] ensures FLEX links into Debug builds
+  # only. TestFlight/App Store (Release) builds never pull it in — zero
+  # bytes shipped, zero risk of an App Review reject for private APIs.
+  pod 'FLEX', '~> 5.2', :configurations => ['Debug']
 end
 
 post_install do |installer|

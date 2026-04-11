@@ -1,6 +1,10 @@
 import UIKit
 import Capacitor
 
+#if DEBUG
+import FLEX
+#endif
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
@@ -8,6 +12,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        #if DEBUG
+        // FLEX explorer: 3-finger long-press anywhere in-app to toggle.
+        // Registered only in Debug, never ships to TestFlight/App Store.
+        FLEXManager.shared.registerGlobalEntry(withName: "miraculturee", objectFutureBlock: { () -> Any? in
+            return UIApplication.shared
+        })
+        #endif
         return true
     }
 
