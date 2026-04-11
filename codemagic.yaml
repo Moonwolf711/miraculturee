@@ -90,19 +90,22 @@ workflows:
     name: iOS Release (TestFlight)
     max_build_duration: 90
     instance_type: mac_mini_m2
+    # Signing uses the team-level Codemagic integration named 'wavdrop'
+    # (Key 22TM26BJ8D, Issuer 0c8293e2-..., Apple team GMQY9LD9C2).
+    # The integration name is a handle; the same .p8 signs miraculturee,
+    # wavdrop, and any other app under team GMQY9LD9C2. No per-app env
+    # vars or fetch-signing-files script needed — Codemagic handles
+    # keychain init, cert fetch/create, and profile setup automatically.
+    integrations:
+      app_store_connect: wavdrop
     environment:
-      # Signing creds live as encrypted app-level env vars on the
-      # Codemagic miraculturee app (id 69d9ff6d4bc2d3ca57ed1615):
-      #   APP_STORE_CONNECT_KEY_IDENTIFIER  = 22TM26BJ8D
-      #   APP_STORE_CONNECT_ISSUER_ID       = 0c8293e2-e9ff-4a0e-820e-83cc3c2dd480
-      #   APP_STORE_CONNECT_PRIVATE_KEY     = <.p8 contents>
-      # (all marked secure) — these are auto-injected into every build.
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.miraculturee.app
       vars:
         BUNDLE_ID: com.miraculturee.app
-        XCODE_PROJECT: "apps/ios/ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
-        DEVELOPMENT_TEAM: GMQY9LD9C2  # Shared with wavdrop + hehe-app
-        APP_STORE_APPLE_ID: "0000000000" # TODO: replace with numeric ASC ID after creating the App record in the web UI
+        APP_STORE_APPLE_ID: "0000000000" # TODO: fill after App Store Connect app record exists
       node: 20.11.1
       xcode: latest
       cocoapods: default
@@ -119,29 +122,10 @@ workflows:
       - *pnpm_install
       - *build_web
       - *sync_capacitor
-      - name: Set up code signing (reuse persistent RSA key from env)
+      - name: Install CocoaPods dependencies
         script: |
-          set -e
-          # We have a persistent 2048-bit RSA private key stored as
-          # CERTIFICATE_PRIVATE_KEY (extracted from mira_culture.p12 on
-          # the dev machine, uploaded once via Codemagic REST API).
-          # Using a stable key means the distribution cert created on
-          # the first build is reused on every subsequent build — we
-          # never hit Apple's 3-distribution-certs-per-team limit.
-          keychain initialize
-
-          # Fetch (or create on first run) signing files for the
-          # bundle id using our persistent private key. The
-          # app-store-connect CLI reads APP_STORE_CONNECT_KEY_IDENTIFIER,
-          # APP_STORE_CONNECT_ISSUER_ID, and APP_STORE_CONNECT_PRIVATE_KEY
-          # from env automatically.
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create \
-            --certificate-key "$CERTIFICATE_PRIVATE_KEY"
-
-          keychain add-certificates
-          xcode-project use-profiles
+          cd apps/ios/ios/App
+          pod install --repo-update
       - name: Set build number
         script: |
           cd apps/ios/ios/App
@@ -150,8 +134,12 @@ workflows:
       - name: Build .ipa for App Store
         script: |
           cd apps/ios/ios/App
+          # Codemagic's ios_signing block + integration binding above
+          # means keychain + certs + profiles are already prepared.
+          # Use the .xcworkspace so Pods are linked.
+          xcode-project use-profiles
           xcode-project build-ipa \
-            --project App.xcodeproj \
+            --workspace App.xcworkspace \
             --scheme "$XCODE_SCHEME" \
             --config Release
     artifacts:
@@ -161,10 +149,9 @@ workflows:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM.zip
     publishing:
       app_store_connect:
-        # Uses the same APP_STORE_CONNECT_* env vars for TestFlight upload
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        # Integration-based auth — uses the same 'wavdrop' binding
+        # declared above, no raw env vars needed.
+        auth: integration
         submit_to_testflight: true
         submit_to_app_store: false
 
