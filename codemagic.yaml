@@ -105,7 +105,7 @@ workflows:
       vars:
         BUNDLE_ID: com.miraculturee.app
         XCODE_SCHEME: "App"
-        APP_STORE_APPLE_ID: "0000000000" # TODO: fill after App Store Connect app record exists
+        APP_STORE_APPLE_ID: "6762042598"  # App Store Connect numeric ID for com.miraculturee.app
       node: 20.11.1
       xcode: latest
       cocoapods: default
