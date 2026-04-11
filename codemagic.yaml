@@ -99,9 +99,14 @@ workflows:
     integrations:
       app_store_connect: wavdrop
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.miraculturee.app
+      # NOTE: 'ios_signing:' block intentionally omitted — Codemagic
+      # would run a pre-phase validation that tries to fetch existing
+      # provisioning profiles from its cache. For brand-new bundle IDs
+      # with zero profiles yet, this pre-phase fails before any script
+      # step runs, with "No matching profiles found for bundle
+      # identifier ... and distribution type app_store". By omitting
+      # the block, script-phase signing (below) handles profile
+      # creation via fetch-signing-files --create.
       vars:
         BUNDLE_ID: com.miraculturee.app
         XCODE_SCHEME: "App"
