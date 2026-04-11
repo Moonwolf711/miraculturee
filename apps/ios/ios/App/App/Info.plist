@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Export compliance: app uses only Apple's built-in HTTPS/TLS
+	     and Keychain via WKWebView + Capacitor plugins. No custom
+	     crypto, no third-party TLS libs. Declaring exempt status
+	     here bypasses the TestFlight export compliance prompt on
+	     every upload. See https://developer.apple.com/documentation/security/complying_with_encryption_export_regulations -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
