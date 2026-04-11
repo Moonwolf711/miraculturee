@@ -99,14 +99,20 @@ workflows:
     integrations:
       app_store_connect: wavdrop
     environment:
-      # NOTE: 'ios_signing:' block intentionally omitted — Codemagic
-      # would run a pre-phase validation that tries to fetch existing
-      # provisioning profiles from its cache. For brand-new bundle IDs
-      # with zero profiles yet, this pre-phase fails before any script
-      # step runs, with "No matching profiles found for bundle
-      # identifier ... and distribution type app_store". By omitting
-      # the block, script-phase signing (below) handles profile
-      # creation via fetch-signing-files --create.
+      # Reference the app-level env var group that holds
+      # CERTIFICATE_PRIVATE_KEY (uploaded earlier from mira_culture.p12).
+      # Without this explicit groups declaration, Codemagic DOES NOT
+      # inject variables from the ios_signing group into the build
+      # environment — even though they're set on the miraculturee
+      # Codemagic app. Build 69da36f9 failed at fetch-signing-files
+      # with 'argument --certificate-key: Provided value "" is not
+      # valid' because $CERTIFICATE_PRIVATE_KEY was empty.
+      #
+      # ios_signing: block still intentionally omitted — Codemagic's
+      # pre-phase profile validator chokes on bundle IDs with no
+      # profiles yet. Script-phase handles signing below.
+      groups:
+        - ios_signing
       vars:
         BUNDLE_ID: com.miraculturee.app
         XCODE_SCHEME: "App"
