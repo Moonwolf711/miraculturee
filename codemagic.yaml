@@ -141,25 +141,38 @@ workflows:
         script: |
           set -e
           cd apps/ios/ios/App
-          # UNSET poisoned CERTIFICATE_PRIVATE_KEY before running the
-          # app-store-connect CLI. Root cause: the Codemagic 'wavdrop'
-          # team-level integration injects a CERTIFICATE_PRIVATE_KEY
-          # env var whose stored value is corrupted (likely by JSON
-          # newline handling during an earlier upload). The CLI
-          # auto-reads the env var as the default for --certificate-key
-          # and immediately errors with 'Provided value ******** is not
-          # valid'. We can't delete or fix the integration's stored
-          # value via REST API — only by unsetting the env var in
-          # our own script phase. Once unset, fetch-signing-files
-          # auto-generates a fresh RSA cert-key per build (acceptable
-          # until Apple's 3-cert limit is hit).
+          # EXACT pattern from wavdrop's proven 3/29 build, which
+          # successfully archived. Unset poisoned team-integration
+          # env var, generate a fresh RSA key inline, revoke all
+          # orphaned distribution certs (so we stay under Apple's
+          # 3-per-team limit), then create a fresh cert + profile
+          # using our fresh key.
           unset CERTIFICATE_PRIVATE_KEY
-          echo "after unset: CERT_KEY_LEN=${#CERTIFICATE_PRIVATE_KEY}"
+          openssl genrsa -out /tmp/cert_key.pem 2048
+          CERT_KEY_CONTENT=$(cat /tmp/cert_key.pem)
           keychain initialize
+          echo "--- Revoking existing distribution certs ---"
+          app-store-connect certificates list \
+            --type IOS_DISTRIBUTION \
+            --json 2>/dev/null | \
+          python3 -c "
+          import sys, json
+          try:
+              data = json.load(sys.stdin)
+              for c in data:
+                  print(c.get('id',''))
+          except Exception: pass
+          " | while read cert_id; do
+            if [ -n "$cert_id" ]; then
+              echo "Revoking: $cert_id"
+              app-store-connect certificates revoke "$cert_id" 2>/dev/null || true
+            fi
+          done
+          echo "--- Fetching signing files ---"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
-            --platform IOS
+            --certificate-key "$CERT_KEY_CONTENT"
           keychain add-certificates
           xcode-project use-profiles \
             --project App.xcodeproj \
