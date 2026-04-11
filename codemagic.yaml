@@ -90,20 +90,19 @@ workflows:
     name: iOS Release (TestFlight)
     max_build_duration: 90
     instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: miraculturee_asc
     environment:
-      groups:
-        - miraculturee_env
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.miraculturee.app
+      # Signing creds live as encrypted app-level env vars on the
+      # Codemagic miraculturee app (id 69d9ff6d4bc2d3ca57ed1615):
+      #   APP_STORE_CONNECT_KEY_IDENTIFIER  = 22TM26BJ8D
+      #   APP_STORE_CONNECT_ISSUER_ID       = 0c8293e2-e9ff-4a0e-820e-83cc3c2dd480
+      #   APP_STORE_CONNECT_PRIVATE_KEY     = <.p8 contents>
+      # (all marked secure) — these are auto-injected into every build.
       vars:
+        BUNDLE_ID: com.miraculturee.app
         XCODE_PROJECT: "apps/ios/ios/App/App.xcodeproj"
-        XCODE_WORKSPACE: "apps/ios/ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
-        DEVELOPMENT_TEAM: GMQY9LD9C2  # Doreen Yianacopolus — shared with wavdrop
-        APP_STORE_APPLE_ID: 0000000000 # TODO: replace with numeric App Store Connect ID after creating the app record
+        DEVELOPMENT_TEAM: GMQY9LD9C2  # Shared with wavdrop + hehe-app
+        APP_STORE_APPLE_ID: "0000000000" # TODO: replace with numeric ASC ID after creating the App record in the web UI
       node: 20.11.1
       xcode: latest
       cocoapods: default
@@ -120,29 +119,71 @@ workflows:
       - *pnpm_install
       - *build_web
       - *sync_capacitor
-      - *cocoapods_install
+      - name: Set up code signing (fetch cert + profile via ASC API)
+        script: |
+          set -e
+          # Generate a fresh RSA cert-key per build so a revoked/lost
+          # private key never blocks a future build. Same pattern as
+          # wavdrop uses — see wavdrop codemagic.yaml.
+          openssl genrsa -out /tmp/cert_key.pem 2048
+          CERT_KEY_CONTENT=$(cat /tmp/cert_key.pem)
+
+          keychain initialize
+
+          # Revoke any orphaned distribution certs we can't use
+          # (previous builds whose private keys we've lost).
+          app-store-connect certificates list \
+            --type IOS_DISTRIBUTION \
+            --type DISTRIBUTION \
+            --json 2>/dev/null | \
+          python3 -c "
+          import sys, json
+          try:
+              data = json.load(sys.stdin)
+              for cert in data:
+                  print(cert.get('id', ''))
+          except Exception:
+              pass
+          " | while read cert_id; do
+            if [ -n "$cert_id" ]; then
+              app-store-connect certificates revoke "$cert_id" 2>/dev/null || true
+            fi
+          done
+
+          # Fetch or create signing files for our bundle id.
+          # Uses APP_STORE_CONNECT_KEY_IDENTIFIER / ISSUER_ID /
+          # PRIVATE_KEY env vars (already set on the app).
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --certificate-key "$CERT_KEY_CONTENT"
+
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Set build number
         script: |
           cd apps/ios/ios/App
-          BUILD_NUMBER=$(($(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID") + 1))
-          agvtool new-version -all $BUILD_NUMBER
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" 2>/dev/null || echo "0")
+          agvtool new-version -all $(($LATEST + 1))
       - name: Build .ipa for App Store
         script: |
-          xcode-project use-profiles
+          cd apps/ios/ios/App
           xcode-project build-ipa \
-            --workspace "$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --project App.xcodeproj \
+            --scheme "$XCODE_SCHEME" \
+            --config Release
     artifacts:
-      - build/ios/ipa/*.ipa
+      - apps/ios/ios/App/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM.zip
     publishing:
       app_store_connect:
-        auth: integration
+        # Uses the same APP_STORE_CONNECT_* env vars for TestFlight upload
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
-        beta_groups:
-          - internal-testers
         submit_to_app_store: false
 
   # ---------------------------------------------------------------
@@ -152,17 +193,10 @@ workflows:
     name: iOS Ad-Hoc Build
     max_build_duration: 60
     instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: miraculturee_asc
     environment:
-      groups:
-        - miraculturee_env
-      ios_signing:
-        distribution_type: ad_hoc
-        bundle_identifier: com.miraculturee.app
       vars:
+        BUNDLE_ID: com.miraculturee.app
         XCODE_PROJECT: "apps/ios/ios/App/App.xcodeproj"
-        XCODE_WORKSPACE: "apps/ios/ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
         DEVELOPMENT_TEAM: GMQY9LD9C2
       node: 20.11.1
