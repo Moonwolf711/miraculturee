@@ -119,44 +119,26 @@ workflows:
       - *pnpm_install
       - *build_web
       - *sync_capacitor
-      - name: Set up code signing (fetch cert + profile via ASC API)
+      - name: Set up code signing (reuse persistent RSA key from env)
         script: |
           set -e
-          # Generate a fresh RSA cert-key per build so a revoked/lost
-          # private key never blocks a future build. Same pattern as
-          # wavdrop uses — see wavdrop codemagic.yaml.
-          openssl genrsa -out /tmp/cert_key.pem 2048
-          CERT_KEY_CONTENT=$(cat /tmp/cert_key.pem)
-
+          # We have a persistent 2048-bit RSA private key stored as
+          # CERTIFICATE_PRIVATE_KEY (extracted from mira_culture.p12 on
+          # the dev machine, uploaded once via Codemagic REST API).
+          # Using a stable key means the distribution cert created on
+          # the first build is reused on every subsequent build — we
+          # never hit Apple's 3-distribution-certs-per-team limit.
           keychain initialize
 
-          # Revoke any orphaned distribution certs we can't use
-          # (previous builds whose private keys we've lost).
-          app-store-connect certificates list \
-            --type IOS_DISTRIBUTION \
-            --type DISTRIBUTION \
-            --json 2>/dev/null | \
-          python3 -c "
-          import sys, json
-          try:
-              data = json.load(sys.stdin)
-              for cert in data:
-                  print(cert.get('id', ''))
-          except Exception:
-              pass
-          " | while read cert_id; do
-            if [ -n "$cert_id" ]; then
-              app-store-connect certificates revoke "$cert_id" 2>/dev/null || true
-            fi
-          done
-
-          # Fetch or create signing files for our bundle id.
-          # Uses APP_STORE_CONNECT_KEY_IDENTIFIER / ISSUER_ID /
-          # PRIVATE_KEY env vars (already set on the app).
+          # Fetch (or create on first run) signing files for the
+          # bundle id using our persistent private key. The
+          # app-store-connect CLI reads APP_STORE_CONNECT_KEY_IDENTIFIER,
+          # APP_STORE_CONNECT_ISSUER_ID, and APP_STORE_CONNECT_PRIVATE_KEY
+          # from env automatically.
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
-            --certificate-key "$CERT_KEY_CONTENT"
+            --certificate-key "$CERTIFICATE_PRIVATE_KEY"
 
           keychain add-certificates
           xcode-project use-profiles
