@@ -142,13 +142,20 @@ workflows:
           set -e
           cd apps/ios/ios/App
           keychain initialize
+          # NOTE: --certificate-key intentionally OMITTED.
+          # The persistent CERTIFICATE_PRIVATE_KEY env var we uploaded
+          # from mira_culture.p12 was being rejected by the CLI as
+          # "not a valid value" — likely JSON newline encoding lost
+          # the PEM line breaks during REST API upload. Letting
+          # fetch-signing-files auto-generate a fresh RSA key each
+          # build for now. Side effect: a new distribution cert is
+          # created each run, so we'll hit Apple's 3-certs-per-team
+          # limit every ~3 builds until I fix the stored key.
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
-            --certificate-key "$CERTIFICATE_PRIVATE_KEY"
+            --platform IOS
           keychain add-certificates
-          # Run use-profiles with explicit project path and verbose
-          # output so we can see what it's applying.
           xcode-project use-profiles \
             --project App.xcodeproj \
             --warn-only \
@@ -156,8 +163,8 @@ workflows:
           echo "=== project.pbxproj signing attributes AFTER use-profiles ==="
           grep -nE "PROVISIONING_PROFILE_SPECIFIER|CODE_SIGN_IDENTITY|CODE_SIGN_STYLE|DEVELOPMENT_TEAM" App.xcodeproj/project.pbxproj || echo "(no signing attrs found)"
           echo "=== Profiles on disk ==="
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" 2>/dev/null || echo "(no ~/Library/MobileDevice/Provisioning Profiles/)"
-          ls -la "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/" 2>/dev/null || echo "(no Xcode UserData profiles)"
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" 2>/dev/null || echo "(no MobileDevice/Provisioning Profiles)"
+          ls -la "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/" 2>/dev/null || echo "(no Xcode/UserData)"
           echo "=== Identities in codesigning keychain ==="
           security find-identity -v -p codesigning || true
       - name: Set build number
