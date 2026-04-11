@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import InAppViewDebugger
 
 #if DEBUG
 import FLEX
@@ -22,6 +23,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
+    @objc private func presentViewDebugger() {
+        InAppViewDebugger.present()
+    }
+
     func applicationWillResignActive(_ application: UIApplication) {
         // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
         // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
@@ -36,8 +41,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
     }
 
+    // 4-finger triple-tap → present InAppViewDebugger. 4 touches × 3 taps
+    // is never accidental, won't conflict with iOS system gestures, yet
+    // easy to remember for devs/stakeholders. Attached here (not in
+    // didFinishLaunching) because Capacitor's window is built from
+    // Main.storyboard and only exists once the app is active.
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        guard let win = application.windows.first else { return }
+        if win.gestureRecognizers?.contains(where: { $0.name == "iavd-trigger" }) == true { return }
+        let tap = UITapGestureRecognizer(target: self, action: #selector(presentViewDebugger))
+        tap.numberOfTapsRequired = 3
+        tap.numberOfTouchesRequired = 4
+        tap.cancelsTouchesInView = false
+        tap.name = "iavd-trigger"
+        win.addGestureRecognizer(tap)
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

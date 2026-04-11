@@ -31,6 +31,13 @@ target 'App' do
   # only. TestFlight/App Store (Release) builds never pull it in — zero
   # bytes shipped, zero risk of an App Review reject for private APIs.
   pod 'FLEX', '~> 5.2', :configurations => ['Debug']
+
+  # InAppViewDebugger — on-device 3D view-hierarchy explorer built on
+  # SceneKit and public UIKit APIs ONLY. Safe for TestFlight / App Store
+  # because it never touches private runtime. Ships in Release so you
+  # can inspect the UI on a TestFlight install, not just Debug.
+  # Activated by 4-finger triple-tap in AppDelegate.
+  pod 'InAppViewDebugger', '~> 1.0.3'
 end
 
 post_install do |installer|
