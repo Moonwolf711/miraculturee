@@ -1,17 +1,33 @@
 # Codemagic CI/CD for miraculturee iOS (Capacitor)
 #
+# Apple Developer account (reused from wavdrop):
+#   Team ID: GMQY9LD9C2 (DOREEN M YIANACOPOLUS)
+#   Distribution cert already exists in this team — the same Apple
+#   Distribution cert signs both com.wavdrop.app and com.miraculturee.app.
+#
 # Workflows:
 #   ios-release  — full App Store distribution build → TestFlight
 #   ios-adhoc    — ad-hoc signed .ipa for internal device testing
 #   web-build    — web-only smoke test (no mac needed) for PRs
 #
-# Secrets required in Codemagic environment groups:
-#   ios_signing:
-#     - APP_STORE_CONNECT_KEY_IDENTIFIER
-#     - APP_STORE_CONNECT_ISSUER_ID
-#     - APP_STORE_CONNECT_PRIVATE_KEY
-#     - CERTIFICATE_PRIVATE_KEY
-#   miraculturee_env:
+# Auth model: Codemagic "App Store Connect API key" integration.
+#   1. In Codemagic UI: Team Settings → Integrations → App Store Connect API
+#      → add the same integration wavdrop uses (or create a new one
+#      with a .p8 generated at https://appstoreconnect.apple.com/access/api).
+#   2. Name it (default below: `miraculturee_asc`) and reference it in the
+#      `integrations` block of each workflow below.
+#   3. On first run, Codemagic auto-fetches / generates the distribution
+#      cert + provisioning profile for com.miraculturee.app — exactly the
+#      flow that worked for wavdrop (see wavdrop_13_artifacts log).
+#
+# Prerequisite on App Store Connect (one-time, web only — not in CI):
+#   - Register bundle ID `com.miraculturee.app` under team GMQY9LD9C2
+#     https://developer.apple.com/account/resources/identifiers/list
+#   - Create the App record in App Store Connect:
+#     https://appstoreconnect.apple.com/apps → "+" → New App
+#     → capture the numeric Apple ID and paste it below as APP_STORE_APPLE_ID.
+#
+# Non-signing secrets (Codemagic env group `miraculturee_env`):
 #     - VITE_API_URL              (e.g. https://miracultureeapi-production-cca9.up.railway.app)
 #     - VITE_STRIPE_PUBLISHABLE_KEY
 #     - VITE_HCAPTCHA_SITE_KEY
@@ -74,17 +90,20 @@ workflows:
     name: iOS Release (TestFlight)
     max_build_duration: 90
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: miraculturee_asc
     environment:
       groups:
-        - ios_signing
         - miraculturee_env
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.miraculturee.app
       vars:
+        XCODE_PROJECT: "apps/ios/ios/App/App.xcodeproj"
         XCODE_WORKSPACE: "apps/ios/ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
-        APP_STORE_APPLE_ID: 0000000000 # TODO: replace with numeric App Store Connect ID
+        DEVELOPMENT_TEAM: GMQY9LD9C2  # Doreen Yianacopolus — shared with wavdrop
+        APP_STORE_APPLE_ID: 0000000000 # TODO: replace with numeric App Store Connect ID after creating the app record
       node: 20.11.1
       xcode: latest
       cocoapods: default
@@ -133,16 +152,19 @@ workflows:
     name: iOS Ad-Hoc Build
     max_build_duration: 60
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: miraculturee_asc
     environment:
       groups:
-        - ios_signing
         - miraculturee_env
       ios_signing:
         distribution_type: ad_hoc
         bundle_identifier: com.miraculturee.app
       vars:
+        XCODE_PROJECT: "apps/ios/ios/App/App.xcodeproj"
         XCODE_WORKSPACE: "apps/ios/ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
+        DEVELOPMENT_TEAM: GMQY9LD9C2
       node: 20.11.1
       xcode: latest
       cocoapods: default
