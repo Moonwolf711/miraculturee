@@ -230,7 +230,17 @@ workflows:
         # Integration-based auth — uses the same 'wavdrop' binding
         # declared above, no raw env vars needed.
         auth: integration
-        submit_to_testflight: true
+        # NOTE: 'submit_to_testflight: true' is intentionally OMITTED.
+        # Even without beta_groups, that flag triggers Codemagic's
+        # external beta review submission flow, which requires the
+        # Beta App Information form to be filled in. Without the
+        # flag, Codemagic still uploads the build — internal testers
+        # (Apple IDs with Internal Tester role on the team) get the
+        # build automatically after Apple's processing completes.
+        #
+        # To also submit to external beta review: fill in the form at
+        # https://appstoreconnect.apple.com/apps/6762042598/testflight/test-info
+        # then re-add 'submit_to_testflight: true'.
         submit_to_app_store: false
 
   # ---------------------------------------------------------------
