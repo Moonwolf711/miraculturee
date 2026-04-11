@@ -36,10 +36,15 @@ node scripts/asc.mjs list-devices
 # Register com.miraculturee.app bundle ID (idempotent — checks if it exists first)
 node scripts/asc.mjs register-bundle-id
 
-# Create the App Store Connect app record (requires bundle ID already registered)
+# Look up the numeric Apple ID for the existing App record
+node scripts/asc.mjs find-app
+
+# App Store Connect API does NOT allow creating App records (Apple restriction —
+# POST /v1/apps returns 403 FORBIDDEN_ERROR). This command checks if the
+# app exists and, if not, prints the exact manual web-UI steps.
 node scripts/asc.mjs create-app
 
-# Do both in sequence
+# Do the bundle registration + app check in sequence
 node scripts/asc.mjs bootstrap
 
 # Low-level passthrough for ad-hoc calls

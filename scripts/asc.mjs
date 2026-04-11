@@ -25,7 +25,9 @@
  *   list-profiles       — GET /v1/profiles
  *   list-devices        — GET /v1/devices
  *   register-bundle-id  — POST /v1/bundleIds for $ASC_BUNDLE_ID
- *   create-app          — POST /v1/apps for $ASC_BUNDLE_ID (bundle must exist first)
+ *   find-app            — look up the numeric Apple ID for $ASC_BUNDLE_ID
+ *   create-app          — checks if App exists, prints manual-creation steps
+ *                         if not (Apple's API does NOT allow POST /v1/apps)
  *   bootstrap           — run register-bundle-id + create-app in sequence
  *   raw <METHOD> <PATH>  — low-level passthrough (e.g. `raw GET /v1/apps/123`)
  *
@@ -258,66 +260,89 @@ const commands = {
     return created.data;
   },
 
-  async 'create-app'() {
-    // Find the bundle ID first
-    const existing = await asc(
-      'GET',
-      `/v1/bundleIds?filter[identifier]=${encodeURIComponent(cfg.bundleId)}`,
-    );
-    if (!existing.data || existing.data.length === 0) {
-      console.error(
-        `[asc] Bundle ID ${cfg.bundleId} is not registered. Run 'register-bundle-id' first.`,
-      );
-      process.exit(1);
-    }
-    const bundleIdRecordId = existing.data[0].id;
-
-    // Check if an App record for this bundle already exists
+  async 'find-app'() {
+    // Query the app by bundleId. Returns the numeric App Store Connect
+    // id if found, or exits non-zero if not found.
     const apps = await asc(
       'GET',
       `/v1/apps?filter[bundleId]=${encodeURIComponent(cfg.bundleId)}`,
     );
     if (apps.data && apps.data.length > 0) {
-      console.log(
-        `✅ App record already exists: ${apps.data[0].id} (${apps.data[0].attributes.name})`,
+      const app = apps.data[0];
+      console.log(`✅ App found: ${app.attributes.name}`);
+      console.log(`   Numeric Apple ID (for codemagic.yaml): ${app.id}`);
+      console.log(`   Bundle ID:     ${app.attributes.bundleId}`);
+      console.log(`   SKU:           ${app.attributes.sku}`);
+      console.log(`   Primary locale: ${app.attributes.primaryLocale}`);
+      return app;
+    }
+    console.error(`[asc] No App Store Connect app record found for ${cfg.bundleId}.`);
+    process.exit(1);
+  },
+
+  async 'create-app'() {
+    // IMPORTANT: App Store Connect API does NOT support POST /v1/apps.
+    // Attempting it returns 403 FORBIDDEN_ERROR with the message:
+    //   "The resource 'apps' does not allow 'CREATE'.
+    //    Allowed operations are: GET_COLLECTION, GET_INSTANCE, UPDATE"
+    // App records can only be created through the web UI. This
+    // command checks if the app already exists; if not, it prints
+    // the exact manual steps with all fields pre-filled.
+
+    // Ensure the bundle ID is registered first.
+    const bundles = await asc(
+      'GET',
+      `/v1/bundleIds?filter[identifier]=${encodeURIComponent(cfg.bundleId)}`,
+    );
+    if (!bundles.data || bundles.data.length === 0) {
+      console.error(
+        `[asc] Bundle ID ${cfg.bundleId} is not registered. Run 'register-bundle-id' first.`,
       );
-      return apps.data[0];
+      process.exit(1);
     }
 
-    console.log(
-      `Creating App Store Connect app record for ${cfg.bundleId} …`,
+    // Check if an App record already exists for this bundle.
+    const apps = await asc(
+      'GET',
+      `/v1/apps?filter[bundleId]=${encodeURIComponent(cfg.bundleId)}`,
     );
-    const created = await asc('POST', '/v1/apps', {
-      data: {
-        type: 'apps',
-        attributes: {
-          bundleId: cfg.bundleId,
-          name: cfg.appName,
-          primaryLocale: cfg.primaryLocale,
-          sku: cfg.appSku,
-        },
-        relationships: {
-          bundleId: {
-            data: { type: 'bundleIds', id: bundleIdRecordId },
-          },
-        },
-      },
-    });
-    console.log(`✅ Created App ${created.data.id} (${created.data.attributes.name})`);
-    console.log(
-      `   → Add this numeric Apple ID to codemagic.yaml as APP_STORE_APPLE_ID: ${created.data.id}`,
-    );
-    return created.data;
+    if (apps.data && apps.data.length > 0) {
+      const app = apps.data[0];
+      console.log(`✅ App record already exists: ${app.id} (${app.attributes.name})`);
+      console.log(
+        `   → Paste this into codemagic.yaml APP_STORE_APPLE_ID: ${app.id}`,
+      );
+      return app;
+    }
+
+    // App doesn't exist — print manual steps (API cannot create it).
+    console.log('');
+    console.log('─────────────────────────────────────────────────────────────');
+    console.log(' ⚠  Apple does not allow creating App records via API.');
+    console.log(' Create it manually in the web UI (~90 seconds):');
+    console.log('─────────────────────────────────────────────────────────────');
+    console.log('  1. Open: https://appstoreconnect.apple.com/apps');
+    console.log('  2. Click the blue "+" (top left) → New App');
+    console.log('  3. Fill in exactly these values:');
+    console.log('       Platforms:        [x] iOS');
+    console.log(`       Name:             ${cfg.appName}`);
+    console.log(`       Primary Language: ${cfg.primaryLocale}`);
+    console.log(`       Bundle ID:        ${cfg.bundleId}  (should now be in the dropdown)`);
+    console.log(`       SKU:              ${cfg.appSku}`);
+    console.log('       User Access:      Full Access');
+    console.log('  4. Click "Create".');
+    console.log('  5. Come back and run: node scripts/asc.mjs find-app');
+    console.log('     That will print the numeric Apple ID to paste into codemagic.yaml.');
+    console.log('─────────────────────────────────────────────────────────────');
+    console.log('');
+    process.exit(2);
   },
 
   async bootstrap() {
     console.log('🏗  Bootstrapping App Store Connect for miraculturee …\n');
     await commands['register-bundle-id']();
+    console.log('');
     await commands['create-app']();
-    console.log('\n✅ Bootstrap complete. Next steps:');
-    console.log('   1. Update codemagic.yaml APP_STORE_APPLE_ID with the numeric id above');
-    console.log('   2. Add the integration `miraculturee_asc` in Codemagic Team Settings');
-    console.log('   3. Tag ios-v0.1.0 to trigger the first build');
   },
 
   async raw(method, endpoint) {
