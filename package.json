@@ -11,8 +11,8 @@
     "db:studio": "pnpm --filter @miraculturee/api prisma:studio"
   },
   "devDependencies": {
-    "turbo": "^2.3.0",
-    "typescript": "^5.7.0"
+    "turbo": "^2.9.6",
+    "typescript": "^5.9.3"
   },
   "packageManager": "pnpm@9.15.0"
 }
