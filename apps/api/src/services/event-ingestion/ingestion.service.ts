@@ -430,6 +430,32 @@ export class EventIngestionService {
               lastSyncedAt: new Date(),
             },
           });
+
+          // If already published to main Event table, propagate price/date updates downstream
+          // so the UI reflects the latest source data instead of a stale first-import snapshot.
+          if (existing.importedEventId) {
+            const updates: Record<string, unknown> = {};
+            if (event.minPriceCents != null && event.minPriceCents !== existing.minPriceCents) {
+              updates.ticketPriceCents = event.minPriceCents;
+              updates.maxPriceCents = event.maxPriceCents ?? null;
+              updates.priceSource = event.source === 'ticketmaster' ? 'ticketmaster' : 'ticketmaster_crossref';
+            }
+            if (event.eventDate.getTime() !== existing.eventDate.getTime()) {
+              updates.date = event.eventDate;
+            }
+            if (Object.keys(updates).length > 0) {
+              try {
+                await this.prisma.event.update({
+                  where: { id: existing.importedEventId },
+                  data: updates,
+                });
+              } catch (err) {
+                // Downstream Event may have been deleted — swallow, external remains the source of truth.
+                this.log.warn({ err, eventId: existing.importedEventId }, 'Failed to propagate update to Event');
+              }
+            }
+          }
+
           updatedCount++;
         } else {
           // Create new event

@@ -467,31 +467,55 @@ export async function initWorkers() {
     { connection: getConnection(), concurrency: 1 },
   );
 
-  // ──── EDMTrain Event Sync (every 6 hours) ────
-  const syncQueue = new Queue('event-sync', {
-    connection: getConnection(),
-    defaultJobOptions: {
-      removeOnComplete: 10,
-      removeOnFail: 10,
-    },
-  });
-  await syncQueue.add(
-    'sync',
-    {},
-    { repeat: { every: EDMTRAIN_SYNC_INTERVAL_MS }, jobId: 'edmtrain-sync' },
-  );
+  // ──── EDMTrain Event Sync ────
+  // DISABLED: the legacy EdmtrainService (writes straight to Event) creates a fresh User/Artist
+  // every sync because it uses a timestamped email (`${slug}-${Date.now()}@...`), so every run
+  // duplicates every artist. It also uses a different env var (EDMTRAIN_CLIENT_ID) than the new
+  // system (EDMTRAIN_API_KEY). EDMTrain + Ticketmaster sync is now handled by setupCronJobs()
+  // in cron.ts, which goes through ExternalEvent → publishExternalEvents → Event.
+  //
+  // To re-enable (not recommended) set EDMTRAIN_LEGACY_SYNC=true AND EDMTRAIN_CLIENT_ID.
+  if (process.env.EDMTRAIN_LEGACY_SYNC === 'true') {
+    const syncQueue = new Queue('event-sync', {
+      connection: getConnection(),
+      defaultJobOptions: {
+        removeOnComplete: 10,
+        removeOnFail: 10,
+      },
+    });
+    await syncQueue.add(
+      'sync',
+      {},
+      { repeat: { every: EDMTRAIN_SYNC_INTERVAL_MS }, jobId: 'edmtrain-sync' },
+    );
 
-  new Worker(
-    'event-sync',
-    async () => {
-      const service = new EdmtrainService(prisma);
-      const result = await service.syncEvents();
-      console.info(
-        `[EventSync] EDMTrain sync: ${result.created} created, ${result.skipped} skipped`,
-      );
-    },
-    { connection: getConnection(), concurrency: 1 },
-  );
+    new Worker(
+      'event-sync',
+      async () => {
+        const service = new EdmtrainService(prisma);
+        const result = await service.syncEvents();
+        console.info(
+          `[EventSync] EDMTrain sync (legacy): ${result.created} created, ${result.skipped} skipped`,
+        );
+      },
+      { connection: getConnection(), concurrency: 1 },
+    );
+  } else {
+    // Clean up any stale repeat job from a previous deploy
+    try {
+      const staleQueue = new Queue('event-sync', { connection: getConnection() });
+      const repeatable = await staleQueue.getRepeatableJobs();
+      for (const job of repeatable) {
+        if (job.id === 'edmtrain-sync') {
+          await staleQueue.removeRepeatableByKey(job.key);
+          console.info('[Workers] Removed stale legacy edmtrain-sync repeatable job');
+        }
+      }
+      await staleQueue.close();
+    } catch (err) {
+      console.warn('[Workers] Could not clean up legacy event-sync queue:', (err as Error).message);
+    }
+  }
 
   // ──── Past-Event Cleanup (every 1 hour) ────
   const cleanupQueue = new Queue('event-cleanup', {

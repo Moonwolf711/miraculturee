@@ -8,26 +8,35 @@ import type { FastifyInstance } from 'fastify';
 import { EventIngestionService } from './services/event-ingestion/ingestion.service.js';
 
 export function setupCronJobs(app: FastifyInstance) {
-  const enabled = process.env.EVENT_SYNC_ENABLED === 'true';
-  
+  // Auto-enable sync whenever at least one provider key is present.
+  // Explicit EVENT_SYNC_ENABLED=false can still force-disable.
+  const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
+  const edmtrainApiKey = process.env.EDMTRAIN_API_KEY;
+  const hasAnyKey = Boolean(ticketmasterApiKey || edmtrainApiKey);
+  const explicitFlag = process.env.EVENT_SYNC_ENABLED;
+  const enabled = explicitFlag === 'false' ? false : (explicitFlag === 'true' || hasAnyKey);
+
   if (!enabled) {
-    app.log.info('Event sync cron jobs disabled (EVENT_SYNC_ENABLED != true)');
+    app.log.info(
+      { hasAnyKey, explicitFlag },
+      'Event sync cron jobs disabled (no API keys and EVENT_SYNC_ENABLED != true)',
+    );
     return;
   }
 
   const intervalHours = parseInt(process.env.EVENT_SYNC_INTERVAL_HOURS || '6');
   const intervalMs = intervalHours * 60 * 60 * 1000;
 
-  app.log.info(`Event sync cron job enabled: every ${intervalHours} hours`);
+  app.log.info(
+    { intervalHours, ticketmaster: !!ticketmasterApiKey, edmtrain: !!edmtrainApiKey },
+    `Event sync cron job enabled: every ${intervalHours} hours`,
+  );
 
   // Run sync function
   const runSync = async () => {
     app.log.info('Starting scheduled event sync');
 
     try {
-      const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
-      const edmtrainApiKey = process.env.EDMTRAIN_API_KEY;
-
       if (!ticketmasterApiKey && !edmtrainApiKey) {
         app.log.error('No event API keys configured, skipping sync');
         return;
@@ -101,10 +110,11 @@ export function setupCronJobs(app: FastifyInstance) {
     }
   };
 
-  // Run immediately on startup (optional)
-  const runOnStartup = process.env.EVENT_SYNC_ON_STARTUP === 'true';
+  // Run immediately on startup by default — opt-out with EVENT_SYNC_ON_STARTUP=false.
+  // Without this, a redeploy every few hours resets the interval timer and syncs never fire.
+  const runOnStartup = process.env.EVENT_SYNC_ON_STARTUP !== 'false';
   if (runOnStartup) {
-    app.log.info('Running initial event sync on startup');
+    app.log.info('Running initial event sync on startup (set EVENT_SYNC_ON_STARTUP=false to disable)');
     setTimeout(runSync, 5000); // Wait 5 seconds for server to be ready
   }
 

@@ -241,6 +241,71 @@ async function start() {
     },
   }));
 
+  // Sync-status probe — public, no secrets exposed. Lets us verify in prod that ingestion ran.
+  app.get('/health/sync', async () => {
+    const explicitFlag = process.env.EVENT_SYNC_ENABLED;
+    const hasTM = !!process.env.TICKETMASTER_API_KEY;
+    const hasEDM = !!process.env.EDMTRAIN_API_KEY;
+    const syncEnabled = explicitFlag === 'false' ? false : (explicitFlag === 'true' || hasTM || hasEDM);
+    const intervalHours = parseInt(process.env.EVENT_SYNC_INTERVAL_HOURS || '6');
+
+    const [recentLogs, externalEventCount, publishedEventCount, lastEdmTrainLog, lastTicketmasterLog] = await Promise.all([
+      app.prisma.eventSyncLog.findMany({
+        orderBy: { startedAt: 'desc' },
+        take: 10,
+        select: {
+          source: true, status: true, eventsFound: true, eventsNew: true,
+          eventsUpdated: true, errorMessage: true, startedAt: true, completedAt: true,
+        },
+      }),
+      app.prisma.externalEvent.count(),
+      app.prisma.event.count({ where: { date: { gte: new Date() } } }),
+      app.prisma.eventSyncLog.findFirst({
+        where: { source: 'edmtrain' },
+        orderBy: { startedAt: 'desc' },
+      }),
+      app.prisma.eventSyncLog.findFirst({
+        where: { source: 'ticketmaster' },
+        orderBy: { startedAt: 'desc' },
+      }),
+    ]);
+
+    const now = Date.now();
+    const stalenessMs = (log: typeof lastEdmTrainLog) => log ? now - log.startedAt.getTime() : null;
+
+    return {
+      config: {
+        syncEnabled,
+        explicitFlag: explicitFlag ?? null,
+        intervalHours,
+        hasTicketmasterKey: hasTM,
+        hasEdmtrainKey: hasEDM,
+        runOnStartup: process.env.EVENT_SYNC_ON_STARTUP !== 'false',
+      },
+      counts: {
+        externalEvents: externalEventCount,
+        upcomingEvents: publishedEventCount,
+      },
+      lastSync: {
+        edmtrain: lastEdmTrainLog ? {
+          startedAt: lastEdmTrainLog.startedAt,
+          status: lastEdmTrainLog.status,
+          eventsFound: lastEdmTrainLog.eventsFound,
+          stalenessMinutes: Math.round((stalenessMs(lastEdmTrainLog) ?? 0) / 60000),
+          errorMessage: lastEdmTrainLog.errorMessage,
+        } : null,
+        ticketmaster: lastTicketmasterLog ? {
+          startedAt: lastTicketmasterLog.startedAt,
+          status: lastTicketmasterLog.status,
+          eventsFound: lastTicketmasterLog.eventsFound,
+          stalenessMinutes: Math.round((stalenessMs(lastTicketmasterLog) ?? 0) / 60000),
+          errorMessage: lastTicketmasterLog.errorMessage,
+        } : null,
+      },
+      recentLogs,
+    };
+  });
+
   // Start BullMQ workers
   await initWorkers();
 
