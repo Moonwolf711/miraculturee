@@ -1,21 +1,7 @@
 # miraculturee Fastfile
 #
-# Lanes:
-#   beta    — build signed archive + export IPA
-#   release — same as beta (App Store submission done manually in ASC)
-#
-# NOTE: Upload is NOT done here. Fastlane's `app_store_connect_api_key`
-# and `upload_to_testflight` actions both fail on Ruby 3.4 + fastlane
-# 2.232.2 with `OpenSSL::PKey::EC: invalid curve name` (the ES256 curve
-# naming mismatch). Upload is handled by the codemagic.yaml step using
-# `xcrun altool` which uses Apple's own binary, bypassing Ruby's broken
-# OpenSSL EC handling. See fastlane/fastlane#20553, #22183.
-#
-# Signing: Codemagic's prior `app-store-connect fetch-signing-files`
-# step (using the persistent CERT_KEY_B64 PEM) already installed the
-# distribution cert + provisioning profile in the build keychain and
-# wrote the signing attrs into project.pbxproj via `xcode-project
-# use-profiles`. This Fastfile inherits that state.
+# Lanes: beta / release — archive + export IPA. No upload.
+# Upload handled by codemagic.yaml altool step (Ruby 3.4 JWT EC bug).
 
 default_platform(:ios)
 
@@ -24,17 +10,36 @@ SCHEME        = "App"
 CONFIG        = "Release"
 EXPORT_METHOD = "app-store"
 TEAM_ID       = "GMQY9LD9C2"
+BUNDLE_ID     = "com.miraculturee.app"
 
-# Pass CM keychain path to codesign via xcargs. Without `--keychain
-# <path>`, archive fails with errSecInternalComponent on Xcode 26+
-# because codesign's implicit keychain lookup doesn't find the
-# imported Apple Distribution cert. Confirmed via SSH debug 2026-04-14.
 CM_KEYCHAIN = `security list-keychains -d user 2>/dev/null | grep codemagic-cli-tools | head -1 | tr -d '" '`.strip
 KEYCHAIN_ARG = CM_KEYCHAIN.empty? ? "" : " OTHER_CODE_SIGN_FLAGS='--keychain #{CM_KEYCHAIN}'"
+
+# Read PROVISIONING_PROFILE_SPECIFIER from pbxproj for export_options.
+# xcode-project use-profiles writes this into project.pbxproj, but gym's
+# export_archive step needs it mirrored in export_options.plist too.
+def profile_specifier(project_path = "App.xcodeproj")
+  pbx = File.join(project_path, "project.pbxproj")
+  return nil unless File.exist?(pbx)
+  match = File.read(pbx).match(/PROVISIONING_PROFILE_SPECIFIER\s*=\s*"?([^";\n]+)"?;/)
+  match && match[1]
+end
+
+PROFILE_NAME = profile_specifier
 
 platform :ios do
   desc "Build signed archive + export IPA (no upload)"
   lane :beta do
+    export_opts = {
+      method: EXPORT_METHOD,
+      teamID: TEAM_ID,
+      signingStyle: "manual"
+    }
+    if PROFILE_NAME
+      export_opts[:provisioningProfiles] = { BUNDLE_ID => PROFILE_NAME }
+      UI.message("Using provisioning profile: #{PROFILE_NAME}")
+    end
+
     build_app(
       workspace:     WORKSPACE,
       scheme:        SCHEME,
@@ -42,16 +47,21 @@ platform :ios do
       export_method: EXPORT_METHOD,
       clean:         false,
       xcargs: "DEVELOPMENT_TEAM=#{TEAM_ID} CODE_SIGN_IDENTITY='Apple Distribution' CODE_SIGN_STYLE=Manual#{KEYCHAIN_ARG}",
-      export_options: {
-        method: EXPORT_METHOD,
-        teamID: TEAM_ID,
-        signingStyle: "manual"
-      }
+      export_options: export_opts
     )
   end
 
-  desc "Alias for beta (upload is done by codemagic.yaml altool step)"
+  desc "Alias for beta"
   lane :release do
+    export_opts = {
+      method: EXPORT_METHOD,
+      teamID: TEAM_ID,
+      signingStyle: "manual"
+    }
+    if PROFILE_NAME
+      export_opts[:provisioningProfiles] = { BUNDLE_ID => PROFILE_NAME }
+    end
+
     build_app(
       workspace:     WORKSPACE,
       scheme:        SCHEME,
@@ -59,11 +69,7 @@ platform :ios do
       export_method: EXPORT_METHOD,
       clean:         false,
       xcargs: "DEVELOPMENT_TEAM=#{TEAM_ID} CODE_SIGN_IDENTITY='Apple Distribution' CODE_SIGN_STYLE=Manual#{KEYCHAIN_ARG}",
-      export_options: {
-        method: EXPORT_METHOD,
-        teamID: TEAM_ID,
-        signingStyle: "manual"
-      }
+      export_options: export_opts
     )
   end
 end
