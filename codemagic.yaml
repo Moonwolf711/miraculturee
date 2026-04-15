@@ -178,6 +178,23 @@ workflows:
             --warn-only \
             --verbose
 
+          # CRITICAL: Xcode 26+ codesign needs the CM keychain as the
+          # default keychain AND the partition list set to allow codesign
+          # non-interactive access. Without this fix, archive fails with
+          # errSecInternalComponent on the first framework codesign call.
+          # Confirmed by SSH debug on build 69ded90529f0928c5e6c093b
+          # (MiraCulture, 2026-04-14): `keychain add-certificates` does
+          # not set the default keychain, so codesign looks in
+          # login.keychain-db (where the cert isn't) and fails.
+          KC_PATH=$(security list-keychains -d user | grep codemagic-cli-tools | head -1 | tr -d '" ')
+          if [ -n "$KC_PATH" ]; then
+            security list-keychains -d user -s "$KC_PATH" /Users/builder/Library/Keychains/login.keychain-db
+            security default-keychain -s "$KC_PATH"
+            security unlock-keychain -p "" "$KC_PATH"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KC_PATH" 2>/dev/null || true
+            echo "CM keychain set as default: $KC_PATH"
+          fi
+
           # Scrub the decoded key from disk.
           shred -u /tmp/cert_key.pem 2>/dev/null || rm -f /tmp/cert_key.pem
       - name: Set build number
