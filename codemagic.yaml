@@ -192,7 +192,13 @@ workflows:
             security default-keychain -s "$KC_PATH"
             security unlock-keychain -p "" "$KC_PATH"
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KC_PATH" 2>/dev/null || true
-            echo "CM keychain set as default: $KC_PATH"
+            # CRITICAL: Export this so gym/xcodebuild appends it to all
+            # codesign invocations. Default keychain alone is NOT enough
+            # — xcodebuild's internal codesign calls ignore the default
+            # keychain and need the --keychain flag explicitly. Confirmed
+            # by SSH debug: archive succeeded only with this flag set.
+            export OTHER_CODE_SIGN_FLAGS="--keychain $KC_PATH"
+            echo "CM keychain set as default + OTHER_CODE_SIGN_FLAGS: $KC_PATH"
           fi
 
           # Scrub the decoded key from disk.
@@ -219,10 +225,36 @@ workflows:
           cd apps/ios/ios/App
           bundle config set --local path 'vendor/bundle'
           bundle install
-      - name: Build + upload via fastlane beta
+      - name: Build archive via fastlane (no upload)
         script: |
           cd apps/ios/ios/App
           bundle exec fastlane beta
+
+      - name: Upload to TestFlight via xcrun altool
+        script: |
+          # Fastlane's upload actions fail on Ruby 3.4 + fastlane 2.232
+          # with OpenSSL::PKey::EC 'invalid curve name' (ES256 bug).
+          # Using xcrun altool bypasses Ruby's broken EC handling —
+          # altool is Apple's own Swift binary. It accepts the same
+          # App Store Connect API credentials that Codemagic injects.
+          set -e
+          IPA=$(ls apps/ios/ios/App/*.ipa | head -1)
+          if [ -z "$IPA" ]; then
+            echo "ERROR: no IPA found in apps/ios/ios/App/" >&2
+            exit 1
+          fi
+          # xcrun altool reads API key from ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8
+          # Codemagic writes the key there automatically when the
+          # app_store_connect integration is configured.
+          echo "Uploading $IPA to TestFlight..."
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA" \
+            --apiKey "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --output-format json
+          echo "Upload complete."
+
     artifacts:
       - apps/ios/ios/App/*.ipa
       - /tmp/xcodebuild_logs/*.log
