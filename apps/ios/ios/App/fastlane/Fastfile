@@ -15,29 +15,41 @@ BUNDLE_ID     = "com.miraculturee.app"
 CM_KEYCHAIN = `security list-keychains -d user 2>/dev/null | grep codemagic-cli-tools | head -1 | tr -d '" '`.strip
 KEYCHAIN_ARG = CM_KEYCHAIN.empty? ? "" : " OTHER_CODE_SIGN_FLAGS='--keychain #{CM_KEYCHAIN}'"
 
-# Read PROVISIONING_PROFILE_SPECIFIER from pbxproj for export_options.
-# xcode-project use-profiles writes this into project.pbxproj, but gym's
-# export_archive step needs it mirrored in export_options.plist too.
-def profile_specifier(project_path = "App.xcodeproj")
-  pbx = File.join(project_path, "project.pbxproj")
-  return nil unless File.exist?(pbx)
-  match = File.read(pbx).match(/PROVISIONING_PROFILE_SPECIFIER\s*=\s*"?([^";\n]+)"?;/)
-  match && match[1]
+def find_profile_name(bundle_id)
+  dirs = [
+    File.expand_path("~/Library/Developer/Xcode/UserData/Provisioning Profiles"),
+    File.expand_path("~/Library/MobileDevice/Provisioning Profiles"),
+  ]
+  dirs.each do |dir|
+    next unless Dir.exist?(dir)
+    Dir["#{dir}/*.mobileprovision"].each do |path|
+      plist_xml = `security cms -D -i "#{path}" 2>/dev/null`
+      next if plist_xml.empty?
+      name_match = plist_xml.match(/<key>Name<\/key>\s*<string>([^<]+)<\/string>/)
+      app_id_match = plist_xml.match(/<key>application-identifier<\/key>\s*<string>[^.]*\.([^<]+)<\/string>/)
+      next unless name_match && app_id_match
+      if app_id_match[1] == bundle_id || plist_xml.include?(">#{bundle_id}<")
+        return name_match[1]
+      end
+    end
+  end
+  nil
 end
-
-PROFILE_NAME = profile_specifier
 
 platform :ios do
   desc "Build signed archive + export IPA (no upload)"
   lane :beta do
+    profile_name = find_profile_name(BUNDLE_ID)
     export_opts = {
       method: EXPORT_METHOD,
       teamID: TEAM_ID,
       signingStyle: "manual"
     }
-    if PROFILE_NAME
-      export_opts[:provisioningProfiles] = { BUNDLE_ID => PROFILE_NAME }
-      UI.message("Using provisioning profile: #{PROFILE_NAME}")
+    if profile_name
+      export_opts[:provisioningProfiles] = { BUNDLE_ID => profile_name }
+      UI.success("Provisioning profile: #{profile_name}")
+    else
+      UI.error("Could not find a matching .mobileprovision for #{BUNDLE_ID}")
     end
 
     build_app(
@@ -53,14 +65,13 @@ platform :ios do
 
   desc "Alias for beta"
   lane :release do
+    profile_name = find_profile_name(BUNDLE_ID)
     export_opts = {
       method: EXPORT_METHOD,
       teamID: TEAM_ID,
       signingStyle: "manual"
     }
-    if PROFILE_NAME
-      export_opts[:provisioningProfiles] = { BUNDLE_ID => PROFILE_NAME }
-    end
+    export_opts[:provisioningProfiles] = { BUNDLE_ID => profile_name } if profile_name
 
     build_app(
       workspace:     WORKSPACE,
