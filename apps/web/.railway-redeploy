@@ -1,0 +1,2 @@
+Railway redeploy trigger. Site was offline on a stale failed build (pnpm frozen-lockfile); master HEAD has the fix. This marker forces a fresh deploy of HEAD.
+Triggered: 2026-06-20
