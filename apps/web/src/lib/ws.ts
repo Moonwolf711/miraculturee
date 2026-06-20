@@ -61,7 +61,12 @@ type StateListener = (state: ConnectionState) => void;
 
 /* ============== Socket.IO Client ============== */
 
-const WS_BASE = import.meta.env.VITE_WS_URL || '';
+// Socket.IO is mounted on the SAME host as the REST API (path: '/ws'). Fall back to
+// VITE_API_URL so the connection targets the real API server. Without this, io() defaults
+// to window.location — which works on the web (mira-culture.com proxies /ws) but breaks in
+// the Capacitor iOS wrapper, where window.location is the virtual host app.miraculturee.com
+// with no socket server (→ "LIVE UPDATES UNAVAILABLE"). VITE_WS_URL still overrides if set.
+const WS_BASE = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL || '';
 
 /** All event names the server can emit that we care about */
 const MESSAGE_EVENTS = [
