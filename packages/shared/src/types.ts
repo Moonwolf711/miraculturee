@@ -5,6 +5,14 @@ export interface UserPayload {
   id: string;
   email: string;
   role: Role;
+  /**
+   * Token class. Only tokens minted with `type: 'access'` are accepted by the
+   * API's `authenticate` decorator. Refresh tokens carry `type: 'refresh'` and
+   * the 2FA temp-token carries `purpose: '2fa'` (no `type`), so neither can be
+   * replayed as a session bearer (SEC-201 / SEC-202). Optional for backward
+   * compatibility with tokens issued before token-type separation shipped.
+   */
+  type?: 'access' | 'refresh';
 }
 
 /** Access + refresh token pair returned on login/refresh. */

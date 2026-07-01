@@ -134,8 +134,11 @@ async function generateTokens(
   user: { id: string; email: string; role: string },
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const payload: UserPayload = { id: user.id, email: user.email, role: user.role as UserPayload['role'] };
-  const accessToken = app.jwt.sign(payload);
-  const refreshToken = app.jwt.sign(payload, { expiresIn: '7d' });
+  // Token-type separation (SEC-201 / SEC-202) — must match auth.service so social
+  // logins produce tokens the `authenticate` decorator accepts, while their
+  // refresh tokens cannot be replayed as session bearers.
+  const accessToken = app.jwt.sign({ ...payload, type: 'access' });
+  const refreshToken = app.jwt.sign({ ...payload, type: 'refresh' }, { expiresIn: '7d' });
 
   // Store a bcrypt hash of the refresh token — never store raw tokens
   const refreshTokenHash = await hash(refreshToken, SALT_ROUNDS);

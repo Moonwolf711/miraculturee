@@ -290,8 +290,13 @@ export class AuthService {
   private async generateTokens(user: { id: string; email: string; role: string }): Promise<TokenPair> {
     const payload: UserPayload = { id: user.id, email: user.email, role: user.role as any };
 
-    const accessToken = this.app.jwt.sign(payload);
-    const refreshToken = this.app.jwt.sign(payload, { expiresIn: '7d' });
+    // Token-type separation (SEC-201 / SEC-202): tag the access token so the
+    // `authenticate` decorator can reject anything that is not an access token
+    // (the 2FA temp-token and the 7-day refresh token must never authenticate a
+    // protected route). The refresh token is tagged for symmetry/telemetry; the
+    // refresh flow additionally binds it to a stored bcrypt hash.
+    const accessToken = this.app.jwt.sign({ ...payload, type: 'access' });
+    const refreshToken = this.app.jwt.sign({ ...payload, type: 'refresh' }, { expiresIn: '7d' });
 
     // Store a bcrypt hash of the refresh token — never store raw tokens
     const refreshTokenHash = await hash(refreshToken, SALT_ROUNDS);

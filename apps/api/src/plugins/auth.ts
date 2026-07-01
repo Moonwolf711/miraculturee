@@ -33,5 +33,14 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
     } catch {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
+
+    // Token-type separation (SEC-201 / SEC-202): a valid signature is not enough
+    // — the token must be an access token. This rejects the 2FA temp-token
+    // (purpose:'2fa', no type) and the 7-day refresh token (type:'refresh'),
+    // both of which are validly signed with the same secret but must never
+    // authenticate a protected route.
+    if (req.user.type !== 'access') {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
   });
 });

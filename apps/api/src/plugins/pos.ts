@@ -13,6 +13,16 @@ export const posPlugin = fp(async (app: FastifyInstance) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!stripeKey || !webhookSecret) {
+    // CRIT-002: a misconfigured payment system must never boot silently in
+    // production — fail fast at startup so the deploy surfaces the error
+    // immediately instead of at first charge/webhook (where a placeholder key
+    // could otherwise slip through). In dev/test we degrade gracefully so
+    // unrelated local work is not blocked.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'POS misconfigured: STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are required in production',
+      );
+    }
     app.log.warn('POS plugin disabled: STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET must be set');
     // Decorate with a proxy that throws on any method call so routes fail clearly
     app.decorate('pos', new Proxy({} as POSClient, {
