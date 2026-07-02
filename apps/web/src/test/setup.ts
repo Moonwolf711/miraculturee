@@ -1,52 +1,24 @@
 /* ------------------------------------------------------------------
    Global test setup for Vitest + happy-dom.
-   - Provides in-memory localStorage to avoid Node.js 22 SecurityError
    - Imports @testing-library/jest-dom matchers
    - Mocks browser APIs that happy-dom does not implement
    - Sets up MSW server for API mocking
+
+   NOTE: the in-memory localStorage shim lives in ./localstorage-shim.ts
+   and is listed FIRST in vitest `setupFiles`. It must run before MSW is
+   imported (MSW touches localStorage at import time via a module-level
+   CookieStore singleton), and ES import hoisting would run an inline shim
+   here too late. See that file for details.
    ------------------------------------------------------------------ */
-
-/* ============== In-Memory localStorage ============== */
-/* Node.js 22+ ships a native localStorage that throws SecurityError
-   unless --localstorage-file is set.  We replace it with a simple
-   in-memory implementation BEFORE anything else imports. */
-
-const storageMap = new Map<string, string>();
-
-const memoryLocalStorage: Storage = {
-  getItem(key: string) {
-    return storageMap.get(key) ?? null;
-  },
-  setItem(key: string, value: string) {
-    storageMap.set(key, String(value));
-  },
-  removeItem(key: string) {
-    storageMap.delete(key);
-  },
-  clear() {
-    storageMap.clear();
-  },
-  key(index: number) {
-    const keys = [...storageMap.keys()];
-    return keys[index] ?? null;
-  },
-  get length() {
-    return storageMap.size;
-  },
-};
-
-Object.defineProperty(globalThis, 'localStorage', {
-  value: memoryLocalStorage,
-  writable: true,
-  configurable: true,
-});
-
-/* ============== Imports (after localStorage is safe) ============== */
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, afterAll, vi } from 'vitest';
 import { server } from './mocks/server.js';
+
+// Shared with ./localstorage-shim.ts so we can reset storage between tests.
+const storageMap = (globalThis as unknown as { __memoryStorageMap: Map<string, string> })
+  .__memoryStorageMap;
 
 /* ============== MSW Server Lifecycle ============== */
 
@@ -54,7 +26,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
 afterEach(() => {
   server.resetHandlers();
   cleanup();
-  storageMap.clear();
+  storageMap?.clear();
 });
 afterAll(() => server.close());
 
