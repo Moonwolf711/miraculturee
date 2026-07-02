@@ -38,27 +38,35 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  let res = await fetch(`${BASE}${path}`, { ...options, headers });
 
-  if (res.status === 401) {
+  // Session-expiry recovery applies ONLY to requests that actually carried an
+  // access token. A 401 on an unauthenticated request (login, register, 2FA
+  // verify, forgot/reset password) is a genuine application error — e.g.
+  // "Invalid credentials" — and must be surfaced to the caller, not mistaken
+  // for an expired session that triggers a refresh + forced logout (CONTRACT-001).
+  if (res.status === 401 && token) {
     const refreshed = await refreshWithMutex();
-    if (refreshed) {
-      // Retry with new token
-      const newToken = localStorage.getItem('accessToken');
-      headers.Authorization = `Bearer ${newToken}`;
-      const retryRes = await fetch(`${BASE}${path}`, { ...options, headers });
-      if (!retryRes.ok) throw new Error(`API error: ${retryRes.status}`);
-      return retryRes.json();
+    if (!refreshed) {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      window.location.href = '/login';
+      throw new Error('Session expired');
     }
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    window.location.href = '/login';
-    throw new Error('Session expired');
+    // Retry once with the refreshed access token, then fall through to shared
+    // error handling so a still-failing retry surfaces the server's message.
+    headers.Authorization = `Bearer ${localStorage.getItem('accessToken')}`;
+    res = await fetch(`${BASE}${path}`, { ...options, headers });
   }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(err.error ?? `API error: ${res.status}`);
+    // Prefer field-level validation detail when the server returns it
+    // (CONTRACT-003), then the top-level message, then a status fallback.
+    const detail = Array.isArray(err?.details)
+      ? err.details.map((d: { message?: string }) => d?.message).filter(Boolean).join(', ')
+      : '';
+    throw new Error(detail || err?.error || `API error: ${res.status}`);
   }
 
   return res.json();

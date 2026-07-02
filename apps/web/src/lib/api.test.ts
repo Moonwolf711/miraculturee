@@ -181,4 +181,85 @@ describe('api module', () => {
       expect(localStorage.getItem('accessToken')).toBeNull();
     });
   });
+
+  /* ---------- Unauthenticated 401 handling (CONTRACT-001) ---------- */
+
+  describe('unauthenticated 401 handling (CONTRACT-001)', () => {
+    it('surfaces the server error on a 401 for a request that carried no token', async () => {
+      // A wrong-password login stores no access token, so the 401 is a real
+      // application error — NOT an expired session. The caller must see
+      // "Invalid credentials", not a "Session expired" forced logout.
+      server.use(
+        http.post('/api/auth/login', () =>
+          HttpResponse.json({ error: 'Invalid credentials' }, { status: 401 }),
+        ),
+      );
+
+      await expect(
+        api.post('/auth/login', { email: 'a@b.co', password: 'wrong' }),
+      ).rejects.toThrow('Invalid credentials');
+    });
+
+    it('does not attempt refresh or clear tokens on an unauthenticated 401', async () => {
+      let refreshCalled = false;
+      server.use(
+        http.post('/api/auth/login', () =>
+          HttpResponse.json({ error: 'Invalid credentials' }, { status: 401 }),
+        ),
+        http.post('/api/auth/refresh', () => {
+          refreshCalled = true;
+          return HttpResponse.json({
+            accessToken: 'should-not-happen',
+            refreshToken: 'should-not-happen',
+          });
+        }),
+      );
+
+      // A stale refresh token from a prior session must be left untouched when
+      // the failing request itself was unauthenticated (no access token).
+      localStorage.setItem('refreshToken', 'stale-refresh');
+
+      await expect(
+        api.post('/auth/login', { email: 'a@b.co', password: 'wrong' }),
+      ).rejects.toThrow('Invalid credentials');
+
+      expect(refreshCalled).toBe(false);
+      expect(localStorage.getItem('refreshToken')).toBe('stale-refresh');
+    });
+  });
+
+  /* ---------- Validation error surfacing (CONTRACT-003) ---------- */
+
+  describe('validation error surfacing (CONTRACT-003)', () => {
+    it('joins field-level detail messages from a 400 response', async () => {
+      server.use(
+        http.post('/api/test-validate', () =>
+          HttpResponse.json(
+            {
+              error: 'Validation error',
+              details: [
+                { path: 'email', message: 'Invalid email' },
+                { path: 'password', message: 'Password too short' },
+              ],
+            },
+            { status: 400 },
+          ),
+        ),
+      );
+
+      await expect(api.post('/test-validate', {})).rejects.toThrow(
+        'Invalid email, Password too short',
+      );
+    });
+
+    it('falls back to the top-level error when no details array is present', async () => {
+      server.use(
+        http.post('/api/test-validate-plain', () =>
+          HttpResponse.json({ error: 'Bad request' }, { status: 400 }),
+        ),
+      );
+
+      await expect(api.post('/test-validate-plain', {})).rejects.toThrow('Bad request');
+    });
+  });
 });
