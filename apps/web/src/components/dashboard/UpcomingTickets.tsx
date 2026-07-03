@@ -21,7 +21,17 @@ export default function UpcomingTickets({ tickets, loading }: UpcomingTicketsPro
           ))}
         </div>
       ) : (
-        <EmptyState message="No upcoming tickets." ctaText="Browse Events" ctaLink="/events" />
+        <EmptyState
+          icon={
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+            </svg>
+          }
+          message="No upcoming tickets yet."
+          hint="Win a raffle or buy a ticket and it will show up here with a countdown and day-of-show reminders."
+          ctaText="Browse Events"
+          ctaLink="/events"
+        />
       )}
     </div>
   );
@@ -137,12 +147,29 @@ export function ContextualEventCard({ ticket }: { ticket: UpcomingTicket }) {
 
 // --- Shared Sub-components ---
 
-export function EmptyState({ message, ctaText, ctaLink }: { message: string; ctaText?: string; ctaLink?: string }) {
+export function EmptyState({ message, hint, icon, ctaText, ctaLink }: {
+  message: string;
+  hint?: string;
+  icon?: React.ReactNode;
+  ctaText?: string;
+  ctaLink?: string;
+}) {
   return (
-    <div className="bg-noir-900 border border-noir-800 rounded-xl p-8 text-center">
-      <p className="text-gray-500 text-sm">{message}</p>
+    <div className="bg-noir-900 border border-noir-800 rounded-xl px-6 py-10 text-center">
+      {icon && (
+        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-noir-800 border border-noir-700 flex items-center justify-center text-gray-500" aria-hidden="true">
+          {icon}
+        </div>
+      )}
+      <p className="text-gray-300 text-sm font-medium">{message}</p>
+      {hint && (
+        <p className="text-gray-500 text-xs mt-2 max-w-sm mx-auto leading-relaxed">{hint}</p>
+      )}
       {ctaText && ctaLink && (
-        <Link to={ctaLink} className="inline-block mt-4 text-sm text-amber-400 hover:text-amber-300 transition-colors">
+        <Link
+          to={ctaLink}
+          className="inline-block mt-5 px-5 py-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-500/20 hover:border-amber-500/50 transition-all"
+        >
           {ctaText}
         </Link>
       )}

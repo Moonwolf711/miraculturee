@@ -34,7 +34,19 @@ export default function MyShowsTab() {
   const hasAnything = tickets.length > 0 || raffles.length > 0 || supported.length > 0;
 
   if (!hasAnything) {
-    return <EmptyState message="No show activity yet." ctaText="Browse Events" ctaLink="/events" />;
+    return (
+      <EmptyState
+        icon={
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+        }
+        message="No show activity yet."
+        hint="Tickets you own, raffles you've entered, and campaigns you've supported are all tracked here."
+        ctaText="Browse Events"
+        ctaLink="/events"
+      />
+    );
   }
 
   const filters: { key: SubFilter; label: string; count: number }[] = [

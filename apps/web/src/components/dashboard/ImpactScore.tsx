@@ -1,6 +1,7 @@
 import type { ImpactData } from './types.js';
 import { TIER_CONFIG } from './types.js';
 import { CountUpNumber } from './DashboardStats.js';
+import InfoTooltip from '../Tooltip.js';
 
 interface ImpactScoreProps {
   impact: ImpactData;
@@ -17,9 +18,28 @@ export default function ImpactScore({ impact }: ImpactScoreProps) {
     : 1;
 
   return (
-    <div className={`bg-noir-900 border ${tier.border} rounded-xl p-5 flex flex-col items-center justify-center relative overflow-hidden ${tier.glow ? `shadow-lg ${tier.glow}` : ''}`}>
-      {/* Ambient glow */}
-      <div className="absolute inset-0 opacity-5 bg-gradient-to-br from-amber-500 to-transparent pointer-events-none" />
+    <div className={`bg-noir-900 border ${tier.border} rounded-xl p-5 flex flex-col items-center justify-center relative ${tier.glow ? `shadow-lg ${tier.glow}` : ''}`}>
+      {/* Ambient glow — rounded to match card since the card can't clip (tooltip must escape) */}
+      <div className="absolute inset-0 rounded-xl opacity-5 bg-gradient-to-br from-amber-500 to-transparent pointer-events-none" />
+
+      {/* How-it-works guidance */}
+      <div className="absolute top-3 right-3 z-10">
+        <InfoTooltip label="How Impact points work" align="right">
+          <p className="font-semibold text-warm-50 mb-1.5">Earning Impact</p>
+          <ul className="space-y-0.5">
+            <li>Support a show &middot; <span className="text-amber-400">+20</span></li>
+            <li>Each new artist backed &middot; <span className="text-amber-400">+20</span></li>
+            <li>Raffle entry &middot; <span className="text-amber-400">+3</span></li>
+            <li>Raffle win &middot; <span className="text-amber-400">+100</span></li>
+            <li>Ticket purchase &middot; <span className="text-amber-400">+30</span></li>
+            <li>Every $1 supported &middot; <span className="text-amber-400">+1</span></li>
+            <li>Each day as a member &middot; <span className="text-amber-400">+1</span></li>
+          </ul>
+          <p className="mt-2 pt-2 border-t border-noir-700 text-gray-500">
+            Tiers: Front Row 200 &middot; VIP 500 &middot; Headliner 1,000 &middot; Legend 2,500
+          </p>
+        </InfoTooltip>
+      </div>
 
       {/* SVG Ring */}
       <div className="relative w-28 h-28 mb-3">

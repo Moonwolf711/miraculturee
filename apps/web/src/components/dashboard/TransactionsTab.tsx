@@ -13,7 +13,19 @@ export default function TransactionsTab({ transactions, loading, page, onPageCha
   if (loading) return <LoadingList />;
 
   if (!transactions || transactions.data.length === 0) {
-    return <EmptyState message="No transactions yet." />;
+    return (
+      <EmptyState
+        icon={
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+          </svg>
+        }
+        message="No transactions yet."
+        hint="Receipts for ticket purchases, raffle entries, and campaign support will appear here."
+        ctaText="Browse Events"
+        ctaLink="/events"
+      />
+    );
   }
 
   return (

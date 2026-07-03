@@ -442,8 +442,10 @@ export default function EventsPage() {
               </svg>
             </div>
             <h2 className="font-display text-2xl tracking-wider text-gray-500 mb-2">NO EVENTS FOUND</h2>
-            <p className="font-body text-gray-400 text-sm mb-6">
-              Try adjusting your filters or search criteria.
+            <p className="font-body text-gray-400 text-sm mb-6 text-center max-w-sm">
+              {hasActiveFilters
+                ? 'Try adjusting your filters or search criteria.'
+                : 'Nothing scheduled right now — new shows are added all the time. Check back soon.'}
             </p>
             {hasActiveFilters && (
               <button
