@@ -27,6 +27,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-text-size-adjust: 100%;
+    /* App provides its own :active press feedback (pointer: coarse rules below) */
+    -webkit-tap-highlight-color: transparent;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -740,6 +742,19 @@
       min-height: 44px;
       display: inline-flex;
       align-items: center;
+    }
+
+    /* iOS Safari auto-zooms the page when a focused form control has
+       font-size < 16px. Restore 16px on small screens for every control
+       styled with a sub-16px text utility (higher specificity than the
+       utility class, so text-2xl OTP inputs etc. are unaffected). */
+    input.text-sm,
+    select.text-sm,
+    textarea.text-sm,
+    input.text-xs,
+    select.text-xs,
+    textarea.text-xs {
+      font-size: 1rem;
     }
   }
 

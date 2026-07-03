@@ -209,8 +209,10 @@ export default function Layout({ children }: { children: ReactNode }) {
           ref={mobileMenuRef}
           role="navigation"
           aria-label="Mobile navigation"
-          className={`md:hidden overflow-hidden transition-all duration-300 ease-out-expo ${
-            mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          className={`md:hidden transition-all duration-300 ease-out-expo ${
+            mobileMenuOpen
+              ? 'max-h-[min(24rem,calc(100dvh-72px))] opacity-100 overflow-y-auto'
+              : 'max-h-0 opacity-0 overflow-hidden'
           }`}
           onKeyDown={handleMenuKeyDown}
         >

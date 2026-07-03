@@ -780,7 +780,7 @@ export default function LocalArtistDashboardPage() {
         {/* ============== RELEASE MODAL ============== */}
         {showReleaseModal && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowReleaseModal(false)}>
-            <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="p-6">
                 <h2 className="text-warm-50 text-lg font-semibold mb-4">{editingRelease ? 'Edit Release' : 'Add Release'}</h2>
                 <div className="space-y-3">
@@ -837,7 +837,7 @@ export default function LocalArtistDashboardPage() {
         {/* ============== SHOW MODAL ============== */}
         {showShowModal && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowShowModal(false)}>
-            <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="p-6">
                 <h2 className="text-warm-50 text-lg font-semibold mb-4">{editingShow ? 'Edit Show' : 'Add Show'}</h2>
                 <div className="space-y-3">

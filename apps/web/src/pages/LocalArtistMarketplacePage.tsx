@@ -127,7 +127,7 @@ function BookingRequestModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-noir-900 border border-noir-700 rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           <h3 className="text-warm-50 text-lg font-semibold mb-4">Send Booking Request to {artist.stageName}</h3>
           <div className="space-y-3">

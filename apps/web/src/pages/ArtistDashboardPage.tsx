@@ -1253,10 +1253,10 @@ export default function ArtistDashboardPage() {
       {/* Manager invite modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowInviteModal(false)}>
-          <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-noir-900 border border-noir-800 rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-display text-xl tracking-wider text-warm-50">INVITE MANAGER</h2>
-              <button onClick={() => setShowInviteModal(false)} className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors" aria-label="Close">
+              <button onClick={() => setShowInviteModal(false)} className="p-3 -m-1.5 text-gray-500 hover:text-gray-300 transition-colors" aria-label="Close">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -1330,7 +1330,7 @@ export default function ArtistDashboardPage() {
                 </h2>
                 <button
                   onClick={() => { setPromotingCampaign(null); setCopiedIdx(-1); }}
-                  className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors"
+                  className="p-3 -m-1.5 text-gray-500 hover:text-gray-300 transition-colors"
                   aria-label="Close"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1401,7 +1401,7 @@ export default function ArtistDashboardPage() {
               </h2>
               <button
                 onClick={() => setAgentPickerCampaign(null)}
-                className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors"
+                className="p-3 -m-1.5 text-gray-500 hover:text-gray-300 transition-colors"
                 aria-label="Close"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -219,7 +219,7 @@ export default function AdminDeveloperInvites({
       {/* Invite Developer Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4" onClick={() => setShowInviteModal(false)}>
-          <div className="bg-noir-900 border border-noir-700 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-noir-900 border border-noir-700 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-display text-lg tracking-wider text-warm-50 mb-4">INVITE DEVELOPER</h3>
             <div className="space-y-3">
               <div>

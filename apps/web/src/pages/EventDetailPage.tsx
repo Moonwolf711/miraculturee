@@ -910,7 +910,7 @@ export default function EventDetailPage() {
                         <span className="text-amber-400">{formatPrice((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) * supportCount)}</span>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-4 items-end">
+                    <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end">
                       <div>
                         <label htmlFor="support-tickets" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                           Tickets
@@ -941,7 +941,7 @@ export default function EventDetailPage() {
                       <button
                         onClick={handleSupport}
                         disabled={actionLoading}
-                        className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap"
+                        className="w-full sm:w-auto px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap"
                       >
                         Buy {formatPrice((event.ticketPriceCents + SUPPORT_FEE_PER_TICKET_CENTS) * supportCount)}
                       </button>
