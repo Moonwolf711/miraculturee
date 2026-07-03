@@ -31,6 +31,17 @@ async function refreshWithMutex(): Promise<boolean> {
   return refreshPromise;
 }
 
+// fetch rejects only on network-level failures (offline, DNS, aborted
+// connection). Surface those as a friendly, actionable message instead of
+// the raw "Failed to fetch" TypeError that would otherwise reach form banners.
+async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    throw new Error('Unable to reach the server. Check your connection and try again.');
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('accessToken');
   const headers: Record<string, string> = {
@@ -38,7 +49,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  let res = await fetch(`${BASE}${path}`, { ...options, headers });
+  let res = await safeFetch(`${BASE}${path}`, { ...options, headers });
 
   // Session-expiry recovery applies ONLY to requests that actually carried an
   // access token. A 401 on an unauthenticated request (login, register, 2FA
@@ -56,7 +67,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     // Retry once with the refreshed access token, then fall through to shared
     // error handling so a still-failing retry surfaces the server's message.
     headers.Authorization = `Bearer ${localStorage.getItem('accessToken')}`;
-    res = await fetch(`${BASE}${path}`, { ...options, headers });
+    res = await safeFetch(`${BASE}${path}`, { ...options, headers });
   }
 
   if (!res.ok) {

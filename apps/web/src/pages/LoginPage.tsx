@@ -3,6 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useProviders } from '../hooks/useProviders.js';
 import SEO from '../components/SEO.js';
+import { ButtonSpinner, FieldError } from '../components/LoadingStates.js';
+import { validateEmail, validateRequired } from '../lib/validation.js';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -13,12 +15,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [twoFactorState, setTwoFactorState] = useState<{ tempToken: string } | null>(null);
   const [totpCode, setTotpCode] = useState('');
+  const [touched, setTouched] = useState<{ email?: boolean; password?: boolean }>({});
   const { login, loginWith2FA, loginWithPasskey } = useAuth();
   const { providers, hasSocial } = useProviders();
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = location.state as { from?: string; oauthError?: string } | null;
   const redirectTo = locationState?.from || '/events';
+
+  // Derived inline validation — presence-only for password (no policy hints on login)
+  const emailError = touched.email ? validateEmail(email) : '';
+  const passwordError = touched.password ? validateRequired('Password', password) : '';
 
   // Show OAuth error from redirect if present
   useEffect(() => {
@@ -30,6 +37,8 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTouched({ email: true, password: true });
+    if (validateEmail(email) || validateRequired('Password', password)) return;
     setError('');
     setLoading(true);
     try {
@@ -122,8 +131,10 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || totpCode.length < 6}
-                className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors"
+                aria-busy={loading}
+                className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
+                {loading && <ButtonSpinner />}
                 {loading ? 'Verifying...' : 'Verify'}
               </button>
               <button
@@ -137,7 +148,7 @@ export default function LoginPage() {
           ) : (
             /* Standard login form */
             <>
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} noValidate className="space-y-5">
                 <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
                   <label htmlFor="login-email" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                     Email
@@ -147,11 +158,15 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                     required
                     autoComplete="email"
-                    className="w-full px-4 py-3 bg-noir-800/70 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all duration-300 placeholder-gray-600 hover:border-noir-600"
+                    aria-invalid={emailError ? true : undefined}
+                    aria-describedby={emailError ? 'login-email-error' : undefined}
+                    className={`w-full px-4 py-3 bg-noir-800/70 border text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all duration-300 placeholder-gray-600 ${emailError ? 'border-red-500/60' : 'border-noir-700 hover:border-noir-600'}`}
                     placeholder="you@example.com"
                   />
+                  <FieldError id="login-email-error" message={emailError} />
                 </div>
 
                 <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
@@ -163,11 +178,15 @@ export default function LoginPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                     required
                     autoComplete="current-password"
-                    className="w-full px-4 py-3 bg-noir-800/70 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all duration-300 placeholder-gray-600 hover:border-noir-600"
+                    aria-invalid={passwordError ? true : undefined}
+                    aria-describedby={passwordError ? 'login-password-error' : undefined}
+                    className={`w-full px-4 py-3 bg-noir-800/70 border text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all duration-300 placeholder-gray-600 ${passwordError ? 'border-red-500/60' : 'border-noir-700 hover:border-noir-600'}`}
                     placeholder="Enter your password"
                   />
+                  <FieldError id="login-password-error" message={passwordError} />
                 </div>
 
                 <div className="flex justify-end animate-fade-in" style={{ animationDelay: '0.3s' }}>
@@ -180,8 +199,10 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 bg-amber-500 hover:bg-amber-400 hover:shadow-lg hover:shadow-amber-500/20 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-all duration-300 mt-2"
+                    aria-busy={loading}
+                    className="w-full py-3 bg-amber-500 hover:bg-amber-400 hover:shadow-lg hover:shadow-amber-500/20 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-all duration-300 mt-2 flex items-center justify-center gap-2"
                   >
+                    {loading && <ButtonSpinner />}
                     {loading ? 'Signing in...' : 'Sign In'}
                   </button>
                 </div>

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import SEO from '../components/SEO.js';
+import { ButtonSpinner, FieldError } from '../components/LoadingStates.js';
+import { validateNewPassword, validatePasswordConfirm } from '../lib/validation.js';
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -12,16 +14,17 @@ export default function ResetPasswordPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [touched, setTouched] = useState<{ password?: boolean; confirm?: boolean }>({});
+
+  // Derived inline validation — mismatch shows live at the confirm field
+  const passwordError = touched.password ? validateNewPassword(password) : '';
+  const confirmError = touched.confirm ? validatePasswordConfirm(password, confirm) : '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTouched({ password: true, confirm: true });
+    if (validateNewPassword(password) || validatePasswordConfirm(password, confirm)) return;
     setError('');
-
-    if (password !== confirm) {
-      setError('Passwords do not match.');
-      return;
-    }
-
     setLoading(true);
     try {
       const tokens = await api.post<{ accessToken: string; refreshToken: string }>(
@@ -66,7 +69,7 @@ export default function ResetPasswordPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <div>
               <label htmlFor="reset-password" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                 New Password
@@ -76,12 +79,16 @@ export default function ResetPasswordPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                 required
                 minLength={8}
                 autoComplete="new-password"
-                className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                aria-invalid={passwordError ? true : undefined}
+                aria-describedby={passwordError ? 'reset-password-error' : undefined}
+                className={`w-full px-4 py-3 bg-noir-800 border text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600 ${passwordError ? 'border-red-500/60' : 'border-noir-700'}`}
                 placeholder="Min. 8 characters"
               />
+              <FieldError id="reset-password-error" message={passwordError} />
             </div>
 
             <div>
@@ -93,19 +100,25 @@ export default function ResetPasswordPage() {
                 type="password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, confirm: true }))}
                 required
                 minLength={8}
                 autoComplete="new-password"
-                className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                aria-invalid={confirmError ? true : undefined}
+                aria-describedby={confirmError ? 'reset-confirm-error' : undefined}
+                className={`w-full px-4 py-3 bg-noir-800 border text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600 ${confirmError ? 'border-red-500/60' : 'border-noir-700'}`}
                 placeholder="Repeat your password"
               />
+              <FieldError id="reset-confirm-error" message={confirmError} />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors"
+              aria-busy={loading}
+              className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
+              {loading && <ButtonSpinner />}
               {loading ? 'Resetting...' : 'Set New Password'}
             </button>
           </form>

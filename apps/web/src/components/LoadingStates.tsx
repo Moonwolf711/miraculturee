@@ -5,6 +5,42 @@ import type { ReactNode } from 'react';
    All styled to match the Concert Poster Noir theme.
    ------------------------------------------------------------------ */
 
+/* ============== Button spinner (inline, for submit buttons) ============== */
+export function ButtonSpinner() {
+  return (
+    <svg
+      className="w-4 h-4 animate-spin"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+      />
+    </svg>
+  );
+}
+
+/* ============== Field-level inline validation error ============== */
+export function FieldError({ id, message }: { id: string; message: string }) {
+  if (!message) return null;
+  return (
+    <p id={id} role="alert" className="mt-2 text-xs text-red-400 animate-fade-in">
+      {message}
+    </p>
+  );
+}
+
 /* ============== Pulse Dots (reusable animated dots) ============== */
 export function PulseDots() {
   return (

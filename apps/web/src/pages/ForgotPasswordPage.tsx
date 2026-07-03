@@ -2,15 +2,22 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import SEO from '../components/SEO.js';
+import { ButtonSpinner, FieldError } from '../components/LoadingStates.js';
+import { validateEmail } from '../lib/validation.js';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+
+  const emailError = emailTouched ? validateEmail(email) : '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setEmailTouched(true);
+    if (validateEmail(email)) return;
     setError('');
     setLoading(true);
     try {
@@ -37,8 +44,8 @@ export default function ForgotPasswordPage() {
 
           {submitted ? (
             <div className="text-center">
-              <div className="bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-lg mb-6 text-sm">
-                If that email exists, we sent a reset link. Check your inbox.
+              <div role="status" className="bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-lg mb-6 text-sm">
+                If that email exists, we sent a reset link. Check your inbox — the link expires in 1 hour.
               </div>
               <Link to="/login" className="text-amber-400 hover:text-amber-300 transition-colors text-sm">
                 Back to sign in
@@ -52,7 +59,7 @@ export default function ForgotPasswordPage() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} noValidate className="space-y-5">
                 <div>
                   <label htmlFor="forgot-email" className="block text-gray-400 text-xs uppercase tracking-wider font-medium mb-2">
                     Email
@@ -62,18 +69,24 @@ export default function ForgotPasswordPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setEmailTouched(true)}
                     required
                     autoComplete="email"
-                    className="w-full px-4 py-3 bg-noir-800 border border-noir-700 text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600"
+                    aria-invalid={emailError ? true : undefined}
+                    aria-describedby={emailError ? 'forgot-email-error' : undefined}
+                    className={`w-full px-4 py-3 bg-noir-800 border text-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors placeholder-gray-600 ${emailError ? 'border-red-500/60' : 'border-noir-700'}`}
                     placeholder="you@example.com"
                   />
+                  <FieldError id="forgot-email-error" message={emailError} />
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors"
+                  aria-busy={loading}
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                 >
+                  {loading && <ButtonSpinner />}
                   {loading ? 'Sending...' : 'Send Reset Link'}
                 </button>
               </form>
