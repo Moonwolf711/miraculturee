@@ -655,7 +655,7 @@ export default function AccountPage() {
               appearance="circle"
             />
             <Stack space="space.050">
-              <h1 className="text-2xl font-display tracking-wide text-warm-50">
+              <h1 className="text-2xl font-display tracking-wider text-warm-50">
                 {user.name}
               </h1>
               <p className="text-gray-400 text-sm">{user.email}</p>

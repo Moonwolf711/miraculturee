@@ -490,7 +490,7 @@ export default function EventDetailPage() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="font-display text-4xl tracking-wide text-warm-50 mb-2">
+          <h1 className="font-display text-4xl tracking-wider text-warm-50 mb-2">
             {event.title}
           </h1>
           <p className="text-amber-400 font-body text-lg mb-1">

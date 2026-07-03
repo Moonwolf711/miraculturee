@@ -149,7 +149,7 @@ export default function AdminArtistManagement({
             {splitArtists(a.stageName).length > 1 ? (
               <div className="flex flex-wrap gap-1.5 my-2">
                 {splitArtists(a.stageName).map((name, i) => (
-                  <span key={i} className="px-2 py-1 rounded-md text-xs bg-noir-700 text-warm-50 border border-noir-600">{name}</span>
+                  <span key={i} className="px-2 py-1 rounded-full text-xs bg-noir-700 text-warm-50 border border-noir-600">{name}</span>
                 ))}
               </div>
             ) : (
@@ -206,7 +206,7 @@ export default function AdminArtistManagement({
                   {splitArtists(a.stageName).length > 1 ? (
                     <div className="flex flex-wrap gap-1">
                       {splitArtists(a.stageName).map((name, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded-md text-xs bg-noir-700 text-warm-50 border border-noir-600">{name}</span>
+                        <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-noir-700 text-warm-50 border border-noir-600">{name}</span>
                       ))}
                     </div>
                   ) : (
@@ -321,7 +321,7 @@ export default function AdminArtistManagement({
               <button onClick={() => setEditingArtist(null)}
                 className="px-4 py-2 rounded-lg border border-noir-700 text-gray-400 text-sm hover:border-gray-500 transition-colors">Cancel</button>
               <button onClick={handleEditSave} disabled={actionLoading === editingArtist.id}
-                className="px-4 py-2 rounded-lg bg-amber-500 text-noir-950 text-sm font-medium hover:bg-amber-400 transition-colors disabled:opacity-50">Save</button>
+                className="px-4 py-2 rounded-lg bg-amber-500 text-noir-950 text-sm font-semibold hover:bg-amber-400 transition-colors disabled:opacity-50">Save</button>
             </div>
           </div>
         </div>

@@ -542,7 +542,7 @@ export default function DevChat() {
             <button
               onClick={handleSend}
               disabled={!input.trim() || streaming}
-              className="px-3.5 py-2.5 rounded-lg bg-amber-500 text-noir-950 font-medium text-sm hover:bg-amber-400 transition-colors disabled:opacity-30 shrink-0 self-end"
+              className="px-3.5 py-2.5 rounded-lg bg-amber-500 text-noir-950 font-semibold text-sm hover:bg-amber-400 transition-colors disabled:opacity-30 shrink-0 self-end"
             >
               {streaming ? (
                 <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">

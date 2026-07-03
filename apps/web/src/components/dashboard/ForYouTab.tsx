@@ -92,7 +92,7 @@ export default function ForYouTab() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="px-6 py-2.5 bg-amber-500 text-noir-950 rounded-lg font-medium hover:bg-amber-400 transition-colors disabled:opacity-50"
+            className="px-6 py-2.5 bg-amber-500 text-noir-950 rounded-lg font-semibold hover:bg-amber-400 transition-colors disabled:opacity-50"
           >
             {syncing ? 'Syncing...' : 'Sync My History'}
           </button>

@@ -59,7 +59,7 @@ export default function DevInviteAcceptPage() {
       <div className="min-h-screen bg-noir-950 flex items-center justify-center px-4">
         <SEO title="Developer Invite" noindex />
         <div className="text-center max-w-md">
-          <h1 className="font-display text-2xl text-warm-50 mb-4">Invite Error</h1>
+          <h1 className="font-display text-2xl tracking-wider text-warm-50 mb-4">Invite Error</h1>
           <p className="text-red-400 mb-6">{error}</p>
           <Link to="/" className="text-amber-400 hover:text-amber-300 text-sm">Go Home</Link>
         </div>
@@ -72,7 +72,7 @@ export default function DevInviteAcceptPage() {
       <div className="min-h-screen bg-noir-950 flex items-center justify-center px-4">
         <SEO title="Invite Accepted" noindex />
         <div className="text-center">
-          <h1 className="font-display text-2xl text-warm-50 mb-2">Welcome, Developer!</h1>
+          <h1 className="font-display text-2xl tracking-wider text-warm-50 mb-2">Welcome, Developer!</h1>
           <p className="text-gray-400">Redirecting to admin panel...</p>
         </div>
       </div>
@@ -118,7 +118,7 @@ export default function DevInviteAcceptPage() {
               <Link
                 to="/login"
                 state={{ from: `/dev-invite/${token}` }}
-                className="flex-1 text-center px-4 py-2.5 rounded-lg bg-amber-500 text-noir-950 font-medium text-sm hover:bg-amber-400 transition-colors"
+                className="flex-1 text-center px-4 py-2.5 rounded-lg bg-amber-500 text-noir-950 font-semibold text-sm hover:bg-amber-400 transition-colors"
               >
                 Log In
               </Link>
@@ -144,7 +144,7 @@ export default function DevInviteAcceptPage() {
               <button
                 onClick={handleAccept}
                 disabled={accepting}
-                className="w-full px-4 py-2.5 rounded-lg bg-amber-500 text-noir-950 font-medium text-sm hover:bg-amber-400 transition-colors disabled:opacity-50"
+                className="w-full px-4 py-2.5 rounded-lg bg-amber-500 text-noir-950 font-semibold text-sm hover:bg-amber-400 transition-colors disabled:opacity-50"
               >
                 {accepting ? 'Accepting...' : 'Accept Invitation'}
               </button>

@@ -609,7 +609,7 @@ export default function AgentRegisterPage() {
             <button onClick={() => navigate('/agents')} className="flex-1 px-4 py-2 bg-noir-800 text-gray-300 rounded-lg hover:bg-noir-700 transition-colors">
               Browse Agents
             </button>
-            <button onClick={() => navigate('/agents/dashboard')} className="flex-1 px-4 py-2 bg-amber-500 text-noir-950 rounded-lg hover:bg-amber-400 transition-colors font-medium">
+            <button onClick={() => navigate('/agents/dashboard')} className="flex-1 px-4 py-2 bg-amber-500 text-noir-950 rounded-lg hover:bg-amber-400 transition-colors font-semibold">
               Agent Dashboard
             </button>
           </div>

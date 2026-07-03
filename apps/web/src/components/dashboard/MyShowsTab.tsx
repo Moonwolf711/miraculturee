@@ -127,7 +127,7 @@ export default function MyShowsTab() {
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       entry.status === 'completed'
                         ? 'bg-green-500/10 text-green-400'
-                        : 'bg-yellow-500/10 text-yellow-400'
+                        : 'bg-amber-500/10 text-amber-400'
                     }`}>
                       {entry.status}
                     </span>

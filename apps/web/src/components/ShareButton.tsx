@@ -81,7 +81,7 @@ export default function ShareButton({ eventId, artistName, eventTitle, variant =
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCopyLink(); }}
         disabled={loading}
         title="Share event"
-        className="p-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors disabled:opacity-50"
+        className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors disabled:opacity-50"
       >
         {copied ? (
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

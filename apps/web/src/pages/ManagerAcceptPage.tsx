@@ -64,7 +64,7 @@ export default function ManagerAcceptPage() {
           </div>
           <h2 className="text-warm-50 text-xl font-semibold mb-2">You're In!</h2>
           <p className="text-gray-400 mb-6">You now have manager access to {invite?.artistName}'s profile.</p>
-          <button onClick={() => navigate('/artist/dashboard')} className="px-6 py-2.5 bg-amber-500 text-noir-950 rounded-lg hover:bg-amber-400 transition-colors font-medium">
+          <button onClick={() => navigate('/artist/dashboard')} className="px-6 py-2.5 bg-amber-500 text-noir-950 rounded-lg hover:bg-amber-400 transition-colors font-semibold">
             Go to Dashboard
           </button>
         </div>
