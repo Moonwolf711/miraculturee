@@ -265,6 +265,22 @@
     @apply fixed inset-0 z-40 bg-noir-950/60 backdrop-blur-sm;
   }
 
+  /* Route-change page enter transition.
+     `backwards` fill (not `both`) so the transform clears after the
+     animation ends — a persistent transform would turn the wrapper into
+     a containing block for position:fixed descendants (modals, FABs). */
+  .page-enter {
+    animation: pageEnter 0.35s var(--transition-smooth) backwards;
+  }
+
+  /* Anti-flash loading indicator: invisible for the first 150ms so
+     fast loads never flash a spinner. `backwards` fill keeps it at
+     opacity 0 during the delay, then fades in; if animations are
+     disabled it simply stays at its natural visible state. */
+  .loading-appear {
+    animation: loadingAppear 0.25s ease-out 0.15s backwards;
+  }
+
   /* Card hover lift + glow */
   .card-hover {
     @apply transition-all duration-300 ease-out-expo;
@@ -774,6 +790,14 @@
   @keyframes pulseDot {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(1.5); }
+  }
+  @keyframes pageEnter {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes loadingAppear {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   /* Duration utility for 3D transitions */

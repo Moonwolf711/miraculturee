@@ -29,7 +29,7 @@ export function PulseDots() {
 export function PageLoading({ message = 'Loading...' }: { message?: string }) {
   return (
     <div
-      className="min-h-screen bg-noir-950 flex flex-col items-center justify-center"
+      className="min-h-screen bg-noir-950 flex flex-col items-center justify-center loading-appear"
       role="status"
       aria-live="polite"
     >
@@ -45,7 +45,7 @@ export function PageLoading({ message = 'Loading...' }: { message?: string }) {
 export function SectionLoading({ message = 'Loading...' }: { message?: string }) {
   return (
     <div
-      className="flex flex-col items-center justify-center py-16"
+      className="flex flex-col items-center justify-center py-16 loading-appear"
       role="status"
       aria-live="polite"
     >
@@ -167,10 +167,7 @@ export function InlineError({
       </div>
       <p className="font-body text-gray-400 text-sm mb-4">{message}</p>
       {onRetry && (
-        <button
-          onClick={onRetry}
-          className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-noir-950 font-semibold rounded-lg transition-colors text-sm tracking-wide uppercase"
-        >
+        <button onClick={onRetry} className="btn-amber">
           Retry
         </button>
       )}

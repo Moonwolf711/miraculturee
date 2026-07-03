@@ -1,8 +1,16 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+} from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.js';
 import Layout from './components/Layout.js';
 import ErrorBoundary, { PageErrorFallback } from './components/ErrorBoundary.js';
+import { PulseDots } from './components/LoadingStates.js';
 
 /* -------------------------------------------------------
    Route-based code splitting with React.lazy()
@@ -59,30 +67,35 @@ const OutreachDashboardPage = lazyRetry(() => import('./pages/OutreachDashboardP
 /**
  * Minimal loading fallback that reserves vertical space to prevent CLS.
  * Matches the min-height of page containers so layout does not shift.
+ * loading-appear keeps it invisible for 150ms so fast chunk loads
+ * never flash the indicator.
  */
 function PageFallback() {
   return (
     <div
-      className="min-h-screen bg-noir-950 flex items-center justify-center"
+      className="min-h-screen bg-noir-950 flex items-center justify-center loading-appear"
       role="status"
       aria-live="polite"
     >
-      <div className="flex items-center gap-2">
-        <div
-          className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"
-          style={{ animationDelay: '0ms' }}
-        />
-        <div
-          className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"
-          style={{ animationDelay: '200ms' }}
-        />
-        <div
-          className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"
-          style={{ animationDelay: '400ms' }}
-        />
-      </div>
+      <PulseDots />
     </div>
   );
+}
+
+/**
+ * Scroll restoration on navigation. Forward navigations (PUSH/REPLACE)
+ * start at the top of the new page; back/forward (POP) and hash links
+ * are left to the browser so anchor jumps and history restoration
+ * keep working.
+ */
+export function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+  const navigationType = useNavigationType();
+  useEffect(() => {
+    if (navigationType === 'POP' || hash) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+  }, [pathname, hash, navigationType]);
+  return null;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -153,16 +166,23 @@ function OAuthCallback() {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
   return (
     <Layout>
-      {/* Top-level error boundary catches crashes in any page */}
+      <ScrollToTop />
+      {/* Top-level error boundary catches crashes in any page.
+          Keyed by pathname so (a) navigating away from a crashed page
+          resets the boundary and (b) the page-enter transition replays
+          on every route change. */}
       <ErrorBoundary
+        key={pathname}
         fallback={({ error, reset }) => (
           <PageErrorFallback error={error} reset={reset} />
         )}
       >
-        <Suspense fallback={<PageFallback />}>
-          <Routes>
+        <div className="page-enter">
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -296,8 +316,9 @@ export default function App() {
             <Route path="/terms" element={<TermsOfServicePage />} />
             {/* Catch-all 404 route */}
             <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </Suspense>
+            </Routes>
+          </Suspense>
+        </div>
       </ErrorBoundary>
     </Layout>
   );
