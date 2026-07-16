@@ -294,6 +294,9 @@ const TOOLS = [
       },
       required: ['url'],
     },
+    // Prompt caching: breakpoint on the last tool caches all tool definitions
+    // (~3k tokens) across requests. Stripped out by toolsToOpenAI for Mercury.
+    cache_control: { type: 'ephemeral' as const },
   },
 ];
 
@@ -795,6 +798,36 @@ async function mercuryLoop(
   }
 }
 
+// Prompt caching (Claude only): mark the last content block of the final message so
+// each tool-loop round reads the previous round's cached prefix (system + tools +
+// conversation) instead of re-billing it. Markers from earlier rounds are stripped
+// first — the API allows at most 4 cache_control blocks per request.
+function withCacheBreakpoint(
+  messages: { role: string; content: unknown }[],
+): { role: string; content: unknown }[] {
+  const out = messages.map((m) => {
+    if (!Array.isArray(m.content)) return { ...m };
+    const blocks = (m.content as Record<string, unknown>[]).map((b) => {
+      if ('cache_control' in b) {
+        const { cache_control: _cc, ...rest } = b;
+        return rest;
+      }
+      return b;
+    });
+    return { ...m, content: blocks };
+  });
+
+  const last = out[out.length - 1];
+  if (!last) return out;
+  if (typeof last.content === 'string' && last.content.length > 0) {
+    last.content = [{ type: 'text', text: last.content, cache_control: { type: 'ephemeral' } }];
+  } else if (Array.isArray(last.content) && last.content.length > 0) {
+    const blocks = last.content as Record<string, unknown>[];
+    blocks[blocks.length - 1] = { ...blocks[blocks.length - 1], cache_control: { type: 'ephemeral' } };
+  }
+  return out;
+}
+
 export default async function chatRoutes(app: FastifyInstance) {
   app.post('/dev-assist', async (req, reply) => {
     const { messages, engine } = req.body as { messages: ChatMessage[]; engine?: 'mercury' | 'claude' };
@@ -868,12 +901,14 @@ export default async function chatRoutes(app: FastifyInstance) {
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
+            // claude-sonnet-4-20250514 is retired on the direct API; alias tracks latest Sonnet
+            model: 'claude-sonnet-5',
             max_tokens: 8192,
-            system: SYSTEM_PROMPT,
+            // Block form so the static system prompt is a cache breakpoint (5-min TTL, free refresh)
+            system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
             tools: TOOLS,
             stream: true,
-            messages: currentMessages,
+            messages: withCacheBreakpoint(currentMessages),
           }),
         });
 
