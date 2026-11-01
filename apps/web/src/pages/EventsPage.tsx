@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useWebSocket, usePollingFallback } from '../hooks/useWebSocket.js';
 import type { WSMessage } from '../lib/ws.js';
 import SEO from '../components/SEO.js';
-import { SITE_URL, eventsListMeta, routeBreadcrumb } from '../seo/site.mjs';
+import { SITE_URL, eventsListMeta, eventsListPath, routeBreadcrumb } from '../seo/site.mjs';
 import { CardSkeleton, InlineError } from '../components/LoadingStates.js';
 import ShareButton from '../components/ShareButton.js';
 import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
@@ -138,9 +138,16 @@ export default function EventsPage() {
     };
   }, [cityFilter, search, dateFrom, dateTo, activeTab, activeSorts, userLocation]);
 
-  // Load events when filters change
+  // Load events when filters change. The first load honors ?page= (the server
+  // renders that page for crawlers); any later filter change starts at page 1.
+  // Keyed on the filters so StrictMode's double-run keeps the URL's page.
+  const pageForFilters = useRef<{ key: string; page: number } | null>(null);
   useEffect(() => {
-    loadEvents({ ...currentFilters(), page: 1 });
+    const filters = currentFilters();
+    const key = JSON.stringify(filters);
+    if (pageForFilters.current === null) pageForFilters.current = { key, page: initialPage };
+    else if (pageForFilters.current.key !== key) pageForFilters.current = { key, page: 1 };
+    loadEvents({ ...filters, page: pageForFilters.current.page });
   }, [loadEvents, activeTab, cityFilter, dateFrom, dateTo, activeSorts, userLocation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTabChange = (tab: EventTypeFilter) => {
@@ -151,6 +158,8 @@ export default function EventsPage() {
 
   const handlePageChange = (page: number) => {
     loadEvents({ ...currentFilters(), page });
+    // Keep the address bar (and so the canonical URL) on the page being shown.
+    setSearchParams(new URLSearchParams(eventsListPath(activeTab, page).split('?')[1] ?? ''), { replace: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
