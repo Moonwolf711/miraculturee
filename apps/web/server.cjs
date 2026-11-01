@@ -131,7 +131,7 @@ function createHandler(dir, opts = {}) {
     const clean = s.canonicalPath(pathname);
     if (clean) return redirect(req, res, `${encodeURI(clean)}${url.search}`);
 
-    const page = await s.resolve(pathname);
+    const page = await s.resolve(pathname, url.searchParams);
     return send(req, res, page.status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' }, s.render(getTemplate(), page));
   }
 

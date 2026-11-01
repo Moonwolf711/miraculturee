@@ -126,10 +126,73 @@ export function eventTitle(event) {
 }
 
 export function eventDescription(event) {
+  // The title keeps two events by one artist at one venue from sharing a description.
   const text =
     event.description ||
-    `${event.artistName} live at ${event.venueName}, ${event.venueCity}. Get face-value tickets on MiraCulture.`;
+    `${event.title}: ${event.artistName} live at ${event.venueName}, ${event.venueCity}. Get face-value tickets on MiraCulture.`;
   return clamp(text, DESCRIPTION_MAX);
+}
+
+/** Event-type tabs of /events (?type=), in the order EventsPage shows them. SHOW is the default. */
+export const EVENT_TYPES = [
+  {
+    type: 'SHOW',
+    label: 'Shows',
+    short: 'Upcoming Shows',
+    title: STATIC_ROUTES['/events'].title,
+    h1: STATIC_ROUTES['/events'].h1,
+    description: STATIC_ROUTES['/events'].description,
+  },
+  {
+    type: 'FESTIVAL',
+    label: 'Festivals',
+    short: 'Upcoming Festivals',
+    title: 'Upcoming Festivals',
+    h1: 'UPCOMING FESTIVALS',
+    description:
+      'Browse upcoming EDM festivals on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan.',
+  },
+  {
+    type: 'SPORTS',
+    label: 'Sports',
+    short: 'Upcoming Sports Events',
+    title: 'Upcoming Sports Events',
+    h1: 'SPORTS EVENTS',
+    description: 'Browse upcoming sports events on MiraCulture. Face-value tickets, no scalpers, no bots.',
+  },
+  {
+    type: 'COMEDY',
+    label: 'Comedy',
+    short: 'Upcoming Comedy Shows',
+    title: 'Upcoming Comedy Shows',
+    h1: 'COMEDY SHOWS',
+    description: 'Browse upcoming comedy shows on MiraCulture. Face-value tickets, no scalpers, no bots.',
+  },
+];
+/** The sort EventsPage requests by default (activeSorts ['popular', 'date']). */
+export const EVENTS_DEFAULT_SORT = 'popular,date';
+
+/** Path of one /events tab and page, in its canonical form (default tab and page 1 omitted). */
+export function eventsListPath(type, page) {
+  const q = new URLSearchParams();
+  if (type && type !== EVENT_TYPES[0].type) q.set('type', type);
+  if (page > 1) q.set('page', String(page));
+  const s = q.toString();
+  return `/events${s ? `?${s}` : ''}`;
+}
+
+/** Title, description, H1 and canonical path for one /events tab and page. */
+export function eventsListMeta(type, page) {
+  const tab = EVENT_TYPES.find((t) => t.type === type) || EVENT_TYPES[0];
+  const n = page > 1 ? page : 1;
+  return {
+    type: tab.type,
+    page: n,
+    path: eventsListPath(tab.type, n),
+    title: n > 1 ? `${tab.short} — Page ${n}` : tab.title,
+    description: n > 1 ? clamp(`Page ${n}. ${tab.description}`, DESCRIPTION_MAX) : tab.description,
+    h1: tab.h1,
+  };
 }
 
 export function artistTitle(artist) {

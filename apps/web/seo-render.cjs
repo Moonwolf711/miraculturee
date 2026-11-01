@@ -92,9 +92,42 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
     return site.breadcrumbSchema([{ name: 'Home', url: `${site.SITE_URL}/` }, ...items]);
   }
 
+  /**
+   * The same page of events EventsPage requests (type tab, default sort, page),
+   * as plain links, so every event page is reachable without JavaScript.
+   */
+  async function eventsPage(params) {
+    const rawPage = parseInt(params.get('page') || '1', 10);
+    const meta = site.eventsListMeta(params.get('type'), Number.isFinite(rawPage) ? Math.min(rawPage, 10000) : 1);
+    const qs = new URLSearchParams({ type: meta.type, sort: site.EVENTS_DEFAULT_SORT });
+    if (meta.page > 1) qs.set('page', String(meta.page));
+    const res = await apiGet(`/events?${qs}`);
+    const items = res.status === 200 ? (res.data.data || []).filter((e) => UUID.test(e.id)) : [];
+    const totalPages = res.status === 200 ? res.data.totalPages || 1 : 1;
+    if (res.status === 200 && meta.page > 1 && meta.page > totalPages) return notFound();
+    const canonical = `${site.SITE_URL}${meta.path}`;
+    return {
+      status: 200,
+      title: site.formatTitle(meta.title),
+      description: meta.description,
+      canonical,
+      noindex: false,
+      h1: meta.h1,
+      intro: meta.description,
+      list: {
+        items: items.map((e) => ({ href: `/events/${e.id}`, text: `${e.title} — ${e.venueName}, ${e.venueCity}` })),
+        prev: meta.page > 1 ? site.eventsListPath(meta.type, meta.page - 1) : null,
+        next: meta.page < totalPages ? site.eventsListPath(meta.type, meta.page + 1) : null,
+        tabs: site.EVENT_TYPES.filter((t) => t.type !== meta.type).map((t) => ({ href: site.eventsListPath(t.type, 1), text: t.short })),
+      },
+      jsonLd: [site.routeBreadcrumb('/events')],
+    };
+  }
+
   /** Status, head facts and fallback content for one request path. */
-  async function resolve(pathname) {
+  async function resolve(pathname, params = new URLSearchParams()) {
     const canonical = `${site.SITE_URL}${pathname}`;
+    if (pathname === '/events') return eventsPage(params);
     const route = site.STATIC_ROUTES[pathname];
     if (route) {
       const schema = pathname === '/' ? site.organizationSchema() : site.routeBreadcrumb(pathname);
@@ -176,9 +209,18 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
   function fallbackBody(page) {
     const link = (href, text) =>
       `<a href="${href}" style="display:inline-block;padding:12px 10px;min-height:44px;box-sizing:border-box;color:#fbbf24;text-decoration:none">${text}</a>`;
+    const list = page.list
+      ? `<ul style="list-style:none;padding:0;margin:1rem 0">${page.list.items.map((i) => `<li>${link(esc(i.href), esc(i.text))}</li>`).join('')}</ul>` +
+        `<nav aria-label="More events" style="display:flex;flex-wrap:wrap">` +
+        (page.list.prev ? link(esc(page.list.prev), 'Previous page') : '') +
+        (page.list.next ? link(esc(page.list.next), 'Next page') : '') +
+        page.list.tabs.map((t) => link(esc(t.href), esc(t.text))).join('') +
+        '</nav>'
+      : '';
     const main = page.h1
       ? `<h1 style="font-size:2rem;letter-spacing:.08em;margin:1.5rem 0 .75rem;color:#faf7f2">${esc(page.h1)}</h1>` +
-        (page.intro ? `<p style="color:#9ca3af;line-height:1.6;max-width:40rem">${esc(page.intro)}</p>` : '')
+        (page.intro ? `<p style="color:#9ca3af;line-height:1.6;max-width:40rem">${esc(page.intro)}</p>` : '') +
+        list
       : '';
     return (
       '<div style="max-width:64rem;margin:0 auto;padding:1rem;font-family:Outfit,system-ui,sans-serif;color:#e5e7eb">' +
@@ -192,9 +234,12 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
 
   /** index.html with this page's head tags and fallback body. */
   function render(template, page) {
+    // Replacer functions, not strings: "$&" or "$'" in API text must stay literal.
+    const head = `<!-- seo:start -->\n    ${headTags(page)}\n    <!-- seo:end -->`;
+    const body = `<div id="root">${fallbackBody(page)}</div>`;
     return template
-      .replace(/<!-- seo:start -->[\s\S]*?<!-- seo:end -->/, `<!-- seo:start -->\n    ${headTags(page)}\n    <!-- seo:end -->`)
-      .replace('<div id="root"></div>', `<div id="root">${fallbackBody(page)}</div>`);
+      .replace(/<!-- seo:start -->[\s\S]*?<!-- seo:end -->/, () => head)
+      .replace('<div id="root"></div>', () => body);
   }
 
   function robotsTxt() {
@@ -209,7 +254,8 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
   }
 
   async function collectDynamicUrls() {
-    const urls = [];
+    // A Set: API pages can shift while we walk them, repeating an event.
+    const locs = new Set();
     const first = await apiGet(`/events?limit=50&page=1&sort=date`);
     if (first.status === 200) {
       const pages = Math.min(first.data.totalPages || 1, SITEMAP_MAX_PAGES);
@@ -220,16 +266,16 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
         results.push(...(await Promise.all(batch)));
       }
       for (const r of results) {
-        if (r.status === 200) for (const e of r.data.data || []) if (UUID.test(e.id)) urls.push({ loc: `/events/${e.id}` });
+        if (r.status === 200) for (const e of r.data.data || []) if (UUID.test(e.id)) locs.add(`/events/${e.id}`);
       }
     }
     for (let offset = 0; offset < 5000; offset += 50) {
       const r = await apiGet(`/artist/public?limit=50&offset=${offset}`);
       if (r.status !== 200) break;
-      for (const a of r.data.artists || []) if (UUID.test(a.id)) urls.push({ loc: `/artists/${a.id}` });
+      for (const a of r.data.artists || []) if (UUID.test(a.id)) locs.add(`/artists/${a.id}`);
       if (offset + 50 >= (r.data.total || 0)) break;
     }
-    return urls;
+    return [...locs].map((loc) => ({ loc }));
   }
 
   function refreshSitemap() {

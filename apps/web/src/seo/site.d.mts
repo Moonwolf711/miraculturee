@@ -35,6 +35,26 @@ export const NOT_FOUND: RouteMeta;
 export const APP_ROUTES: string[];
 export const ROBOTS_DISALLOW: string[];
 export const INDEXABLE_DYNAMIC: string[];
+export interface EventTypeTab {
+  type: string;
+  label: string;
+  short: string;
+  title: string | null;
+  h1: string;
+  description: string;
+}
+export interface EventsListMeta {
+  type: string;
+  page: number;
+  path: string;
+  title: string | null;
+  description: string;
+  h1: string;
+}
+export const EVENT_TYPES: EventTypeTab[];
+export const EVENTS_DEFAULT_SORT: string;
+export function eventsListPath(type: string, page: number): string;
+export function eventsListMeta(type: string, page: number): EventsListMeta;
 
 export function formatTitle(title: string | null | undefined): string;
 export function eventTitle(event: EventLike): string;

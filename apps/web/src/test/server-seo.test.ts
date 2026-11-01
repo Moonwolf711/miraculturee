@@ -23,7 +23,7 @@ const EVENT = {
   artistName: 'Test Artist',
   venueName: 'The Hall',
   venueCity: 'Denver, CO',
-  description: 'A show </script><script>alert(1)</script> & more',
+  description: "A show </script><script>alert(1)</script> & more $& $' $`",
 };
 
 interface Res {
@@ -49,12 +49,17 @@ function jsonResponse(status: number, data: unknown): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 }
 
-// Stands in for the API: one event, one verified artist, one deleted event.
+const apiCalls: string[] = [];
+
+// Stands in for the API: one event (listed on 2 pages), one verified artist, one deleted event.
 async function fakeFetch(url: string): Promise<Response> {
   const u = new URL(url);
   if (u.pathname === `/events/${EVENT_ID}`) return jsonResponse(200, EVENT);
   if (u.pathname === `/artist/public/${ARTIST_ID}`) return jsonResponse(200, { id: ARTIST_ID, stageName: 'Lunar Test', bio: null });
-  if (u.pathname === '/events') return jsonResponse(200, { data: [EVENT], total: 1, page: 1, limit: 50, totalPages: 1 });
+  if (u.pathname === '/events') {
+    apiCalls.push(`${u.pathname}${u.search}`);
+    return jsonResponse(200, { data: [EVENT], total: 21, page: Number(u.searchParams.get('page') || 1), limit: 20, totalPages: 2 });
+  }
   if (u.pathname === '/artist/public') return jsonResponse(200, { artists: [{ id: ARTIST_ID }], total: 1 });
   return jsonResponse(404, { error: 'not found' });
 }
@@ -145,6 +150,32 @@ describe('server.cjs SEO', () => {
     expect(res.body).toContain('&lt;/script&gt;');
   });
 
+  it('keeps "$&"-style sequences in API text literal', async () => {
+    const res = await request(port, `/events/${EVENT_ID}`);
+    expect(res.body).toContain("$&amp; $&#39; $`");
+    expect(count(res.body, /<!-- seo:start -->/g)).toBe(1);
+  });
+
+  it('lists the same page of events the app requests, as links with pagination and tabs', async () => {
+    // The server caches API answers, so the call may have been made by an earlier /events request.
+    const res = await request(port, '/events');
+    expect(apiCalls).toContain(`/events?type=SHOW&sort=${encodeURIComponent(site.EVENTS_DEFAULT_SORT)}`);
+    expect(res.body).toContain(`href="/events/${EVENT_ID}"`);
+    expect(res.body).toContain('href="/events?page=2"');
+    expect(res.body).toContain('href="/events?type=FESTIVAL"');
+  });
+
+  it('gives each events page and tab its own title and self canonical, and 404s past the end', async () => {
+    const p2 = await request(port, '/events?page=2');
+    expect(p2.status).toBe(200);
+    expect(p2.body).toContain('<link rel="canonical" href="https://www.mira-culture.com/events?page=2" data-rh="true" />');
+    expect(p2.body).toContain('<title>Upcoming Shows — Page 2 | MiraCulture</title>');
+    const fest = await request(port, '/events?type=FESTIVAL');
+    expect(fest.body).toContain('<title>Upcoming Festivals | MiraCulture</title>');
+    expect(fest.body).toContain('href="https://www.mira-culture.com/events?type=FESTIVAL"');
+    expect((await request(port, '/events?page=3')).status).toBe(404);
+  });
+
   it('404s events the API does not know and non-UUID ids', async () => {
     expect((await request(port, `/events/${GONE_ID}`)).status).toBe(404);
     expect((await request(port, '/events/not-a-uuid')).status).toBe(404);
@@ -172,6 +203,7 @@ describe('server.cjs SEO', () => {
     expect(res.body).toContain(`<loc>https://www.mira-culture.com/artists/${ARTIST_ID}</loc>`);
     expect(res.body).not.toContain('/login<');
     expect(res.body).not.toContain('https://mira-culture.com');
+    expect(count(res.body, new RegExp(`/events/${EVENT_ID}<`, 'g'))).toBe(1);
   });
 
   it('caches hashed assets for a year', async () => {
@@ -196,6 +228,19 @@ describe('site.mjs', () => {
       expect(t.length, `${p} title "${t}"`).toBeLessThanOrEqual(60);
       expect(r.description.length, `${p} description`).toBeGreaterThanOrEqual(70);
       expect(r.description.length, `${p} description`).toBeLessThanOrEqual(160);
+    }
+  });
+
+  it('keeps every events tab and page title at 30-60 chars and description at 70-160', () => {
+    for (const tab of site.EVENT_TYPES) {
+      for (const page of [1, 2, 999]) {
+        const m = site.eventsListMeta(tab.type, page);
+        const t = site.formatTitle(m.title);
+        expect(t.length, t).toBeGreaterThanOrEqual(30);
+        expect(t.length, t).toBeLessThanOrEqual(60);
+        expect(m.description.length, m.description).toBeGreaterThanOrEqual(70);
+        expect(m.description.length, m.description).toBeLessThanOrEqual(160);
+      }
     }
   });
 

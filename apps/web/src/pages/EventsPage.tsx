@@ -3,8 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useWebSocket, usePollingFallback } from '../hooks/useWebSocket.js';
 import type { WSMessage } from '../lib/ws.js';
-import SEO, { getBreadcrumbSchema } from '../components/SEO.js';
-import { SITE_URL, STATIC_ROUTES } from '../seo/site.mjs';
+import SEO from '../components/SEO.js';
+import { SITE_URL, eventsListMeta, routeBreadcrumb } from '../seo/site.mjs';
 import { CardSkeleton, InlineError } from '../components/LoadingStates.js';
 import ShareButton from '../components/ShareButton.js';
 import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
@@ -207,30 +207,16 @@ export default function EventsPage() {
   const getDay = (iso: string) => new Date(iso).toLocaleDateString('en-US', { day: 'numeric' });
 
   const selectClass = "bg-noir-800 border border-noir-700 text-gray-300 rounded-lg px-3 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-300 appearance-none cursor-pointer";
+  const listMeta = eventsListMeta(activeTab, currentPage);
 
   return (
     <div className="bg-noir-950 min-h-screen">
       <SEO
-        title={
-          activeTab === 'FESTIVAL' ? 'Upcoming Festivals'
-            : activeTab === 'SPORTS' ? 'Sports Events'
-              : activeTab === 'COMEDY' ? 'Comedy Shows'
-                : STATIC_ROUTES['/events'].title ?? undefined
-        }
-        description={
-          activeTab === 'FESTIVAL'
-            ? 'Browse upcoming EDM festivals on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan.'
-            : activeTab === 'SPORTS'
-              ? 'Browse upcoming sports events on MiraCulture. Face-value tickets, no scalpers, no bots.'
-              : activeTab === 'COMEDY'
-                ? 'Browse upcoming comedy shows on MiraCulture. Face-value tickets, no scalpers, no bots.'
-                : STATIC_ROUTES['/events'].description
-        }
+        title={listMeta.title ?? undefined}
+        description={listMeta.description}
+        url={`${SITE_URL}${listMeta.path}`}
         type="website"
-        jsonLd={getBreadcrumbSchema([
-          { name: 'Home', url: `${SITE_URL}/` },
-          { name: activeTab === 'FESTIVAL' ? 'Festivals' : activeTab === 'SPORTS' ? 'Sports' : activeTab === 'COMEDY' ? 'Comedy' : 'Events', url: `${SITE_URL}/events` },
-        ])}
+        jsonLd={routeBreadcrumb('/events') ?? undefined}
       />
       <div className="max-w-5xl mx-auto px-6 pt-16 pb-8">
         {/* Title */}
@@ -239,10 +225,7 @@ export default function EventsPage() {
             {activeTab === 'SPORTS' ? 'SPORTS' : activeTab === 'COMEDY' ? 'COMEDY' : 'LIVE MUSIC'}
           </p>
           <h1 className="font-display text-4xl md:text-5xl tracking-wider text-warm-50">
-            {activeTab === 'FESTIVAL' ? 'UPCOMING FESTIVALS'
-              : activeTab === 'SPORTS' ? 'SPORTS EVENTS'
-                : activeTab === 'COMEDY' ? 'COMEDY SHOWS'
-                  : 'UPCOMING SHOWS'}
+            {listMeta.h1}
           </h1>
           <div className="mt-4 h-px w-24 bg-gradient-to-r from-amber-500/50 to-transparent" aria-hidden="true" />
         </div>
