@@ -8,10 +8,21 @@
    Outfit/Bebas Neue against Arial, measured with canvas measureText. */
 @font-face {
   font-family: 'Outfit Fallback';
+  font-weight: 100 500;
   src: local('Arial'), local('Helvetica'), local('Liberation Sans');
   size-adjust: 98.3%;
   ascent-override: 101.7%;
   descent-override: 26.4%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Outfit Fallback';
+  font-weight: 600 900;
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Helvetica Bold'), local('Liberation Sans Bold');
+  size-adjust: 94.5%;
+  ascent-override: 105.8%;
+  descent-override: 27.5%;
   line-gap-override: 0%;
 }
 
