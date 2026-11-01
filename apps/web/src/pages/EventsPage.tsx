@@ -474,7 +474,7 @@ export default function EventsPage() {
                     <h2 style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="font-body font-semibold text-warm-50 text-sm group-hover:text-amber-50 transition-colors duration-300">
                       {event.title}
                     </h2>
-                    <p style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="font-body text-gray-500 text-xs">
+                    <p style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="font-body text-gray-400 text-xs">
                       {event.artistName} &middot; {event.venueName}, {event.venueCity}
                     </p>
                   </div>
@@ -491,7 +491,7 @@ export default function EventsPage() {
 
                   {/* Supported count — compact, hidden on small screens */}
                   <div className="hidden sm:flex items-center gap-2 flex-shrink-0 pr-2">
-                    <span className="font-body text-gray-500 text-[10px] whitespace-nowrap">
+                    <span className="font-body text-gray-400 text-[10px] whitespace-nowrap">
                       {event.supportedTickets} supported
                     </span>
                   </div>
@@ -560,7 +560,7 @@ export default function EventsPage() {
 
         {/* Result count */}
         {events && events.total > 0 && (
-          <p className="mt-4 text-center font-body text-gray-500 text-xs">
+          <p className="mt-4 text-center font-body text-gray-400 text-xs">
             {events.total} {
               activeTab === 'FESTIVAL' ? 'festivals'
                 : activeTab === 'SPORTS' ? 'sports events'
