@@ -2,6 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Metric-matched fallbacks for the Google fonts (display=swap): text drawn in
+   these before Outfit / Bebas Neue arrive takes the same width, so the swap
+   does not reflow the page (it caused CLS 0.10 on the home page). Values are
+   Outfit/Bebas Neue against Arial, measured with canvas measureText. */
+@font-face {
+  font-family: 'Outfit Fallback';
+  src: local('Arial'), local('Helvetica'), local('Liberation Sans');
+  size-adjust: 98.3%;
+  ascent-override: 101.7%;
+  descent-override: 26.4%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Bebas Neue Fallback';
+  src: local('Arial'), local('Helvetica'), local('Liberation Sans');
+  size-adjust: 58.3%;
+  ascent-override: 163%;
+  descent-override: 60%;
+  line-gap-override: 0%;
+}
+
 /* -------------------------------------------------------
    CSS Custom Properties — Concert Poster Noir
    ------------------------------------------------------- */

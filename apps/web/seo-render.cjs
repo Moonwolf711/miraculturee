@@ -301,7 +301,7 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
         list
       : '';
     return (
-      '<div style="max-width:64rem;margin:0 auto;padding:1rem;font-family:Outfit,system-ui,sans-serif;color:#e5e7eb">' +
+      '<div style="max-width:64rem;margin:0 auto;padding:1rem;font-family:Outfit,&#39;Outfit Fallback&#39;,system-ui,sans-serif;color:#e5e7eb">' +
       `<header style="display:flex;flex-wrap:wrap;align-items:center;gap:4px">${link('/', 'MiraCulture home')}` +
       `<nav aria-label="Main" style="display:flex;flex-wrap:wrap">${link('/events', 'Upcoming shows')}${link('/local-artists', 'Local artists')}${link('/agents', 'Promoter agents')}${link('/register', 'Sign up')}${link('/login', 'Sign in')}</nav></header>` +
       `<main>${main}</main>` +

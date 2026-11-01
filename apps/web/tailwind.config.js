@@ -18,8 +18,8 @@ export default {
         },
       },
       fontFamily: {
-        display: ['Bebas Neue', 'sans-serif'],
-        body: ['Outfit', 'sans-serif'],
+        display: ['Bebas Neue', 'Bebas Neue Fallback', 'sans-serif'],
+        body: ['Outfit', 'Outfit Fallback', 'sans-serif'],
       },
       letterSpacing: {
         'widest-plus': '0.15em',
