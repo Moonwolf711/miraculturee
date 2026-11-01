@@ -328,9 +328,9 @@ export default function Layout({ children }: { children: ReactNode }) {
 
             {/* Nav column */}
             <div>
-              <h4 className="font-body text-xs tracking-widest uppercase text-gray-500 mb-4 font-semibold">
+              <h2 className="font-body text-xs tracking-widest uppercase text-gray-400 mb-4 font-semibold">
                 Navigate
-              </h4>
+              </h2>
               <ul className="space-y-2">
                 <li>
                   <Link to="/events" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">
@@ -362,9 +362,9 @@ export default function Layout({ children }: { children: ReactNode }) {
 
             {/* Legal + social column */}
             <div>
-              <h4 className="font-body text-xs tracking-widest uppercase text-gray-500 mb-4 font-semibold">
+              <h2 className="font-body text-xs tracking-widest uppercase text-gray-400 mb-4 font-semibold">
                 Legal
-              </h4>
+              </h2>
               <ul className="space-y-2 mb-6">
                 <li>
                   <Link to="/privacy" className="text-gray-500 hover:text-amber-500 text-sm transition-colors duration-200">

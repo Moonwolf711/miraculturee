@@ -249,8 +249,8 @@ export default function LocalArtistMarketplacePage() {
           <div className="flex flex-wrap gap-3 items-end">
             {/* City search */}
             <div className="flex-1 min-w-[160px]">
-              <label className="block text-gray-500 text-xs mb-1">City</label>
-              <input type="text" value={citySearch}
+              <label htmlFor="local-artists-city" className="block text-gray-400 text-xs mb-1">City</label>
+              <input id="local-artists-city" type="text" value={citySearch}
                 onChange={(e) => setCitySearch(e.target.value)}
                 placeholder="Search city..."
                 className="w-full bg-noir-800 border border-noir-600 text-warm-50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500/50 placeholder:text-gray-600" />
@@ -258,8 +258,8 @@ export default function LocalArtistMarketplacePage() {
 
             {/* State */}
             <div className="min-w-[120px]">
-              <label className="block text-gray-500 text-xs mb-1">State</label>
-              <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}
+              <label htmlFor="local-artists-state" className="block text-gray-400 text-xs mb-1">State</label>
+              <select id="local-artists-state" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}
                 className="w-full bg-noir-800 border border-noir-600 text-warm-50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500/50">
                 <option value="">All States</option>
                 {US_STATE_CODES.map((s) => <option key={s} value={s}>{US_STATES[s]}</option>)}
@@ -268,10 +268,10 @@ export default function LocalArtistMarketplacePage() {
 
             {/* Genre multi-select */}
             <div className="relative min-w-[140px]">
-              <label className="block text-gray-500 text-xs mb-1">Genres</label>
+              <label className="block text-gray-400 text-xs mb-1">Genres</label>
               <button onClick={() => setShowGenreDropdown(!showGenreDropdown)}
                 className="w-full bg-noir-800 border border-noir-600 text-warm-50 rounded-lg px-3 py-2 text-sm text-left flex items-center justify-between">
-                <span className={genreFilter.length > 0 ? 'text-amber-400' : 'text-gray-600'}>
+                <span className={genreFilter.length > 0 ? 'text-amber-400' : 'text-gray-400'}>
                   {genreFilter.length > 0 ? `${genreFilter.length} selected` : 'Any genre'}
                 </span>
                 <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -304,6 +304,7 @@ export default function LocalArtistMarketplacePage() {
             {/* Available toggle */}
             <div className="flex items-center gap-2 pb-0.5">
               <button onClick={() => setBookableOnly(!bookableOnly)}
+                role="switch" aria-checked={bookableOnly} aria-label="Bookable artists only"
                 className={`relative w-9 h-5 rounded-full transition-colors ${bookableOnly ? 'bg-green-500' : 'bg-noir-600'}`}>
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${bookableOnly ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
               </button>
@@ -312,8 +313,8 @@ export default function LocalArtistMarketplacePage() {
 
             {/* Sort */}
             <div className="min-w-[120px]">
-              <label className="block text-gray-500 text-xs mb-1">Sort</label>
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+              <label htmlFor="local-artists-sort" className="block text-gray-400 text-xs mb-1">Sort</label>
+              <select id="local-artists-sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}
                 className="w-full bg-noir-800 border border-noir-600 text-warm-50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500/50">
                 {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -326,7 +327,7 @@ export default function LocalArtistMarketplacePage() {
               {genreFilter.map((g) => (
                 <span key={g} className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full text-xs">
                   {g}
-                  <button onClick={() => toggleGenre(g)} className="hover:text-amber-200">
+                  <button onClick={() => toggleGenre(g)} aria-label={`Remove ${g} filter`} className="hover:text-amber-200">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
                 </span>
@@ -334,13 +335,13 @@ export default function LocalArtistMarketplacePage() {
               {bookableOnly && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-400 rounded-full text-xs">
                   Available
-                  <button onClick={() => setBookableOnly(false)} className="hover:text-green-200">
+                  <button onClick={() => setBookableOnly(false)} aria-label="Remove bookable filter" className="hover:text-green-200">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
                 </span>
               )}
               <button onClick={() => { setGenreFilter([]); setBookableOnly(false); setStateFilter(''); setCitySearch(''); }}
-                className="text-gray-500 text-xs hover:text-gray-300">Clear all</button>
+                className="text-gray-400 text-xs hover:text-gray-200">Clear all</button>
             </div>
           )}
         </div>
@@ -350,8 +351,8 @@ export default function LocalArtistMarketplacePage() {
           <div className="text-center text-gray-500 py-12">Loading artists...</div>
         ) : artists.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-gray-500 text-lg mb-2">No artists found</p>
-            <p className="text-gray-600 text-sm">Be the first -- <Link to="/local-artists/register" className="text-amber-400 hover:underline">create your EPK</Link></p>
+            <p className="text-gray-400 text-lg mb-2">No artists found</p>
+            <p className="text-gray-400 text-sm">Be the first -- <Link to="/local-artists/register" className="text-amber-400 hover:underline">create your EPK</Link></p>
           </div>
         ) : (
           <>

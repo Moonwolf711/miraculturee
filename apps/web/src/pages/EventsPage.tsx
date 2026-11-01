@@ -230,7 +230,7 @@ export default function EventsPage() {
       <div className="max-w-5xl mx-auto px-6 pt-16 pb-8">
         {/* Title */}
         <div className="mb-6">
-          <p className="font-display text-xs tracking-[0.4em] text-amber-500/60 mb-2">
+          <p className="font-display text-xs tracking-[0.4em] text-amber-500/80 mb-2">
             {activeTab === 'SPORTS' ? 'SPORTS' : activeTab === 'COMEDY' ? 'COMEDY' : 'LIVE MUSIC'}
           </p>
           <h1 className="font-display text-4xl md:text-5xl tracking-wider text-warm-50">
@@ -255,12 +255,12 @@ export default function EventsPage() {
               className={`px-5 py-3 font-body text-sm tracking-wide uppercase transition-all duration-300 border-b-2 -mb-px whitespace-nowrap ${
                 activeTab === key
                   ? 'border-amber-500 text-amber-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
               }`}
             >
               {label}
               {(key === 'SPORTS' || key === 'COMEDY') && (
-                <span className="ml-1.5 text-[9px] font-display tracking-widest text-amber-500/50 align-top">BETA</span>
+                <span className="ml-1.5 text-[9px] font-display tracking-widest text-amber-500/80 align-top">BETA</span>
               )}
             </button>
           ))}
@@ -270,7 +270,7 @@ export default function EventsPage() {
         <div className="bg-noir-900/50 border border-noir-700 rounded-xl p-4 mb-8">
           {/* Sort row — multi-select with priority badges */}
           <div className="flex items-center gap-2 mb-4">
-            <span className="font-body text-xs text-gray-500 uppercase tracking-wider mr-1">Sort by</span>
+            <span className="font-body text-xs text-gray-400 uppercase tracking-wider mr-1">Sort by</span>
             {SORT_OPTIONS.map((opt) => {
               const isGeoLoading = opt.value === 'distance' && locationLoading;
               const isGeoDenied = opt.value === 'distance' && locationDenied;
@@ -357,13 +357,14 @@ export default function EventsPage() {
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 items-stretch sm:items-end">
             {/* Search */}
             <div className="flex-1 min-w-0 sm:min-w-[200px]">
-              <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Search</label>
+              <label htmlFor="events-search" className="block font-body text-xs text-gray-400 mb-1.5 uppercase tracking-wider">Search</label>
               <form onSubmit={handleSearch} className="flex gap-2">
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search events, artists, venues..."
+                  id="events-search"
                   aria-label="Search events"
                   className="flex-1 bg-noir-800 border border-noir-700 text-gray-200 placeholder-gray-600 rounded-lg pl-3 pr-3 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all duration-300"
                 />
@@ -372,8 +373,9 @@ export default function EventsPage() {
 
             {/* Location dropdown */}
             <div className="w-full sm:w-auto sm:min-w-[160px]">
-              <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Location</label>
+              <label htmlFor="events-city" className="block font-body text-xs text-gray-400 mb-1.5 uppercase tracking-wider">Location</label>
               <select
+                id="events-city"
                 value={cityFilter}
                 onChange={(e) => { setCityFilter(e.target.value); setSearch(''); setCurrentPage(1); }}
                 className={`${selectClass} w-full`}
@@ -387,8 +389,9 @@ export default function EventsPage() {
 
             {/* Date pickers — from / to */}
             <div className="w-full sm:w-auto sm:min-w-[140px]">
-              <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">From</label>
+              <label htmlFor="events-from" className="block font-body text-xs text-gray-400 mb-1.5 uppercase tracking-wider">From</label>
               <input
+                id="events-from"
                 type="date"
                 value={dateFrom}
                 min={TODAY_STR}
@@ -397,8 +400,9 @@ export default function EventsPage() {
               />
             </div>
             <div className="w-full sm:w-auto sm:min-w-[140px]">
-              <label className="block font-body text-xs text-gray-500 mb-1.5 uppercase tracking-wider">To</label>
+              <label htmlFor="events-to" className="block font-body text-xs text-gray-400 mb-1.5 uppercase tracking-wider">To</label>
               <input
+                id="events-to"
                 type="date"
                 value={dateTo}
                 min={dateFrom || TODAY_STR}
