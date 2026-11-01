@@ -24,8 +24,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          /* React core — cached long-term, rarely changes */
-          if (id.includes('react-dom') || (id.includes('/react/') && !id.includes('react-router') && !id.includes('react-helmet') && !id.includes('react-stripe'))) {
+          /* React core — cached long-term, rarely changes. Only react, react-dom
+             and scheduler: a looser "/react/" match also pulled @emotion/react and
+             the Atlaskit packages (plus their CSS) into the chunk every page loads. */
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
             return 'vendor-react';
           }
           /* Stripe SDK — only loaded when payment form is shown (lazy) */
