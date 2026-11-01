@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as site from '../seo/site.mjs';
 
 const require = createRequire(import.meta.url);
@@ -204,6 +204,16 @@ describe('server.cjs SEO', () => {
     expect(res.body).not.toContain('/login<');
     expect(res.body).not.toContain('https://mira-culture.com');
     expect(count(res.body, new RegExp(`/events/${EVENT_ID}<`, 'g'))).toBe(1);
+  });
+
+  it('starts building the sitemap at boot when warmSitemap is set', async () => {
+    const calls: string[] = [];
+    const recordingFetch = async (url: string) => {
+      calls.push(url);
+      return fakeFetch(url);
+    };
+    createServer(dir, { site, apiUrl: 'https://api.test', fetchImpl: recordingFetch, warmSitemap: true });
+    await vi.waitFor(() => expect(calls.some((u) => u.includes('/events?limit=50&page=1&sort=date'))).toBe(true));
   });
 
   it('caches hashed assets for a year', async () => {

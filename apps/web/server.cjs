@@ -84,6 +84,9 @@ function createHandler(dir, opts = {}) {
     return seo;
   }
 
+  // Build the event/artist sitemap at boot so it is ready before crawlers ask.
+  if (opts.warmSitemap && getSeo()) getSeo().refreshSitemap();
+
   async function handle(req, res) {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       return send(req, res, 405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' }, 'Method Not Allowed');
@@ -166,7 +169,7 @@ if (require.main === module) {
       return null;
     })
     .then((site) => {
-      const server = createServer(DIR, { site, apiUrl });
+      const server = createServer(DIR, { site, apiUrl, warmSitemap: !!site });
       server.listen(PORT, '0.0.0.0', () => {
         console.log(`Static server running on port ${PORT}${site ? ' (SEO on)' : ''}`);
       });
