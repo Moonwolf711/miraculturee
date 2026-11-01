@@ -124,7 +124,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           {/* Logo — M☝raCulture (Deadhead miracle ticket finger) */}
           <Link
             to="/"
-            className="group flex items-center gap-0 font-display text-2xl tracking-ultra-wide uppercase"
+            className="group flex items-center gap-0 min-h-[44px] font-display text-2xl tracking-ultra-wide uppercase"
             onClick={closeMobile}
           >
             <span className="text-amber-500 transition-colors duration-300 group-hover:text-amber-400">

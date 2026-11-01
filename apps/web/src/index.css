@@ -740,8 +740,14 @@
 
     footer a {
       min-height: 44px;
+      min-width: 44px;
       display: inline-flex;
       align-items: center;
+    }
+
+    .back-to-top {
+      min-width: 44px;
+      min-height: 44px;
     }
 
     /* iOS Safari auto-zooms the page when a focused form control has
