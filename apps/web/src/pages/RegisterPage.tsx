@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useProviders } from '../hooks/useProviders.js';
 import SEO from '../components/SEO.js';
+import { STATIC_ROUTES } from '../seo/site.mjs';
 import { ButtonSpinner, FieldError } from '../components/LoadingStates.js';
 import { validateEmail, validateNewPassword, validateRequired } from '../lib/validation.js';
 
@@ -57,8 +58,8 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-noir-950 flex items-center justify-center px-4 py-16 relative overflow-hidden">
       <SEO
-        title="Sign Up"
-        description="Join MiraCulture as a fan, local fan, or artist. Support live music with fair, face-value tickets and cryptographic raffles."
+        title={STATIC_ROUTES['/register'].title ?? undefined}
+        description={STATIC_ROUTES['/register'].description}
         noindex
       />
 

@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
 import SEO from '../components/SEO.js';
+import { NOT_FOUND } from '../seo/site.mjs';
 
 export default function NotFoundPage() {
   return (
     <div className="min-h-screen bg-noir-950 flex items-center justify-center px-4">
-      <SEO title="Page Not Found" description="The page you are looking for does not exist." noindex />
+      <SEO title={NOT_FOUND.title ?? undefined} description={NOT_FOUND.description} noindex />
       <div className="text-center max-w-md">
         {/* Large 404 */}
         <p className="font-display text-8xl tracking-wider text-amber-500/20 mb-2 select-none">

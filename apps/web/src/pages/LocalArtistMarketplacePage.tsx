@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import SEO from '../components/SEO.js';
+import { STATIC_ROUTES, routeBreadcrumb } from '../seo/site.mjs';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -224,7 +225,11 @@ export default function LocalArtistMarketplacePage() {
 
   return (
     <div className="min-h-screen bg-noir-950 py-8">
-      <SEO title="Local Artists" description="Discover local artists in your area on MiraCulture." />
+      <SEO
+        title={STATIC_ROUTES['/local-artists'].title ?? undefined}
+        description={STATIC_ROUTES['/local-artists'].description}
+        jsonLd={routeBreadcrumb('/local-artists') ?? undefined}
+      />
       <div className="max-w-6xl mx-auto px-4">
 
         {/* Header */}

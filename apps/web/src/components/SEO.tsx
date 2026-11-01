@@ -1,13 +1,15 @@
 import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router-dom';
 import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
-
-const SITE_NAME = 'MiraCulture';
-const DEFAULT_TITLE = 'MiraCulture — Fan-Powered Tickets';
-const DEFAULT_DESCRIPTION =
-  'Fans worldwide buy tickets to support artists they love. Local fans win those tickets through fair, cryptographic raffles for just $5. No scalpers. No bots.';
-const DEFAULT_IMAGE = '/og-image.png';
-const BASE_URL = 'https://mira-culture.com';
+import {
+  SITE_NAME,
+  SITE_URL as BASE_URL,
+  DEFAULT_DESCRIPTION,
+  DEFAULT_IMAGE,
+  formatTitle,
+  organizationSchema,
+  breadcrumbSchema,
+} from '../seo/site.mjs';
 
 interface SEOProps {
   title?: string;
@@ -30,7 +32,7 @@ export default function SEO({
 }: SEOProps) {
   const location = useLocation();
 
-  const fullTitle = title ? `${title} | ${SITE_NAME}` : DEFAULT_TITLE;
+  const fullTitle = formatTitle(title);
   const canonicalUrl = url || `${BASE_URL}${location.pathname}`;
   const imageUrl = image.startsWith('http') ? image : `${BASE_URL}${image}`;
 
@@ -85,15 +87,7 @@ export default function SEO({
  * Organization schema for site-wide structured data.
  */
 export function getOrganizationSchema(): Record<string, unknown> {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'MiraCulture',
-    url: BASE_URL,
-    logo: `${BASE_URL}/favicon.svg`,
-    description: DEFAULT_DESCRIPTION,
-    sameAs: [],
-  };
+  return organizationSchema();
 }
 
 /**
@@ -102,16 +96,7 @@ export function getOrganizationSchema(): Record<string, unknown> {
 export function getBreadcrumbSchema(
   items: { name: string; url: string }[],
 ): Record<string, unknown> {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: items.map((item, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      name: item.name,
-      item: item.url,
-    })),
-  };
+  return breadcrumbSchema(items);
 }
 
 /**

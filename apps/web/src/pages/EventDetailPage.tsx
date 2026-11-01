@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useWebSocket, usePollingFallback } from '../hooks/useWebSocket.js';
 import type { WSMessage } from '../lib/ws.js';
 import SEO, { getEventSchema, getBreadcrumbSchema } from '../components/SEO.js';
+import { SITE_URL, eventTitle, eventDescription } from '../seo/site.mjs';
 import ErrorBoundary from '../components/ErrorBoundary.js';
 import { PageLoading, PageError, InlineError } from '../components/LoadingStates.js';
 import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
@@ -443,9 +444,6 @@ export default function EventDetailPage() {
   }
 
 
-  const eventDescription = event.description
-    || `${event.artistName} live at ${event.venueName}, ${event.venueCity}. Get face-value tickets on MiraCulture.`;
-
   const hasRafflePools = event.rafflePools.length > 0;
   const activeCampaign = event.campaigns?.[0];
   const ticketsFunded = activeCampaign ? Math.floor(activeCampaign.fundedCents / event.ticketPriceCents) : 0;
@@ -461,15 +459,15 @@ export default function EventDetailPage() {
   return (
     <div className="min-h-screen bg-noir-950">
       <SEO
-        title={`${event.title} - ${event.artistName}`}
-        description={eventDescription.slice(0, 160)}
+        title={eventTitle(event)}
+        description={eventDescription(event)}
         type="website"
         jsonLd={[
           getEventSchema(event),
           getBreadcrumbSchema([
-            { name: 'Home', url: 'https://mira-culture.com/' },
-            { name: 'Events', url: 'https://mira-culture.com/events' },
-            { name: event.title, url: `https://mira-culture.com/events/${event.id}` },
+            { name: 'Home', url: `${SITE_URL}/` },
+            { name: 'Events', url: `${SITE_URL}/events` },
+            { name: event.title, url: `${SITE_URL}/events/${event.id}` },
           ]),
         ]}
       />

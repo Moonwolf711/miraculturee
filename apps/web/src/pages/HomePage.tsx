@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { useInView } from '../hooks/useInView.js';
 import SEO, { getOrganizationSchema } from '../components/SEO.js';
+import { STATIC_ROUTES } from '../seo/site.mjs';
 import { api } from '../lib/api.js';
 import type { EventSummary, PaginatedResponse } from '@miraculturee/shared';
 
@@ -466,7 +467,7 @@ export default function HomePage() {
   return (
     <div className="bg-noir-950 min-h-screen">
       <SEO
-        description="Fans worldwide buy tickets at face value to support artists. Local fans win those tickets through fair, cryptographic raffles for just $5. No scalpers. No bots."
+        description={STATIC_ROUTES['/'].description}
         jsonLd={getOrganizationSchema()}
       />
 

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import SEO from '../components/SEO.js';
+import { STATIC_ROUTES, routeBreadcrumb } from '../seo/site.mjs';
 
 interface AgentProfile {
   id: string;
@@ -86,6 +88,11 @@ export default function AgentMarketplacePage() {
 
   return (
     <div className="min-h-screen bg-noir-950 py-8">
+      <SEO
+        title={STATIC_ROUTES['/agents'].title ?? undefined}
+        description={STATIC_ROUTES['/agents'].description}
+        jsonLd={routeBreadcrumb('/agents') ?? undefined}
+      />
       <div className="max-w-6xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-10">

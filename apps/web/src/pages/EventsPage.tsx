@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useWebSocket, usePollingFallback } from '../hooks/useWebSocket.js';
 import type { WSMessage } from '../lib/ws.js';
 import SEO, { getBreadcrumbSchema } from '../components/SEO.js';
+import { SITE_URL, STATIC_ROUTES } from '../seo/site.mjs';
 import { CardSkeleton, InlineError } from '../components/LoadingStates.js';
 import ShareButton from '../components/ShareButton.js';
 import { SUPPORT_FEE_PER_TICKET_CENTS } from '@miraculturee/shared';
@@ -214,7 +215,7 @@ export default function EventsPage() {
           activeTab === 'FESTIVAL' ? 'Upcoming Festivals'
             : activeTab === 'SPORTS' ? 'Sports Events'
               : activeTab === 'COMEDY' ? 'Comedy Shows'
-                : 'Upcoming Shows'
+                : STATIC_ROUTES['/events'].title ?? undefined
         }
         description={
           activeTab === 'FESTIVAL'
@@ -223,12 +224,12 @@ export default function EventsPage() {
               ? 'Browse upcoming sports events on MiraCulture. Face-value tickets, no scalpers, no bots.'
               : activeTab === 'COMEDY'
                 ? 'Browse upcoming comedy shows on MiraCulture. Face-value tickets, no scalpers, no bots.'
-                : 'Browse upcoming live music events on MiraCulture. Buy face-value tickets to support artists or enter $5 raffles as a local fan.'
+                : STATIC_ROUTES['/events'].description
         }
         type="website"
         jsonLd={getBreadcrumbSchema([
-          { name: 'Home', url: 'https://mira-culture.com/' },
-          { name: activeTab === 'FESTIVAL' ? 'Festivals' : activeTab === 'SPORTS' ? 'Sports' : activeTab === 'COMEDY' ? 'Comedy' : 'Events', url: 'https://mira-culture.com/events' },
+          { name: 'Home', url: `${SITE_URL}/` },
+          { name: activeTab === 'FESTIVAL' ? 'Festivals' : activeTab === 'SPORTS' ? 'Sports' : activeTab === 'COMEDY' ? 'Comedy' : 'Events', url: `${SITE_URL}/events` },
         ])}
       />
       <div className="max-w-5xl mx-auto px-6 pt-16 pb-8">

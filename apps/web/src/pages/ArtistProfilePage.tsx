@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import SEO from '../components/SEO.js';
+import { artistTitle, artistDescription } from '../seo/site.mjs';
 
 interface SocialAccount {
   provider: string;
@@ -160,8 +161,8 @@ export default function ArtistProfilePage() {
   return (
     <div className="min-h-screen bg-noir-950">
       <SEO
-        title={`${artist.stageName} — MiraCulture`}
-        description={artist.bio || `Check out ${artist.stageName} on MiraCulture. Support live music, enter ticket raffles.`}
+        title={artistTitle(artist)}
+        description={artistDescription(artist)}
       />
 
       {/* Banner */}

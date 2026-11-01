@@ -1,12 +1,16 @@
 import { Link } from 'react-router-dom';
 import SEO from '../components/SEO.js';
+import { STATIC_ROUTES, routeBreadcrumb } from '../seo/site.mjs';
+
+const ROUTE = STATIC_ROUTES['/privacy'];
 
 export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-noir-950 py-20 px-4 sm:px-6">
       <SEO
-        title="Privacy Policy"
-        description="MiraCulture privacy policy — how we collect, use, and protect your personal information."
+        title={ROUTE.title ?? undefined}
+        description={ROUTE.description}
+        jsonLd={routeBreadcrumb('/privacy') ?? undefined}
       />
 
       <article className="max-w-3xl mx-auto">
