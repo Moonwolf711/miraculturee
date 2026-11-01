@@ -79,7 +79,7 @@ function createHandler(dir, opts = {}) {
   function getSeo() {
     if (site && !seo) {
       const buildTime = fs.existsSync(indexPath) ? fs.statSync(indexPath).mtime : new Date();
-      seo = createSeo({ site, apiUrl: opts.apiUrl, fetchImpl: opts.fetchImpl, buildTime });
+      seo = createSeo({ site, apiUrl: opts.apiUrl, fetchImpl: opts.fetchImpl, buildTime, apiBudget: opts.apiBudget });
     }
     return seo;
   }
@@ -110,7 +110,9 @@ function createHandler(dir, opts = {}) {
       return send(req, res, 200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, s.robotsTxt());
     }
     if (s && pathname === '/sitemap.xml') {
-      return send(req, res, 200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, await s.sitemapXml());
+      const body = await s.sitemapXml();
+      const cache = s.sitemapReady() ? 'public, max-age=3600' : 'no-store';
+      return send(req, res, 200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': cache }, body);
     }
     if (pathname === '/index.html') return redirect(req, res, `/${url.search}`);
 
@@ -135,7 +137,9 @@ function createHandler(dir, opts = {}) {
     if (clean) return redirect(req, res, `${encodeURI(clean)}${url.search}`);
 
     const page = await s.resolve(pathname, url.searchParams);
-    return send(req, res, page.status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' }, s.render(getTemplate(), page));
+    const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': page.retryAfter ? 'no-store' : 'no-cache' };
+    if (page.retryAfter) headers['Retry-After'] = String(page.retryAfter);
+    return send(req, res, page.status, headers, s.render(getTemplate(), page));
   }
 
   return (req, res) => {

@@ -8,12 +8,24 @@
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const API_TIMEOUT_MS = 2500;
-const ITEM_TTL_MS = 10 * 60 * 1000;
+const ITEM_TTL_MS = 30 * 60 * 1000;
 const ERROR_TTL_MS = 30 * 1000;
-const CACHE_MAX = 2000;
+// A good answer is still served when a refresh fails, for up to a day.
+const STALE_MAX_MS = 24 * 60 * 60 * 1000;
+const CACHE_MAX = 5000;
+const SUMMARY_MAX = 10000;
 const SITEMAP_TTL_MS = 6 * 60 * 60 * 1000;
 const SITEMAP_WAIT_MS = 20 * 1000;
 const SITEMAP_MAX_PAGES = 100;
+// The API allows 100 requests a minute per client IP and every lookup comes
+// from this server, so a crawl burst used to run into 429s and get a generic
+// page. Page lookups and the sitemap walk each get a share of a 60 s window
+// that stays below that limit together.
+const API_BUDGET = { page: 40, walk: 40 };
+const BUDGET_WINDOW_MS = 60 * 1000;
+const RETRY_AFTER_S = 120;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function esc(value) {
   return String(value)
@@ -35,11 +47,17 @@ function compile(pattern) {
   return { pattern, regex: new RegExp(`^${source}$`) };
 }
 
-function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new Date() }) {
+function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new Date(), apiBudget = API_BUDGET }) {
   const routes = site.APP_ROUTES.map(compile);
   const staticPaths = new Set(site.APP_ROUTES.filter((p) => !p.includes(':')));
   const api = apiUrl ? apiUrl.replace(/\/+$/, '') : null;
   const cache = new Map();
+  const inflight = new Map();
+  // Event and artist rows from list answers, keyed by their detail path: a
+  // page can still render from these when its own lookup is not possible.
+  const summaries = new Map();
+  const windows = { page: [], walk: [] };
+  let cooldownUntil = 0;
   let sitemapState = { at: 0, urls: [], pending: null };
 
   function matchRoute(pathname) {
@@ -59,28 +77,85 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
     return p === pathname ? null : p;
   }
 
-  async function apiGet(path) {
-    if (!api || !fetchImpl) return { status: 0 };
-    const hit = cache.get(path);
-    if (hit && Date.now() - hit.at < hit.ttl) return hit.value;
-    const value = await (async () => {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
-      try {
-        const res = await fetchImpl(`${api}${path}`, { signal: ctrl.signal, headers: { accept: 'application/json' } });
-        if (res.status === 404) return { status: 404 };
-        if (!res.ok) return { status: res.status };
-        return { status: 200, data: await res.json() };
-      } catch {
-        return { status: 0 };
-      } finally {
-        clearTimeout(timer);
+  /** Claims a call from the budget; the sitemap walk waits for one, pages never do. */
+  async function takeSlot(kind) {
+    for (;;) {
+      const now = Date.now();
+      const w = windows[kind];
+      while (w.length && now - w[0] >= BUDGET_WINDOW_MS) w.shift();
+      let waitMs = now < cooldownUntil ? cooldownUntil - now : 0;
+      if (!waitMs && w.length >= apiBudget[kind]) waitMs = BUDGET_WINDOW_MS - (now - w[0]);
+      if (!waitMs) {
+        w.push(now);
+        return true;
       }
-    })();
-    const ok = value.status === 200 || value.status === 404;
-    if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
-    cache.set(path, { at: Date.now(), ttl: ok ? ITEM_TTL_MS : ERROR_TTL_MS, value });
-    return value;
+      if (kind !== 'walk') return false;
+      await sleep(waitMs + 10);
+    }
+  }
+
+  async function fetchOnce(path) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
+    try {
+      const res = await fetchImpl(`${api}${path}`, { signal: ctrl.signal, headers: { accept: 'application/json' } });
+      if (res.status === 429) {
+        const s = Number(res.headers.get('retry-after'));
+        cooldownUntil = Date.now() + (Number.isFinite(s) && s > 0 ? Math.min(s, 600) : 60) * 1000;
+      }
+      if (res.status === 404) return { status: 404 };
+      if (!res.ok) return { status: res.status };
+      return { status: 200, data: await res.json() };
+    } catch {
+      return { status: 0 };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function remember(path, entry) {
+    if (!cache.has(path) && cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
+    cache.set(path, entry);
+  }
+
+  /**
+   * Cached API GET. When no call is allowed right now or the API fails, the
+   * last good answer is returned if there is one, else a non-200 status.
+   */
+  function apiGet(path, kind = 'page') {
+    if (!api || !fetchImpl) return Promise.resolve({ status: 0 });
+    const hit = cache.get(path);
+    const now = Date.now();
+    if (hit && now - hit.at < hit.ttl) return Promise.resolve(hit.value);
+    if (inflight.has(path)) return inflight.get(path);
+    const stale = hit && hit.goodAt && now - hit.goodAt < STALE_MAX_MS ? hit : null;
+    const pending = (async () => {
+      if (!(await takeSlot(kind))) return stale ? stale.value : { status: 429 };
+      const value = await fetchOnce(path);
+      const at = Date.now();
+      if (value.status === 200 || value.status === 404) {
+        remember(path, { at, ttl: ITEM_TTL_MS, value, goodAt: at });
+        return value;
+      }
+      if (stale) {
+        remember(path, { ...stale, at, ttl: ERROR_TTL_MS });
+        return stale.value;
+      }
+      remember(path, { at, ttl: ERROR_TTL_MS, value, goodAt: 0 });
+      return value;
+    })().finally(() => inflight.delete(path));
+    inflight.set(path, pending);
+    return pending;
+  }
+
+  function keepSummaries(prefix, rows) {
+    for (const row of rows || []) {
+      if (!row || !UUID.test(row.id)) continue;
+      const key = `${prefix}${row.id}`;
+      summaries.delete(key);
+      if (summaries.size >= SUMMARY_MAX) summaries.delete(summaries.keys().next().value);
+      summaries.set(key, row);
+    }
   }
 
   function notFound() {
@@ -102,6 +177,7 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
     const qs = new URLSearchParams({ type: meta.type, sort: site.EVENTS_DEFAULT_SORT });
     if (meta.page > 1) qs.set('page', String(meta.page));
     const res = await apiGet(`/events?${qs}`);
+    if (res.status === 200) keepSummaries('/events/', res.data.data);
     const items = res.status === 200 ? (res.data.data || []).filter((e) => UUID.test(e.id)) : [];
     const totalPages = res.status === 200 ? res.data.totalPages || 1 : 1;
     if (res.status === 200 && meta.page > 1 && meta.page > totalPages) return notFound();
@@ -140,14 +216,16 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
     if (match.pattern === '/events/:id' || match.pattern === '/artists/:id') {
       if (!UUID.test(match.param)) return notFound();
       const isEvent = match.pattern === '/events/:id';
-      const res = await apiGet(isEvent ? `/events/${match.param}` : `/artist/public/${match.param}`);
+      const key = isEvent ? `/events/${match.param}` : `/artist/public/${match.param}`;
+      const res = await apiGet(key);
       if (res.status === 404) return notFound();
-      if (res.status !== 200) {
-        // API unreachable: still a real page, so answer 200 with a neutral head.
+      const d = res.status === 200 ? res.data : summaries.get(key);
+      if (!d) {
+        // No answer and nothing cached: a temporary error, so crawlers come back
+        // later instead of indexing a generic page. People still get the app.
         const title = site.formatTitle(isEvent ? 'Event Details' : 'Artist Profile');
-        return { status: 200, title, description: site.DEFAULT_DESCRIPTION, canonical, noindex: false, h1: null, intro: null, jsonLd: [] };
+        return { status: 503, retryAfter: RETRY_AFTER_S, title, description: site.DEFAULT_DESCRIPTION, canonical, noindex: true, h1: null, intro: null, jsonLd: [] };
       }
-      const d = res.data;
       if (isEvent) {
         return {
           status: 200,
@@ -256,22 +334,25 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
   async function collectDynamicUrls() {
     // A Set: API pages can shift while we walk them, repeating an event.
     const locs = new Set();
-    const first = await apiGet(`/events?limit=50&page=1&sort=date`);
+    const first = await apiGet(`/events?limit=50&page=1&sort=date`, 'walk');
     if (first.status === 200) {
       const pages = Math.min(first.data.totalPages || 1, SITEMAP_MAX_PAGES);
       const results = [first];
       for (let p = 2; p <= pages; p += 4) {
         const batch = [];
-        for (let q = p; q < p + 4 && q <= pages; q++) batch.push(apiGet(`/events?limit=50&page=${q}&sort=date`));
+        for (let q = p; q < p + 4 && q <= pages; q++) batch.push(apiGet(`/events?limit=50&page=${q}&sort=date`, 'walk'));
         results.push(...(await Promise.all(batch)));
       }
       for (const r of results) {
-        if (r.status === 200) for (const e of r.data.data || []) if (UUID.test(e.id)) locs.add(`/events/${e.id}`);
+        if (r.status !== 200) continue;
+        keepSummaries('/events/', r.data.data);
+        for (const e of r.data.data || []) if (UUID.test(e.id)) locs.add(`/events/${e.id}`);
       }
     }
     for (let offset = 0; offset < 5000; offset += 50) {
-      const r = await apiGet(`/artist/public?limit=50&offset=${offset}`);
+      const r = await apiGet(`/artist/public?limit=50&offset=${offset}`, 'walk');
       if (r.status !== 200) break;
+      keepSummaries('/artist/public/', r.data.artists);
       for (const a of r.data.artists || []) if (UUID.test(a.id)) locs.add(`/artists/${a.id}`);
       if (offset + 50 >= (r.data.total || 0)) break;
     }
@@ -310,7 +391,12 @@ function createSeo({ site, apiUrl, fetchImpl = globalThis.fetch, buildTime = new
     return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.join('\n')}\n</urlset>\n`;
   }
 
-  return { canonicalPath, resolve, render, robotsTxt, sitemapXml, refreshSitemap };
+  /** False until the event/artist URLs are in, so a partial sitemap is not cached. */
+  function sitemapReady() {
+    return sitemapState.urls.length > 0;
+  }
+
+  return { canonicalPath, resolve, render, robotsTxt, sitemapXml, sitemapReady, refreshSitemap };
 }
 
 module.exports = { createSeo, esc };
