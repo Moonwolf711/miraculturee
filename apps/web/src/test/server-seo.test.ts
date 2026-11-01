@@ -257,7 +257,24 @@ describe('site.mjs', () => {
   it('keeps event titles within 60 chars once suffixed', () => {
     const long = { ...EVENT, title: 'An Extremely Long Event Title That Goes On And On Forever Tour' };
     expect(site.formatTitle(site.eventTitle(long)).length).toBeLessThanOrEqual(60);
+    const longDated = { ...long, date: '2026-11-14T20:00:00.000Z' };
+    expect(site.formatTitle(site.eventTitle(longDated)).length).toBeLessThanOrEqual(60);
+    expect(site.eventTitle(longDated)).toMatch(/ on Nov 14$/);
     const short = { ...EVENT, title: 'KETTAMA Live', artistName: 'KETTAMA', venueCity: 'Las Vegas, NV' };
     expect(site.eventTitle(short)).toBe('KETTAMA Live in Las Vegas, NV');
+  });
+
+  it('gives tour stops and weekly nights their own title and description', () => {
+    // Event days are stored at 20:00 UTC, so the listed day must not shift.
+    const stop = { ...EVENT, title: 'Parra For Cuva Live', artistName: 'Parra For Cuva', venueCity: 'Denver, CO', date: '2026-11-05T20:00:00.000Z', description: null };
+    const next = { ...stop, venueCity: 'Chicago, IL', date: '2026-11-06T20:00:00.000Z' };
+    const weekLater = { ...stop, date: '2026-11-12T20:00:00.000Z' };
+    expect(site.eventTitle(stop)).toBe('Parra For Cuva Live in Denver, CO on Nov 5');
+    const titles = new Set([stop, next, weekLater].map(site.eventTitle));
+    const descriptions = new Set([stop, next, weekLater].map(site.eventDescription));
+    expect(titles.size).toBe(3);
+    expect(descriptions.size).toBe(3);
+    expect(site.eventDescription(stop)).toContain('on November 5, 2026');
+    for (const d of descriptions) expect(d.length).toBeLessThanOrEqual(160);
   });
 });

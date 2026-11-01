@@ -116,21 +116,39 @@ function clamp(text, max) {
   return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
 }
 
-/** Title (without suffix) for an event page, kept within TITLE_MAX once suffixed. */
+// Event dates are calendar days stored at 20:00 UTC (the importers add that
+// time), so they are formatted in UTC to show the listed day.
+function eventDay(event, style) {
+  const d = new Date(event.date || '');
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { ...style, timeZone: 'UTC' });
+}
+
+const TITLE_ROOM = TITLE_MAX - TITLE_SUFFIX.length;
+const TITLE_NAME_MIN = 20;
+
+/**
+ * Title (without suffix) for an event page, kept within TITLE_MAX once suffixed.
+ * Tours and weekly nights repeat one name, so the city and day keep each title unique.
+ */
 export function eventTitle(event) {
   const title = String(event.title || '').trim();
   const artist = String(event.artistName || '').trim();
-  let base = artist && !title.toLowerCase().includes(artist.toLowerCase()) ? `${title} - ${artist}` : title;
-  if (formatTitle(base).length < 30 && event.venueCity) base = `${base} in ${event.venueCity}`;
-  return clamp(base, TITLE_MAX - TITLE_SUFFIX.length);
+  const name = clamp(artist && !title.toLowerCase().includes(artist.toLowerCase()) ? `${title} - ${artist}` : title, Infinity);
+  const city = String(event.venueCity || '').trim();
+  const day = eventDay(event, { month: 'short', day: 'numeric' });
+  const tails = [`${city ? ` in ${city}` : ''}${day ? ` on ${day}` : ''}`, day ? ` on ${day}` : ''];
+  for (const tail of tails) if (name.length + tail.length <= TITLE_ROOM) return `${name}${tail}`;
+  for (const tail of tails) if (TITLE_ROOM - tail.length >= TITLE_NAME_MIN) return `${clamp(name, TITLE_ROOM - tail.length)}${tail}`;
+  return clamp(name, TITLE_ROOM);
 }
 
 export function eventDescription(event) {
-  // The title keeps two events by one artist at one venue from sharing a description.
-  const text =
-    event.description ||
-    `${event.title}: ${event.artistName} live at ${event.venueName}, ${event.venueCity}. Get face-value tickets on MiraCulture.`;
-  return clamp(text, DESCRIPTION_MAX);
+  if (event.description) return clamp(event.description, DESCRIPTION_MAX);
+  // The day keeps weekly nights at one venue from sharing a description.
+  const day = eventDay(event, { month: 'long', day: 'numeric', year: 'numeric' });
+  const facts = `${event.title}: ${event.artistName} live at ${event.venueName}, ${event.venueCity}${day ? ` on ${day}` : ''}.`;
+  const text = `${facts} Get face-value tickets on MiraCulture.`;
+  return clamp(text.length <= DESCRIPTION_MAX ? text : facts, DESCRIPTION_MAX);
 }
 
 /** Event-type tabs of /events (?type=), in the order EventsPage shows them. SHOW is the default. */

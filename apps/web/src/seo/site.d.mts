@@ -12,6 +12,8 @@ export interface EventLike {
   artistName: string;
   venueName: string;
   venueCity: string;
+  /** ISO date; the calendar day (UTC) goes into the title and description. */
+  date?: string | null;
   description?: string | null;
 }
 
